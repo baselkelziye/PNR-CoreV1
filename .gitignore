@@ -1,0 +1,8 @@
+/project_1/
+/obj_dir/
+/waveform.vcd
+/verilator_config.mk
+.Xil/
+**/__pycache__/
+/tests/cocotb/sim_build/
+/tests/cocotb/results.xml
