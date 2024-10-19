@@ -103,44 +103,48 @@ module instruction_decode(
     assign load_stall_id_o = load_stall;
     
     register_file register_file_u(
-        .clk_i(clk_i),
-        .rst_i(rst_i),
-        .rd_label_i(rd_label_wb_i), .rs1_label_i(rs1_label), .rs2_label_i(rs2_label),
+        .clk_i(clk_i					 ),
+        .rst_i(rst_i					 ),
+        .rd_label_i(rd_label_wb_i		 ),
+		.rs1_label_i(rs1_label			 ),
+		.rs2_label_i(rs2_label			 ),
         .reg_write_en_i(reg_write_en_wb_i), //To be filed from WB Stage
-        .rd_data_i(rd_value_wb_i),
-        .rs1_data_o(rs1_value), .rs2_data_o(rs2_value));
+        .rd_data_i(rd_value_wb_i		 ),
+        .rs1_data_o(rs1_value			 ),
+		.rs2_data_o(rs2_value			 )
+	);
         
         
     imm_gen imm_gen_u(
      .instr_i(fetched_instruction_id_i),
-     .imm_src(imm_type), 
-     .imm_o(imm_value)
+     .imm_src(imm_type				  ), 
+     .imm_o(imm_value				  )
     );
     
     hazard_detection_unit hazard_detection_unit_u(
 		.is_load_instruction_ex_i(is_load_instruction_ex_i),  
-		.is_store_instruction_id_i(is_store_instr), 
-		.rd_label_ex_i(rd_label_ex_i),
-		.rs1_label_id_i(rs1_label),
-		.rs2_label_id_i(rs2_label), 
-		.stall_o(load_stall),
+		.is_store_instruction_id_i(is_store_instr		  ), 
+		.rd_label_ex_i(rd_label_ex_i					  ),
+		.rs1_label_id_i(rs1_label						  ),
+		.rs2_label_id_i(rs2_label						  ), 
+		.stall_o(load_stall								  ),
 		.load_store_forward_sel_o(load_store_forward_sel)
     );
 
 
 	control_unit control_unit_u(
-		.opcode_i(opcode[6:2])         , //dismiss lower 2 bits
-    	.funct3_i(funct3)              ,
-    	.funct7_i(funct7)              ,
-    	.reg_write_en_o(reg_write_en)  ,
-    	.wb_sel_o(wb_sel)              ,
-    	.rs1_pc_sel_o(rs1_pc_sel)      ,
-    	.rs2_imm_sel_o(rs2_imm_sel)    	   ,
-    	.imm_type_o(imm_type)              ,
-    	.is_branch_instr_o(is_branch_instr),
-    	.is_load_instr_o(is_load_instr)  ,
-    	.is_store_instr_o(is_store_instr) ,
-    	.alu_op_o(alu_op)				,
+		.opcode_i(opcode[6:2]						), //dismiss lower 2 bits
+    	.funct3_i(funct3							),
+    	.funct7_i(funct7							),
+    	.reg_write_en_o(reg_write_en				),
+    	.wb_sel_o(wb_sel							),
+    	.rs1_pc_sel_o(rs1_pc_sel					),
+    	.rs2_imm_sel_o(rs2_imm_sel					),
+    	.imm_type_o(imm_type						),
+    	.is_branch_instr_o(is_branch_instr			),
+    	.is_load_instr_o(is_load_instr				),
+    	.is_store_instr_o(is_store_instr			),
+    	.alu_op_o(alu_op							),
 		.unconditional_branch_o(unconditional_branch)
 	);
    
@@ -164,31 +168,31 @@ module instruction_decode(
 			 rs1_label_id_o 			 <= 5'b0   ;
 			 rs2_label_id_o 			 <= 5'b0   ;	
 			 funct3_id_o 				 <= 3'b0   ;	
-			 unconditional_branch_id_o <= 1'b0	   ;
+			 unconditional_branch_id_o   <= 1'b0   ;
         end else if(branching_id_i) begin // Komutu NOP'A cevirmek icin bunlar ytrli
-        	 reg_write_en_id_o <= 1'b0;
-             is_store_instr_id_o <= 1'b0;
-             is_branch_instr_id_o <= 1'b0;
-			 unconditional_branch_id_o <= 1'b0;
+        	 reg_write_en_id_o 			 <= 1'b0   ;
+             is_store_instr_id_o 		 <= 1'b0   ;
+             is_branch_instr_id_o 		 <= 1'b0   ;
+			 unconditional_branch_id_o 	 <= 1'b0   ;
         end else begin
-             rs1_data_id_o  <= rs1_value;
-             rs2_data_id_o  <= rs2_value;
-			 imm_value_id_o <= imm_value; 
+             rs1_data_id_o  			 <= rs1_value			  ;
+             rs2_data_id_o  			 <= rs2_value			  ;
+			 imm_value_id_o 			 <= imm_value			  ; 
 			 load_store_forward_sel_id_o <= load_store_forward_sel;
-			 reg_write_en_id_o <= reg_write_en;
-			 rs1_pc_sel_id_o <= rs1_pc_sel;
-			 rs2_imm_sel_id_o <= rs2_imm_sel;
-			 is_branch_instr_id_o <= is_branch_instr;
-			 is_store_instr_id_o <= is_store_instr;
-			 is_load_instr_id_o <= is_load_instr;
-			 wb_sel_id_o <= wb_sel;
-			 alu_op_id_o <= alu_op;
-			 pc_id_o <= pc_id_i;
-			 rd_label_id_o <= rd_label;
-			 rs1_label_id_o <= rs1_label;
-			 rs2_label_id_o <= rs2_label;
-			 funct3_id_o <= funct3;
-			 unconditional_branch_id_o <= unconditional_branch;
+			 reg_write_en_id_o 			 <= reg_write_en   		  ;
+			 rs1_pc_sel_id_o 			 <= rs1_pc_sel	   		  ;
+			 rs2_imm_sel_id_o 			 <= rs2_imm_sel	   		  ;
+			 is_branch_instr_id_o		 <= is_branch_instr		  ;
+			 is_store_instr_id_o 		 <= is_store_instr 		  ;
+			 is_load_instr_id_o 		 <= is_load_instr  		  ;
+			 wb_sel_id_o 				 <= wb_sel	 			  ;
+			 alu_op_id_o 				 <= alu_op	 			  ;
+			 pc_id_o 				 	 <= pc_id_i  			  ;
+			 rd_label_id_o 				 <= rd_label 			  ;
+			 rs1_label_id_o				 <= rs1_label			  ;
+			 rs2_label_id_o				 <= rs2_label			  ;
+			 funct3_id_o   				 <= funct3   			  ;
+			 unconditional_branch_id_o   <= unconditional_branch;
         end
     end
 

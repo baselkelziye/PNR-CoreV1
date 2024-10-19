@@ -37,14 +37,42 @@ initial begin
     1c:       00402303        lw x6 4 x0
 */
     
-         instructions[0] =  32'h00a00093; // addi x1 x0 10
-         instructions[1] =  32'h00102023; // sw x1 0 x0
-         instructions[2] =  32'h00002103; // lw x2 0 x0
-         instructions[3] =  32'h002101b3; // add x3 x2 x2
-         instructions[4] =  32'h00100213; // addi x4 x0 1
-         instructions[5] =  32'h00002283; // lw x5 0 x0
-         instructions[6] =  32'h00502223; // sw x5 4 x0
-         instructions[7] =  32'h00402303; // lw x6 4 x0
+        //  instructions[0] =  32'h00a00093; // addi x1 x0 10
+        //  instructions[1] =  32'h00102023; // sw x1 0 x0
+        //  instructions[2] =  32'h00002103; // lw x2 0 x0
+        //  instructions[3] =  32'h002101b3; // add x3 x2 x2
+        //  instructions[4] =  32'h00100213; // addi x4 x0 1
+        //  instructions[5] =  32'h00002283; // lw x5 0 x0
+        //  instructions[6] =  32'h00502223; // sw x5 4 x0
+        //  instructions[7] =  32'h00402303; // lw x6 4 x0
+
+
+/*
+
+Forwarding From Each Stage Test
+
+    0:        00c00093        addi x1 x0 12
+    4:        00e00193        addi x3 x0 14
+    8:        00a00293        addi x5 x0 10
+    c:        55555337        lui x6 0x55555
+    10:       40118133        sub x2 x3 x1
+    14:       00517633        and x12 x2 x5
+    18:       002366b3        or x13 x6 x2
+    1c:       00210733        add x14 x2 x2
+    20:       002007b3        add x15 x0 x2
+
+*/
+
+    instructions[0] =  32'h00c00093; // addi x1 x0 12
+    instructions[1] =  32'h00e00193; // addi x3 x0 14
+    instructions[2] =  32'h00a00293; // addi x5 x0 10
+    instructions[3] =  32'h55555337; // lui x6 0x55555
+    instructions[4] =  32'h40118133; // sub x2 x3 x1
+    instructions[5] =  32'h00517633; // and x12 x2 x5
+    instructions[6] =  32'h002366b3; // or x13 x6 x2
+    instructions[7] =  32'h00210733; // add x14 x2 x2
+    instructions[8] =  32'h002007b3; // add x15 x0 x2
+
 
 
 //Bubble Sort Test

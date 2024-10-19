@@ -36,9 +36,9 @@ module instruction_memory_stage(
     input [31:0] latest_rs2_value_mem_i,
 
     //Outputs to WriteBack Stage
-    output reg [31:0] alu_result_mem_o,
     output reg [31:0] load_value_mem_o,
-    output reg [31:0] pc_mem_o,
+    output reg [31:0] rd_value_mem_ro,
+    output wire [31:0] rd_value_mem_wo,
     output reg [4:0] rd_label_mem_o,
     output reg reg_write_en_mem_o,
     output reg [1:0] wb_sel_mem_o,
@@ -49,11 +49,14 @@ module instruction_memory_stage(
     input wire [31:0] load_value_wb_i
     );
 
+
     //Load-Store Forwarding
     wire [31:0] forwarded_store_value;
     assign forwarded_store_value = (load_store_forward_sel_mem_i) ? load_value_wb_i : latest_rs2_value_mem_i;
 
+
     wire [31:0] loaded_data;
+
     datum_cache datum_cache_u(
         .clk_i(clk_i),
         .rst_i(rst_i),
@@ -66,23 +69,32 @@ module instruction_memory_stage(
     );
 
 
+    mux_4x1 #(
+        .DATA_WIDTH(32)
+    ) rd_value_selector_u(
+        .in0_i(alu_result_mem_i),
+        .in1_i(loaded_data),
+        .in2_i(pc_mem_i),
+        .in3_i(32'hA9A9A9A9),
+        .sel_i(wb_sel_mem_i),
+        .out_o(rd_value_mem_wo)
+    );
+
     always @(posedge clk_i, posedge rst_i) begin
         if(rst_i) begin
-            alu_result_mem_o <= 32'b0;
             load_value_mem_o <= 32'b0;
-            pc_mem_o <= 32'b0;
             rd_label_mem_o <= 5'b0;
             reg_write_en_mem_o <= 1'b0;
             wb_sel_mem_o <= 2'b0;
             is_load_mem_o <= 1'b0;
+            rd_value_mem_ro <= 32'b0;
         end else begin
-            alu_result_mem_o <= alu_result_mem_i;
             load_value_mem_o <= loaded_data;
-            pc_mem_o <= pc_mem_i;
             rd_label_mem_o <= rd_label_mem_i;
             reg_write_en_mem_o <= reg_write_en_mem_i;
             wb_sel_mem_o <= wb_sel_mem_i;
             is_load_mem_o <= is_load_mem_i;
+            rd_value_mem_ro <= rd_value_mem_wo;
         end
     end
 

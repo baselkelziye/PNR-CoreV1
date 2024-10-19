@@ -72,7 +72,7 @@ module control_unit(
 
 
 reg [7:0] control_signals;
-localparam [7:0] ILLEGAL = 8'b0_X_XX_X_X_XXX;
+localparam [7:0] ILLEGAL = 8'b0_XX_X_X_XXX;
 
 
 reg is_load_instr, is_store_instr, is_branch_instr, unconditional_branch;

@@ -107,3 +107,22 @@ async def load_hazard_test(dut):
         dut_value = registers[reg].value
         expected_value = int(expected_register_values[idx],16)
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {dut_value}"
+
+
+@cocotb.test()
+async def forwarding_test(dut):
+    filename = "forwarding_test.hex"
+    dut.rst_i.value = 1
+    await Timer(period_ns, units='ns')
+    dut.rst_i.value = 0
+    await Timer(period_ns, units='ns')
+    await load_instruction_cache(dut, filepath + filename)
+    num_cycles = 100
+    await run_clock(dut, num_cycles, period_ns)
+    registers = await get_register_file(dut)
+    expected_register_values = ["0xc", "0x2", "0xe", "0xa", "0x55555000", "0x2", "0x55555002", "0x4", "0x2"]
+    registers_id = [1,2,3,5,6,12,13,14,15]
+    for idx, reg in enumerate(registers_id):
+        dut_value = registers[reg].value
+        expected_value = int(expected_register_values[idx],16)
+        assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {dut_value}"

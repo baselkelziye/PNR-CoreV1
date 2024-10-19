@@ -8,6 +8,13 @@
 4- Forwarding Unit Won't Forward From Instructions That Writes value from PC (JAL, JALR), Move the WB sel to MEM Stage, pass result
 6- unconditional branches wont work atm (Need to be tested!)
 */
+
+/*
+Bug Detection Codes:
+A9A9A9A9 = RD MUX Selection In Mem Stage
+A2A2A2A2 = Rs2 Mux Selector in EX Stage
+A1A1A1A1 = Rs1 Mux Selector in EX Stage
+*/
 module core(
     input clk_i, rst_i
 );
@@ -56,6 +63,8 @@ wire [4:0] rd_label_mem_o;
 wire reg_write_en_mem_o;
 wire [1:0] wb_sel_mem_o;
 wire is_load_mem_o;
+wire [31:0] rd_value_mem_wo;
+wire [31:0] rd_value_mem_ro;
 //--------------------------------------------
 
 //WriteBack Stage Variable Declarations
@@ -128,7 +137,7 @@ instruction_decode id_u(
     //Inputs From WriteBack Stage
     .reg_write_en_wb_i(reg_write_en_mem_o),
     .rd_label_wb_i(rd_label_mem_o),
-    .rd_value_wb_i(rd_value_wb_mem_o),
+    .rd_value_wb_i(rd_value_mem_ro),
 
     //Pipeline Control Signals
     .branching_id_i(branching_ex_o)
@@ -176,13 +185,14 @@ instruction_decode id_u(
         .reg_write_en_mem_i(reg_write_en_ex_o),
         .rd_label_mem_i(rd_label_ex_o),
         .alu_result_mem_i(alu_result_ex_o),
+        .rd_value_mem_i(rd_value_mem_wo), //rd's selected value
+        .rd_value_wb_i(rd_value_mem_ro),
 
         //Inputs From WriteBack Stage
         .reg_write_en_wb_i(reg_write_en_mem_o),
         .rd_label_wb_i(rd_label_mem_o),
-        .is_load_instr_wb_i(is_load_mem_o),
-        .alu_result_wb_i(alu_result_mem_o),
-        .load_data_wb_i(load_value_mem_o),
+
+
         // Multi-Usage Output
         .branching_ex_o(branching_ex_o),
         .branch_address_ex_o(branch_address_ex_o)
@@ -205,29 +215,32 @@ instruction_decode id_u(
         .is_load_mem_i(is_load_instr_ex_o),
         .latest_rs2_value_mem_i(latest_rs2_value_ex_o),
 
+        
+
+
         //Outputs To WriteBack Stage
-        .alu_result_mem_o(alu_result_mem_o),
         .load_value_mem_o(load_value_mem_o),
-        .pc_mem_o(pc_mem_o),
         .rd_label_mem_o(rd_label_mem_o),
         .reg_write_en_mem_o(reg_write_en_mem_o),
         .wb_sel_mem_o(wb_sel_mem_o),
         .is_load_mem_o(is_load_mem_o),
+        .rd_value_mem_ro(rd_value_mem_ro),
+        .rd_value_mem_wo(rd_value_mem_wo), //Wire Output
         
         //Inputs From Writeback Stage    
         .load_value_wb_i(load_value_mem_o)
     );
 
 
-    mux_4x1 #(
-        .DATA_WIDTH(32)
-    ) mux_wb_u(
-        .sel_i(wb_sel_mem_o),
-        .in0_i(alu_result_mem_o),
-        .in1_i(load_value_mem_o),
-        .in2_i(pc_mem_o),
-        .in3_i(32'hA9A9A9A9),
-        .out_o(rd_value_wb_mem_o)
-    );
+    // mux_4x1 #(
+    //     .DATA_WIDTH(32)
+    // ) mux_wb_u(
+    //     .sel_i(wb_sel_mem_o),
+    //     .in0_i(alu_result_mem_o),
+    //     .in1_i(load_value_mem_o),
+    //     .in2_i(pc_mem_o),
+    //     .in3_i(32'hA9A9A9A9),
+    //     .out_o(rd_value_wb_mem_o)
+    // );
 
 endmodule

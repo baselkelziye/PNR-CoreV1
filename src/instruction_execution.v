@@ -53,14 +53,14 @@ module instruction_execution(
         input reg_write_en_mem_i,
         input [4:0] rd_label_mem_i,
         input [31:0] alu_result_mem_i,
+        input [31:0] rd_value_mem_i,
+        input [31:0] rd_value_wb_i,
 
 
         //Inputs From WriteBack Stage
         input reg_write_en_wb_i,
         input [4:0] rd_label_wb_i,
-        input is_load_instr_wb_i,
-        input [31:0] alu_result_wb_i,
-        input [31:0] load_data_wb_i,
+
         
         //Multi-Usage output
         output wire branching_ex_o,
@@ -90,7 +90,6 @@ forwarding_unit forwarding_unit_u(
     .rs2_label_id_ex_o(rs2_label_ex_i),
     .reg_wb_en_ex_mem_o(reg_write_en_mem_i),
     .reg_wb_en_mem_wb_o(reg_write_en_wb_i),
-    .is_load_instr_wb_i(is_load_instr_wb_i),
     .forwardA(forwardA),
     .forwardB(forwardB)
 );
@@ -100,9 +99,9 @@ mux_4x1 #(
     .DATA_WIDTH(32)
 ) rs1_latest_value_selector(
     .in0_i(rs1_data_ex_i),
-    .in1_i(alu_result_wb_i),
-    .in2_i(alu_result_mem_i),
-    .in3_i(load_data_wb_i),
+    .in1_i(rd_value_wb_i),
+    .in2_i(rd_value_mem_i),
+    .in3_i(32'hA1A1A1A1),
     .sel_i(forwardA),
     .out_o(rs1_latest_value)
 );
@@ -112,9 +111,9 @@ mux_4x1 #(
     .DATA_WIDTH(32)
 ) rs2_latest_value_selector(
     .in0_i(rs2_data_ex_i),
-    .in1_i(alu_result_wb_i),
-    .in2_i(alu_result_mem_i),
-    .in3_i(load_data_wb_i),
+    .in1_i(rd_value_wb_i),
+    .in2_i(rd_value_mem_i),
+    .in3_i(32'hA2A2A2A2),
     .sel_i(forwardB),
     .out_o(rs2_latest_value)
 );
@@ -123,7 +122,6 @@ mux_4x1 #(
 branch_jump branch_jump_u(
     .in1_i(rs1_latest_value),
     .in2_i(rs2_latest_value),
-    // .is_branch_instr(is_branch_instr_ex_i),
     .funct3_i(funct3_ex_i),
     .PC_sel_o(branch_jump_unit_o)
 );

@@ -18,77 +18,44 @@ module forwarding_unit(
     
     input reg_wb_en_ex_mem_o,
     input reg_wb_en_mem_wb_o,
-    input is_load_instr_wb_i,
     output reg [1:0]  forwardA,
     output reg  [1:0]  forwardB
     );
-    
-    always @(*) begin
-    
-    if (    reg_wb_en_mem_wb_o && //wb writes to destination
-           (rd_label_mem_wb_o != 0) &&  //rd is not r0 
-           (rd_label_mem_wb_o == rs1_label_id_ex_o) && // rd (in mem/wb) = r1 
-            !(reg_wb_en_ex_mem_o && (rd_label_ex_mem_o != 0) && (rd_label_ex_mem_o == rs1_label_id_ex_o)) && // double data forwarding problem
-            //if ex/mem and mem/wb forwards to same register, we should take the newest (ex/mem)
-            // EX: add x3,x2,x1
-            //MEM: add x1, x4,x0
-            //WB: add x1, x5,x0
-            // data should be forwarded from MEM because its the UPDATED VALUE
-            !is_load_instr_wb_i //is mem/wb stage the instruction is not load (data will come from alu out)
-            ) begin
-            forwardA = 2'b01; 
-        end
-     else  if(  reg_wb_en_mem_wb_o &&   //Everything is the same but here its LOAD instruction. (data comes form the data loaded from memory)
-               (rd_label_mem_wb_o != 0) &&  
-               (rd_label_mem_wb_o == rs1_label_id_ex_o) && 
-               !(reg_wb_en_ex_mem_o && (rd_label_ex_mem_o != 0) && (rd_label_ex_mem_o == rs1_label_id_ex_o)) &&
-                is_load_instr_wb_i)
-                begin
-                 forwardA = 2'b11;
-                end
-        
-        else if(rd_label_ex_mem_o != 5'b0  && //rd != 0
-           reg_wb_en_ex_mem_o && // instruction writes to destınation register
-           rd_label_ex_mem_o == rs1_label_id_ex_o) //
-           begin
-            forwardA = 2'b10;//RS1 = EX/MEM RD
-           end
-                
-        else 
-            begin
-            forwardA = 2'b00; //no forwarding
-            end 
-    end
-    
-    
-    //every thing is the same here but instead of rs1, we compare RS2
-        always @(*) begin    
 
-        if(rd_label_ex_mem_o  && 
-           reg_wb_en_ex_mem_o &&
-           rd_label_ex_mem_o == rs2_label_id_ex_o)
-            begin                               
-                    forwardB = 2'b10; // RS2 = EX/MEM  RD
-            end         
-                 
-        else if(reg_wb_en_mem_wb_o &&  //yaz sinyali = 1
-               (rd_label_mem_wb_o != 0) &&   // kaynak yazmac != 0
-               (rd_label_mem_wb_o == rs2_label_id_ex_o) && // kaynak yazmac su an EX asamasinda var
-        !(reg_wb_en_ex_mem_o && (rd_label_ex_mem_o != 0) && (rd_label_ex_mem_o == rs2_label_id_ex_o)) &&
-            !is_load_instr_wb_i) begin  
-            forwardB = 2'b01;   //RS2 = MEM/WB RD
-        end
-     else  if(reg_wb_en_mem_wb_o &&  //yaz sinyali = 1
-               (rd_label_mem_wb_o != 0) &&   // kaynak yazmac != 0
-               (rd_label_mem_wb_o == rs2_label_id_ex_o) && // kaynak yazmac su an EX asamasinda var
-        !(reg_wb_en_ex_mem_o && (rd_label_ex_mem_o != 0) && (rd_label_ex_mem_o == rs2_label_id_ex_o)) &&
-            is_load_instr_wb_i)
-                begin
-                 forwardB = 2'b11;
-                end
-        else
-            begin
-            forwardB = 2'b00; //no forwarding
-            end
+
+    localparam [1:0] NO_FORWARDING  = 2'b00,
+                     FORWARD_WB     = 2'b01,
+                     FORWARD_MEM    = 2'b10,
+                     FORWARD_BUG    = 2'b11;
+
+
+wire rs1_mem_match, rs1_wb_match;
+assign rs1_mem_match = (rd_label_ex_mem_o != 5'b0 && reg_wb_en_ex_mem_o && rd_label_ex_mem_o == rs1_label_id_ex_o);  
+assign rs1_wb_match  = (rd_label_mem_wb_o != 5'b0 && reg_wb_en_mem_wb_o && rd_label_mem_wb_o == rs1_label_id_ex_o);
+
+wire rs2_mem_match, rs2_wb_match;
+assign rs2_mem_match = (rd_label_ex_mem_o != 5'b0 && reg_wb_en_ex_mem_o && rd_label_ex_mem_o == rs2_label_id_ex_o);
+assign rs2_wb_match  = (rd_label_mem_wb_o != 5'b0 && reg_wb_en_mem_wb_o && rd_label_mem_wb_o == rs2_label_id_ex_o);
+
+
+
+    always @(*) begin
+
+    if (rs1_mem_match) 
+            forwardA = FORWARD_MEM;     //RS1 = EX/MEM RD
+    else if(rs1_wb_match && !rs1_mem_match)  //Buraya geldigimize gore ztn EX/MEM de forwarding yok ama yine de konsepti anlamak icin yazdim.         
+            forwardA = FORWARD_WB; 
+    else //no forwarding            
+            forwardA = NO_FORWARDING; 
+    end
+      
+    //every thing is the same here but instead of rs1, we compare RS2
+    always @(*) begin
+    if (rs2_mem_match) 
+            forwardB = FORWARD_MEM;//RS2 = EX/MEM RD
+    else if(rs2_wb_match && !rs2_mem_match)   //Buraya geldigimize gore ztn EX/MEM de forwarding yok ama yine de konsepti anlamak icin yazdim.
+            forwardB = FORWARD_WB; 
+    else //no forwarding            
+            forwardB = NO_FORWARDING; 
     end
     endmodule
