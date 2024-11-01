@@ -70,10 +70,6 @@ module instruction_execution(
 //Branch Jump Unit
 wire branch_jump_unit_o;
 
-// assign branching
-assign branching_ex_o = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
-assign branch_address_ex_o = alu_result;
-
 //ALU Signals
 wire [31:0] alu_result;
 wire [31:0] alu1_input, alu2_input;
@@ -81,6 +77,12 @@ wire [31:0] alu1_input, alu2_input;
 //Fowarding Unit Signals
 wire [1:0] forwardA, forwardB;
 wire [31:0] rs1_latest_value, rs2_latest_value;
+
+
+// assign branching
+assign branching_ex_o = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
+assign branch_address_ex_o = alu_result;
+
 
 
 forwarding_unit forwarding_unit_u(

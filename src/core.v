@@ -3,9 +3,7 @@
 
 /*TODO: 
 1- Trunc opcode from the immgen input
-2- Refactor and Verify Forwarding Unit
 3- What Happens if load then branch comes, and that branch is depending on the load value?
-4- Forwarding Unit Won't Forward From Instructions That Writes value from PC (JAL, JALR), Move the WB sel to MEM Stage, pass result
 6- unconditional branches wont work atm (Need to be tested!)
 */
 
