@@ -35,6 +35,8 @@ module instruction_execution(
         input [31:0] pc_ex_i,
         input [2:0] funct3_ex_i,
         input unconditional_branch_ex_i,
+        input [31:0] btb_predicted_pc_ex_i,
+        input branch_is_taken_prediction_ex_i,
 
         //Outputs to Memory Stage
         output reg [31:0] alu_result_ex_o,
@@ -64,12 +66,15 @@ module instruction_execution(
         
         //Multi-Usage output
         output wire branching_ex_o,
-        output wire [31:0] branch_address_ex_o
+        output wire [31:0] branch_address_ex_o,
+        output wire increment_counter_ex_o,
+        output wire decrement_counter_ex_o
     );
 
 //Branch Jump Unit
 wire branch_jump_unit_o;
-
+wire branch_is_taken; // The branch real result 
+wire wrong_prediction_NT_T; 
 //ALU Signals
 wire [31:0] alu_result;
 wire [31:0] alu1_input, alu2_input;
@@ -80,10 +85,18 @@ wire [31:0] rs1_latest_value, rs2_latest_value;
 
 
 // assign branching
-assign branching_ex_o = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
-assign branch_address_ex_o = alu_result;
+assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
+assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
+assign branching_ex_o = branch_is_taken ^ branch_is_taken_prediction_ex_i; // We have branching because the branch status differens from the prediction
+
+//If we Guess NT and we Take we need to branch to calculated address
+//If we Guess T and we didn't take we need to branch to PC + 4
+assign branch_address_ex_o = (wrong_prediction_NT_T) ? alu_result : pc_ex_i + 32'h4;
 
 
+
+assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
+assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
 forwarding_unit forwarding_unit_u(
     .rd_label_ex_mem_o(rd_label_mem_i),
