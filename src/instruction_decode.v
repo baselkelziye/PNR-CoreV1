@@ -26,6 +26,8 @@ module instruction_decode(
     //Inputs from Instruction Fetch Stage
     input [31:0] fetched_instruction_id_i,
     input [31:0] pc_id_i,
+	input [31:0] btb_predicted_pc_id_i,
+	input 		 branch_is_taken_prediction_id_i,
     
     //Register Related Signals
     output reg [31:0] rs1_data_id_o, rs2_data_id_o,
@@ -50,11 +52,14 @@ module instruction_decode(
 	//Instruction Extraction
 	output reg [2:0] funct3_id_o,
 
+	//Branch Prediction Outputs
+	output reg [31:0] btb_predicted_pc_id_o,
+	output reg branch_is_taken_prediction_id_o,
+
 
 	//Inputs From Execution Stage
 	input wire is_load_instruction_ex_i,
 	input wire [4:0] rd_label_ex_i,
-	input branching_i,
 	
 	//Inputs From Writeback stage
 	input wire reg_write_en_wb_i,
@@ -169,30 +174,36 @@ module instruction_decode(
 			 rs2_label_id_o 			 <= 5'b0   ;	
 			 funct3_id_o 				 <= 3'b0   ;	
 			 unconditional_branch_id_o   <= 1'b0   ;
+			 btb_predicted_pc_id_o 		 <= 32'h0  ;
+			 branch_is_taken_prediction_id_o <= 1'b0;
         end else if(branching_id_i) begin // Komutu NOP'A cevirmek icin bunlar ytrli
-        	 reg_write_en_id_o 			 <= 1'b0   ;
-             is_store_instr_id_o 		 <= 1'b0   ;
-             is_branch_instr_id_o 		 <= 1'b0   ;
-			 unconditional_branch_id_o 	 <= 1'b0   ;
+        	 reg_write_en_id_o 				 <= 1'b0   ;
+             is_store_instr_id_o 			 <= 1'b0   ;
+             is_branch_instr_id_o 			 <= 1'b0   ;
+			 unconditional_branch_id_o 		 <= 1'b0   ;
+			 btb_predicted_pc_id_o 			 <= 32'h0  ;
+			 branch_is_taken_prediction_id_o <= 1'b0;
         end else begin
-             rs1_data_id_o  			 <= rs1_value			  ;
-             rs2_data_id_o  			 <= rs2_value			  ;
-			 imm_value_id_o 			 <= imm_value			  ; 
-			 load_store_forward_sel_id_o <= load_store_forward_sel;
-			 reg_write_en_id_o 			 <= reg_write_en   		  ;
-			 rs1_pc_sel_id_o 			 <= rs1_pc_sel	   		  ;
-			 rs2_imm_sel_id_o 			 <= rs2_imm_sel	   		  ;
-			 is_branch_instr_id_o		 <= is_branch_instr		  ;
-			 is_store_instr_id_o 		 <= is_store_instr 		  ;
-			 is_load_instr_id_o 		 <= is_load_instr  		  ;
-			 wb_sel_id_o 				 <= wb_sel	 			  ;
-			 alu_op_id_o 				 <= alu_op	 			  ;
-			 pc_id_o 				 	 <= pc_id_i  			  ;
-			 rd_label_id_o 				 <= rd_label 			  ;
-			 rs1_label_id_o				 <= rs1_label			  ;
-			 rs2_label_id_o				 <= rs2_label			  ;
-			 funct3_id_o   				 <= funct3   			  ;
-			 unconditional_branch_id_o   <= unconditional_branch;
+             rs1_data_id_o  			 <= rs1_value			  			   ;
+             rs2_data_id_o  			 <= rs2_value			  			   ;
+			 imm_value_id_o 			 <= imm_value			  			   ; 
+			 load_store_forward_sel_id_o <= load_store_forward_sel			   ;
+			 reg_write_en_id_o 			 <= reg_write_en   		  			   ;
+			 rs1_pc_sel_id_o 			 <= rs1_pc_sel	   		  			   ;
+			 rs2_imm_sel_id_o 			 <= rs2_imm_sel	   		  			   ;
+			 is_branch_instr_id_o		 <= is_branch_instr		  			   ;
+			 is_store_instr_id_o 		 <= is_store_instr 		  			   ;
+			 is_load_instr_id_o 		 <= is_load_instr  		  			   ;
+			 wb_sel_id_o 				 <= wb_sel	 			  			   ;
+			 alu_op_id_o 				 <= alu_op	 			  			   ;
+			 pc_id_o 				 	 <= pc_id_i  			  			   ;
+			 rd_label_id_o 				 <= rd_label 			  			   ;
+			 rs1_label_id_o				 <= rs1_label			  			   ;
+			 rs2_label_id_o				 <= rs2_label			  			   ;
+			 funct3_id_o   				 <= funct3   			  			   ;
+			 unconditional_branch_id_o   <= unconditional_branch  			   ;
+			 btb_predicted_pc_id_o 		 <= btb_predicted_pc_id_i			   ;
+			 branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
         end
     end
 

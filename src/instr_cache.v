@@ -63,18 +63,45 @@ Forwarding From Each Stage Test
 
 */
 
-    instructions[0] =  32'h00c00093; // addi x1 x0 12
-    instructions[1] =  32'h00e00193; // addi x3 x0 14
-    instructions[2] =  32'h00a00293; // addi x5 x0 10
-    instructions[3] =  32'h55555337; // lui x6 0x55555
-    instructions[4] =  32'h40118133; // sub x2 x3 x1
-    instructions[5] =  32'h00517633; // and x12 x2 x5
-    instructions[6] =  32'h002366b3; // or x13 x6 x2
-    instructions[7] =  32'h00210733; // add x14 x2 x2
-    instructions[8] =  32'h002007b3; // add x15 x0 x2
+    // instructions[0] =  32'h00c00093; // addi x1 x0 12
+    // instructions[1] =  32'h00e00193; // addi x3 x0 14
+    // instructions[2] =  32'h00a00293; // addi x5 x0 10
+    // instructions[3] =  32'h55555337; // lui x6 0x55555
+    // instructions[4] =  32'h40118133; // sub x2 x3 x1
+    // instructions[5] =  32'h00517633; // and x12 x2 x5
+    // instructions[6] =  32'h002366b3; // or x13 x6 x2
+    // instructions[7] =  32'h00210733; // add x14 x2 x2
+    // instructions[8] =  32'h002007b3; // add x15 x0 x2
 
 
 
+/*
+    BNE Branch Prediction Test
+        0:        00a00513        addi x10 x0 10
+    4:        00000093        addi x1 x0 0
+
+00000008 <L1>:
+    8:         00108093        addi x1 x1 1
+    c:         00000013        addi x0 x0 0
+    10:        00000013       addi x0 x0 0
+    14:        00000013       addi x0 x0 0
+    18:        fe1518e3       bne x10 x1 -16 <L1>
+    1c:        00108113       addi x2 x1 1
+    20:        00eef1b7       lui x3 0xeef
+
+
+    */
+    instructions[0] =  32'h00a00513; // addi x10 x0 10
+    instructions[1] =  32'h00000093; // addi x1 x0 0
+    instructions[2] =  32'h00108093; // addi x1 x1 1 L1
+    instructions[3] =  32'h00000013; // addi x0 x0 0
+    instructions[4] =  32'h00000013; // addi x0 x0 0
+    instructions[5] =  32'h00000013; // addi x0 x0 0
+    instructions[6] =  32'hfe1518e3; // bne x10 x1 -16 <L1>
+    instructions[7] =  32'h00108113; // addi x2 x1 1
+    instructions[8] =  32'h00eef1b7; // lui x3 0xeef
+    
+    
 //Bubble Sort Test
         // instructions[0] =  32'h00000093;
         // instructions[1] =  32'h10000113;

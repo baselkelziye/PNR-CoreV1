@@ -23,7 +23,6 @@
 module branch_jump(
     input [31:0]in1_i,
     input [31:0]in2_i,
-    input is_branch_instr,
     input [2:0] funct3_i,
     output PC_sel_o
     );

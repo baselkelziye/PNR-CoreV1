@@ -4,7 +4,7 @@
 /*TODO: 
 1- Trunc opcode from the immgen input
 3- What Happens if load then branch comes, and that branch is depending on the load value?
-6- unconditional branches wont work atm (Need to be tested!)
+6- unconditional branches meeds to be tested
 */
 
 /*
@@ -20,6 +20,8 @@ module core(
 //Instruction Fetch Stage Variables
 wire [31:0] pc_incremented_if_o;
 wire [31:0] fetched_instruction_if_o;
+wire [31:0] btb_predicted_pc_if_o;
+wire branch_is_taken_prediction_if_o;
 //--------------------------------------------
 
 
@@ -35,6 +37,8 @@ wire [3:0] alu_op_id_o;
 wire [31:0] pc_id_o;
 wire [2:0] funct3_id_o;
 wire unconditional_branch_id_o;
+wire [31:0] btb_predicted_pc_id_o;
+wire branch_is_taken_prediction_id_o;
 //--------------------------------------------
 
 
@@ -51,6 +55,7 @@ wire [31:0] latest_rs2_value_ex_o;
 wire [2:0] funct3_ex_o;
 wire branching_ex_o;
 wire [31:0] branch_address_ex_o;
+wire increment_counter_ex_o, decrement_counter_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -85,9 +90,17 @@ instruction_fetch if_u(
 
     //Inputs From Execution Stage For Branching,
     .branching_i(branching_ex_o),
-    .branching_address_i(branch_address_ex_o)
+    .branching_address_i(branch_address_ex_o),
 
-    
+    //Inputs From Execution Stage For Branch Prediction
+    .is_branch_instr_ex_i(is_branch_instr_id_o), // The output reg of id =  is equal to ex_wire
+    .decrement_counter_i(decrement_counter_ex_o),
+    .increment_counter_i(increment_counter_ex_o),
+    .pc_ex_i(pc_id_o),
+
+    //Outputs For Branch Prediction
+    .btb_predicted_pc_if_o(btb_predicted_pc_if_o),
+    .branch_is_taken_prediction_if_o(branch_is_taken_prediction_if_o)
 );
 
 
@@ -126,6 +139,12 @@ instruction_decode id_u(
     //Program Counter
     .pc_id_o(pc_id_o),
     .funct3_id_o(funct3_id_o),
+
+    //Branch prediction,
+    .btb_predicted_pc_id_i(btb_predicted_pc_if_o),
+    .branch_is_taken_prediction_id_i(branch_is_taken_prediction_if_o),
+    .btb_predicted_pc_id_o(btb_predicted_pc_id_o),
+    .branch_is_taken_prediction_id_o(branch_is_taken_prediction_id_o),
 
 
     //Inputs from Exeuction Stage
@@ -166,6 +185,8 @@ instruction_decode id_u(
         .pc_ex_i(pc_id_o),
         .funct3_ex_i(funct3_id_o),
         .unconditional_branch_ex_i(unconditional_branch_id_o),
+        .btb_predicted_pc_ex_i(btb_predicted_pc_id_o),
+        .branch_is_taken_prediction_ex_i(branch_is_taken_prediction_id_o),
 
         //Outputs to Memory Stage
         .alu_result_ex_o(alu_result_ex_o),
@@ -193,10 +214,13 @@ instruction_decode id_u(
 
         // Multi-Usage Output
         .branching_ex_o(branching_ex_o),
-        .branch_address_ex_o(branch_address_ex_o)
+        .branch_address_ex_o(branch_address_ex_o),
+        .increment_counter_ex_o(increment_counter_ex_o),
+        .decrement_counter_ex_o(decrement_counter_ex_o)
     );
 
 
+    //
     instruction_memory_stage mem_u (
         .clk_i(clk_i),
         .rst_i(rst_i),
