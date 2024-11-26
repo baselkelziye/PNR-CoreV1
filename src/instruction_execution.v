@@ -68,7 +68,9 @@ module instruction_execution(
         output wire branching_ex_o,
         output wire [31:0] branch_address_ex_o,
         output wire increment_counter_ex_o,
-        output wire decrement_counter_ex_o
+        output wire decrement_counter_ex_o,
+
+        input periheral_stall_ex_i
     );
 
 //Branch Jump Unit
@@ -83,6 +85,8 @@ wire [31:0] alu1_input, alu2_input;
 wire [1:0] forwardA, forwardB;
 wire [31:0] rs1_latest_value, rs2_latest_value;
 
+wire ex_stage_stall;
+assign ex_stage_stall = periheral_stall_ex_i;
 
 // assign branching
 assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
@@ -175,7 +179,7 @@ ALU ALU_u(
 );
 
 
-always @(posedge clk_i, rst_i) begin
+always @(posedge clk_i, posedge rst_i) begin
     if(rst_i) begin
         alu_result_ex_o <= 32'h0;
         load_store_forward_sel_ex_o <= 1'b0;
@@ -187,7 +191,7 @@ always @(posedge clk_i, rst_i) begin
         funct3_ex_o <= 3'b0;
         is_store_instr_ex_o <= 1'b0;
         latest_rs2_value_ex_o <= 32'h0;
-    end else begin
+    end else if (!ex_stage_stall) begin
         alu_result_ex_o <= alu_result;
         load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
         reg_write_en_ex_o <= reg_write_en_ex_i;
@@ -198,7 +202,6 @@ always @(posedge clk_i, rst_i) begin
         funct3_ex_o <= funct3_ex_i;
         is_store_instr_ex_o <= is_store_instr_ex_i;
         latest_rs2_value_ex_o <= rs2_latest_value;
-
     end
 end
 

@@ -90,4 +90,11 @@
 `define AND_ALU_OP          4'b1001
 `define LUI_ALU_OP          4'b1010
 `define DEFAULT_ALU_OP      4'b1111
+
+//Peripherals Memory Map
+`define UART_CTRL   32'h20000000
+`define UART_STATUS 32'h20000004
+`define UART_RX     32'h20000008
+`define UART_TX     32'h2000000C
+
 `endif

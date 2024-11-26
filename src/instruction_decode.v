@@ -67,7 +67,10 @@ module instruction_decode(
 	input wire [31:0] rd_value_wb_i,
 	
 	//Pipeline Control Signals
-	input wire branching_id_i
+	input wire branching_id_i,
+
+	//Inputs for Wishbone
+	input wire peripheral_stall_id_i
 
 
 	
@@ -94,7 +97,8 @@ module instruction_decode(
 	wire [2:0] imm_type;
 	wire [3:0] alu_op;
 	wire	unconditional_branch; 
-
+	wire id_stage_stall;
+	wire id_flush;
     
     //Extraction of Instruction fields
     assign rd_label = fetched_instruction_id_i[11:7];
@@ -106,7 +110,8 @@ module instruction_decode(
     
     
     assign load_stall_id_o = load_stall;
-    
+    assign id_stage_stall =  peripheral_stall_id_i;
+    assign id_flush = load_stall | branching_id_i;
     register_file register_file_u(
         .clk_i(clk_i					 ),
         .rst_i(rst_i					 ),
@@ -155,7 +160,7 @@ module instruction_decode(
    
    
     always @(posedge clk_i, posedge rst_i) begin
-        if(rst_i || load_stall) begin
+        if(rst_i) begin 
              rs1_data_id_o   			 <= 32'h0  ;
              rs2_data_id_o   			 <= 32'h0  ;
 			 imm_value_id_o  			 <= 32'h0  ;
@@ -176,14 +181,15 @@ module instruction_decode(
 			 unconditional_branch_id_o   <= 1'b0   ;
 			 btb_predicted_pc_id_o 		 <= 32'h0  ;
 			 branch_is_taken_prediction_id_o <= 1'b0;
-        end else if(branching_id_i) begin // Komutu NOP'A cevirmek icin bunlar ytrli
+        end else if(id_flush) begin // Komutu NOP'A cevirmek icin bunlar ytrli
         	 reg_write_en_id_o 				 <= 1'b0   ;
              is_store_instr_id_o 			 <= 1'b0   ;
              is_branch_instr_id_o 			 <= 1'b0   ;
+             is_load_instr_id_o				 <= 1'b0   ;
 			 unconditional_branch_id_o 		 <= 1'b0   ;
 			 btb_predicted_pc_id_o 			 <= 32'h0  ;
 			 branch_is_taken_prediction_id_o <= 1'b0;
-        end else begin
+        end else if(!id_stage_stall) begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
              rs1_data_id_o  			 <= rs1_value			  			   ;
              rs2_data_id_o  			 <= rs2_value			  			   ;
 			 imm_value_id_o 			 <= imm_value			  			   ; 
@@ -204,7 +210,7 @@ module instruction_decode(
 			 unconditional_branch_id_o   <= unconditional_branch  			   ;
 			 btb_predicted_pc_id_o 		 <= btb_predicted_pc_id_i			   ;
 			 branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
-        end
+		end 
     end
 
 endmodule

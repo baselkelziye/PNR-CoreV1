@@ -1,5 +1,9 @@
 `timescale 1ns/1ps
-
+/*
+NOTES:
+The wishbone slave is tested on the simulation, TX FIFO is filled on Store instructions and A Tmp value is read from UART_RD_REG on load instruction
+The Hardware shall be tested on the FPGA
+*/
 
 /*TODO: 
 1- Trunc opcode from the immgen input
@@ -68,6 +72,9 @@ wire [1:0] wb_sel_mem_o;
 wire is_load_mem_o;
 wire [31:0] rd_value_mem_wo;
 wire [31:0] rd_value_mem_ro;
+
+//Wishbone + Peripherals
+wire peripheral_stall_mem_o;
 //--------------------------------------------
 
 //WriteBack Stage Variable Declarations
@@ -100,7 +107,8 @@ instruction_fetch if_u(
 
     //Outputs For Branch Prediction
     .btb_predicted_pc_if_o(btb_predicted_pc_if_o),
-    .branch_is_taken_prediction_if_o(branch_is_taken_prediction_if_o)
+    .branch_is_taken_prediction_if_o(branch_is_taken_prediction_if_o),
+    .periheral_stall_if_i(peripheral_stall_mem_o)
 );
 
 
@@ -157,7 +165,8 @@ instruction_decode id_u(
     .rd_value_wb_i(rd_value_mem_ro),
 
     //Pipeline Control Signals
-    .branching_id_i(branching_ex_o)
+    .branching_id_i(branching_ex_o),
+    .peripheral_stall_id_i(peripheral_stall_mem_o)
     
     );
 
@@ -216,7 +225,8 @@ instruction_decode id_u(
         .branching_ex_o(branching_ex_o),
         .branch_address_ex_o(branch_address_ex_o),
         .increment_counter_ex_o(increment_counter_ex_o),
-        .decrement_counter_ex_o(decrement_counter_ex_o)
+        .decrement_counter_ex_o(decrement_counter_ex_o),
+        .periheral_stall_ex_i(peripheral_stall_mem_o)
     );
 
 
@@ -250,7 +260,10 @@ instruction_decode id_u(
         .rd_value_mem_wo(rd_value_mem_wo), //Wire Output
         
         //Inputs From Writeback Stage    
-        .load_value_wb_i(load_value_mem_o)
+        .load_value_wb_i(load_value_mem_o),
+
+        //Wisbone + Peripherals
+        .peripheral_stall_o(peripheral_stall_mem_o)
     );
 
 

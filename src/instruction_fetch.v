@@ -41,7 +41,9 @@ module instruction_fetch(
 
         //Outputs For Branch Prediction
         output reg [31:0] btb_predicted_pc_if_o,
-        output reg branch_is_taken_prediction_if_o
+        output reg branch_is_taken_prediction_if_o,
+
+        input wire periheral_stall_if_i
     );
     
     reg [31:0] pc_next;
@@ -49,11 +51,12 @@ module instruction_fetch(
     reg  [31:0] pc_reg;
     wire BTB_hit, branch_is_taken_prediction;
     localparam [31:0] INSTR_NOP = 32'h00000013;
-
+    wire if_stage_stall;
+    assign if_stage_stall = load_stall_if_i | periheral_stall_if_i;
     always @(posedge clk_i, posedge rst_i) begin
         if(rst_i) begin
             pc_reg <=  32'd0;
-        end else if(!load_stall_if_i)
+        end else if(!if_stage_stall)
             pc_reg <= pc_next;
     end
     
@@ -105,12 +108,12 @@ always @(posedge clk_i, posedge rst_i) begin
 		pc_incremented_if_o <= 32'h0;
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o <= 32'h0;
-	end else if(branching_i)begin
+	end else if(branching_i)begin //Flush Sadece Branchte olur simdilik
 		fetched_instruction_if_o <= INSTR_NOP;
 		pc_incremented_if_o <= 32'hDEADC0DE;
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o <= 32'h0;
-	end else if(!load_stall_if_i) begin
+	end else if(!if_stage_stall) begin
 		fetched_instruction_if_o <= fetched_instruction;
 		pc_incremented_if_o 	 <=  pc_reg;
         branch_is_taken_prediction_if_o <= branch_is_taken_prediction;

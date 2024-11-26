@@ -145,3 +145,29 @@ async def loop_test(dut):
         expected_value = int(expected_register_values[idx],16)
         # logger.info(f"Register {reg}: {dut_value:#010x}")
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
+
+@cocotb.test()
+async def peripheral_test(dut):
+    filename = "peripheral.hex"
+    dut.rst_i.value = 1
+    await Timer(period_ns, units='ns')
+    dut.rst_i.value = 0
+    await Timer(period_ns, units='ns')
+    await load_instruction_cache(dut, filepath + filename)
+    num_cycles = 500
+    await run_clock(dut, num_cycles, period_ns)
+    registers = await get_register_file(dut)
+    expected_register_values = ["0xCC"]
+    registers_id = [1]
+    for idx, reg in enumerate(registers_id):
+        dut_value = registers[reg].value
+        expected_value = int(expected_register_values[idx],16)
+        assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value:#10x}, Got: {int(dut_value):#010x}"
+    #FIFO Tests
+    tx_fifo_array = dut.mem_u.wbs_uart_u.uart_unit.fifo_tx_unit.array_reg
+    rx_fifo_array = dut.mem_u.wbs_uart_u.uart_unit.fifo_rx_unit.array_reg
+    # logger.info(f"tx_fifo_array: {tx_fifo_array[0].value}")
+    expected_fifo_values = ["0xA5", "0xF0", "0x55"]
+    for i in range(3):
+        assert tx_fifo_array[i].value == int(expected_fifo_values[i],16), f"TX FIFO value mismatch at index {i}. Expected: {int(expected_fifo_values[i],16)}, Got: {tx_fifo_array[i]}"
+    

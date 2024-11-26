@@ -19,6 +19,7 @@
 // 
 //////////////////////////////////////////////////////////////////////////////////
 
+//I need to select the data from the PERIPHERAL or the MEMORY
 
 module instruction_memory_stage(
     input clk_i, rst_i,
@@ -46,7 +47,10 @@ module instruction_memory_stage(
 
     
     //Inputs From Writeback stage
-    input wire [31:0] load_value_wb_i
+    input wire [31:0] load_value_wb_i,
+    
+    //Wishbone + Peripherals
+    output wire peripheral_stall_o
     );
 
 
@@ -54,8 +58,20 @@ module instruction_memory_stage(
     wire [31:0] forwarded_store_value;
     assign forwarded_store_value = (load_store_forward_sel_mem_i) ? load_value_wb_i : latest_rs2_value_mem_i;
 
+    //Wishbone Master Signals.
+    wire o_wbm_cyc, o_wbm_stb, o_wbm_we;
+    wire [31:0] o_wbm_addr, o_wbm_data;
+    wire is_peripheral_access;
 
-    wire [31:0] loaded_data;
+
+    // Wishbone Slave signals
+    wire o_wbs_stall, o_wbs_ack;
+    wire [31:0] o_wbs_data;
+    
+    wire [31:0] loaded_data, data_read_from_mem;
+
+    //If read from peripheral assign wishbone value
+    assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
 
     datum_cache datum_cache_u(
         .clk_i(clk_i),
@@ -65,7 +81,7 @@ module instruction_memory_stage(
         .is_load_instr(is_load_mem_i),
         .is_store_instr(is_store_mem_i),
         .funct3_i(funct3_mem_i),
-        .read_data_o(loaded_data)
+        .read_data_o(data_read_from_mem)
     );
 
 
@@ -79,9 +95,36 @@ module instruction_memory_stage(
         .sel_i(wb_sel_mem_i),
         .out_o(rd_value_mem_wo)
     );
+    
+    
+    //Wishbon Master Signals Generation
+    assign is_peripheral_access = (is_load_mem_i || is_store_mem_i) && (alu_result_mem_i[31:28] == 4'b0010);
+    // Start CYC when we have access to peripheral and we don't have ack
+    assign o_wbm_cyc = is_peripheral_access & ~o_wbs_ack; 
+    assign o_wbm_stb = o_wbm_cyc;
+    //Write Enable when we have access to peripheral and we have store instruction
+    assign o_wbm_we = is_peripheral_access & is_store_mem_i;
+    assign o_wbm_addr = alu_result_mem_i;
+    assign o_wbm_data = forwarded_store_value;
+    //Stall if we have Slave stall (Wait for result)
+    //Stall if we have peripheral access and we don't have ack
+    assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
+
+    wbs_uart wbs_uart_u(
+        .i_clk(clk_i),
+        .i_rst(rst_i),
+        .i_wb_cyc(o_wbm_cyc),
+        .i_wb_stb(o_wbm_stb),
+        .i_wb_we(o_wbm_we),
+        .i_wb_addr(o_wbm_addr),
+        .i_wb_data(o_wbm_data),
+        .o_wb_stall(o_wbs_stall),
+        .o_wb_ack(o_wbs_ack),
+        .o_wb_data(o_wbs_data)
+    );
 
     always @(posedge clk_i, posedge rst_i) begin
-        if(rst_i) begin
+        if(rst_i | peripheral_stall_o) begin //Since Peripheral Stalls are generated in MEM we need to flush
             load_value_mem_o <= 32'b0;
             rd_label_mem_o <= 5'b0;
             reg_write_en_mem_o <= 1'b0;
