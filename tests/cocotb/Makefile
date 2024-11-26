@@ -3,10 +3,10 @@ TOPLEVEL_LANG=verilog
 
 # Define the directory containing Verilog source files
 HDL_DIR := ../../src
-
+PERIPHERAL_DIR := ../../src/peripheral
 # Use wildcard to include all Verilog (*.v) files from HDL_DIR
 VERILOG_SOURCES := $(wildcard $(HDL_DIR)/*.v)
-
+VERILOG_SOURCES += $(wildcard $(PERIPHERAL_DIR)/*.v)
 # Specify the name of your top-level module (not the file name)
 TOPLEVEL = core
 

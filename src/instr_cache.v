@@ -37,14 +37,14 @@ initial begin
     1c:       00402303        lw x6 4 x0
 */
     
-        //  instructions[0] =  32'h00a00093; // addi x1 x0 10
-        //  instructions[1] =  32'h00102023; // sw x1 0 x0
-        //  instructions[2] =  32'h00002103; // lw x2 0 x0
-        //  instructions[3] =  32'h002101b3; // add x3 x2 x2
-        //  instructions[4] =  32'h00100213; // addi x4 x0 1
-        //  instructions[5] =  32'h00002283; // lw x5 0 x0
-        //  instructions[6] =  32'h00502223; // sw x5 4 x0
-        //  instructions[7] =  32'h00402303; // lw x6 4 x0
+//         instructions[0] =  32'h00a00093; // addi x1 x0 10
+//         instructions[1] =  32'h00102023; // sw x1 0 x0
+//         instructions[2] =  32'h00002103; // lw x2 0 x0
+//         instructions[3] =  32'h002101b3; // add x3 x2 x2
+//         instructions[4] =  32'h00100213; // addi x4 x0 1
+//         instructions[5] =  32'h00002283; // lw x5 0 x0
+//         instructions[6] =  32'h00502223; // sw x5 4 x0
+//         instructions[7] =  32'h00402303; // lw x6 4 x0
 
 
 /*
@@ -91,16 +91,43 @@ Forwarding From Each Stage Test
 
 
     */
-    instructions[0] =  32'h00a00513; // addi x10 x0 10
-    instructions[1] =  32'h00000093; // addi x1 x0 0
-    instructions[2] =  32'h00108093; // addi x1 x1 1 L1
-    instructions[3] =  32'h00000013; // addi x0 x0 0
-    instructions[4] =  32'h00000013; // addi x0 x0 0
-    instructions[5] =  32'h00000013; // addi x0 x0 0
-    instructions[6] =  32'hfe1518e3; // bne x10 x1 -16 <L1>
-    instructions[7] =  32'h00108113; // addi x2 x1 1
-    instructions[8] =  32'h00eef1b7; // lui x3 0xeef
+    // instructions[0] =  32'h00a00513; // addi x10 x0 10
+    // instructions[1] =  32'h00000093; // addi x1 x0 0
+    // instructions[2] =  32'h00108093; // addi x1 x1 1 L1
+    // instructions[3] =  32'h00000013; // addi x0 x0 0
+    // instructions[4] =  32'h00000013; // addi x0 x0 0
+    // instructions[5] =  32'h00000013; // addi x0 x0 0
+    // instructions[6] =  32'hfe1518e3; // bne x10 x1 -16 <L1>
+    // instructions[7] =  32'h00108113; // addi x2 x1 1
+    // instructions[8] =  32'h00eef1b7; // lui x3 0xeef
     
+
+
+/* Peripherals Test
+    0:        20000537        lui x10 0x20000
+    4:        0a548493        addi x9 x9 165
+    8:        00952623        sw x9 12 x10
+    c:        0ff00593        addi x11 x0 255
+    10:       00b52623       sw x11 12 x10
+    14:       05500613       addi x12 x0 85
+    18:       00c52623       sw x12 12 x10
+
+    //READ FROM UART
+
+    1c:        00852083        lw x1 8 x10
+
+*/
+
+     instructions[0] =  32'h20000537; // lui x10 0x20000
+     instructions[1] =  32'h0a548493; // addi x9 x9 165
+     instructions[2] =  32'h00952623; // sw x9 12 x10
+     instructions[3] =  32'h0f000593; // addi x11 x0 255
+     instructions[4] =  32'h00b52623; // sw x11 12 x10
+     instructions[5] =  32'h05500613; // addi x12 x0 85
+     instructions[6] =  32'h00c52623; // sw x12 12 x10
+     instructions[7] =  32'h00852083; // lw x1 8 x10
+
+
     
 //Bubble Sort Test
         // instructions[0] =  32'h00000093;
