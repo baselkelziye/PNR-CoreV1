@@ -63,13 +63,14 @@ always @(posedge i_clk) begin
         uart_ctrl: o_wb_data   <=  uart_ctrl_reg;
         uart_status: o_wb_data <= uart_status_reg;
         uart_rdata: begin 
-            // if(~rx_empty) begin 
-                // initiate_rx_transaction <= 1; //becasue we read from FIFO
+            if(~rx_empty) begin 
+                initiate_rx_transaction <= 1; //becasue we read from FIFO
                 o_wb_data  <= {24'b0, tmp_rd_data};
-            // end
-            // else
-                // initiate_rx_transaction <= 0;
-                // o_wb_data <= 32'h00000000;
+            end
+            else begin
+                initiate_rx_transaction <= 0;
+                o_wb_data <= 32'h000000CC;
+            end
         end
             uart_wdata: begin end
         default: begin

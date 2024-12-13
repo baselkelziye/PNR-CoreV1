@@ -33,12 +33,13 @@ module mux_2x1
     output reg [DATA_WIDTH-1:0] out_o   // Output
 );
 
-always @* begin
-    case (sel_i)
-        1'b0: out_o = in0_i;  // Select input 0
-        1'b1: out_o = in1_i;  // Select input 1
-        default: out_o = {DATA_WIDTH{1'b0}}; // Default output to all zeros
-    endcase
+always @*
+begin
+  case (sel_i)
+    1'b0: out_o = in0_i;  // Select input 0
+    1'b1: out_o = in1_i;  // Select input 1
+    default: out_o = {DATA_WIDTH{1'b0}}; // Default output to all zeros
+  endcase
 end
 
 endmodule

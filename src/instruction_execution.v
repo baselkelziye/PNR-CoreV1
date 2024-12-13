@@ -21,109 +21,108 @@
 
 
 module instruction_execution(
-        input clk_i, rst_i,
+  input clk_i, rst_i,
 
-        //Inputs from Instruction Decode Stage
-        input [31:0] rs1_data_ex_i, rs2_data_ex_i,
-        input [4:0] rd_label_ex_i, rs1_label_ex_i, rs2_label_ex_i,
-        input [31:0] imm_value_ex_i,
-        input load_stall_ex_i, load_store_forward_sel_ex_i,
-        input reg_write_en_ex_i, rs1_pc_sel_ex_i, rs2_imm_sel_ex_i,
-        input is_branch_instr_ex_i, is_store_instr_ex_i, is_load_instr_ex_i,
-        input [1:0] wb_sel_ex_i,
-        input [3:0] alu_op_ex_i,
-        input [31:0] pc_ex_i,
-        input [2:0] funct3_ex_i,
-        input unconditional_branch_ex_i,
-        input [31:0] btb_predicted_pc_ex_i,
-        input branch_is_taken_prediction_ex_i,
+  //Inputs from Instruction Decode Stage
+  input [31:0] rs1_data_ex_i, rs2_data_ex_i,
+  input [4:0] rd_label_ex_i, rs1_label_ex_i, rs2_label_ex_i,
+  input [31:0] imm_value_ex_i,
+  input load_stall_ex_i, load_store_forward_sel_ex_i,
+  input reg_write_en_ex_i, rs1_pc_sel_ex_i, rs2_imm_sel_ex_i,
+  input is_branch_instr_ex_i, is_store_instr_ex_i, is_load_instr_ex_i,
+  input [1:0] wb_sel_ex_i,
+  input [3:0] alu_op_ex_i,
+  input [31:0] pc_ex_i,
+  input [2:0] funct3_ex_i,
+  input unconditional_branch_ex_i,
+  input [31:0] btb_predicted_pc_ex_i,
+  input branch_is_taken_prediction_ex_i,
 
-        //Outputs to Memory Stage
-        output reg [31:0] alu_result_ex_o,
-        output reg load_store_forward_sel_ex_o,
-        output reg  reg_write_en_ex_o,
-        output reg  is_load_instr_ex_o,
-        output reg  is_store_instr_ex_o,
-        output reg [4:0] rd_label_ex_o,
-        output reg [1:0] wb_sel_ex_o,
-        output reg [31:0] pc_ex_o,
-        output reg [2:0] funct3_ex_o,
-        output reg [31:0] latest_rs2_value_ex_o,
-
-
-        //Inputs From Memory Stage
-        input reg_write_en_mem_i,
-        input [4:0] rd_label_mem_i,
-        input [31:0] alu_result_mem_i,
-        input [31:0] rd_value_mem_i,
-        input [31:0] rd_value_wb_i,
+  //Outputs to Memory Stage
+  output reg [31:0] alu_result_ex_o,
+  output reg load_store_forward_sel_ex_o,
+  output reg  reg_write_en_ex_o,
+  output reg  is_load_instr_ex_o,
+  output reg  is_store_instr_ex_o,
+  output reg [4:0] rd_label_ex_o,
+  output reg [1:0] wb_sel_ex_o,
+  output reg [31:0] pc_ex_o,
+  output reg [2:0] funct3_ex_o,
+  output reg [31:0] latest_rs2_value_ex_o,
 
 
-        //Inputs From WriteBack Stage
-        input reg_write_en_wb_i,
-        input [4:0] rd_label_wb_i,
+  //Inputs From Memory Stage
+  input reg_write_en_mem_i,
+  input [4:0] rd_label_mem_i,
+  input [31:0] alu_result_mem_i,
+  input [31:0] rd_value_mem_i,
+  input [31:0] rd_value_wb_i,
 
-        
-        //Multi-Usage output
-        output wire branching_ex_o,
-        output wire [31:0] branch_address_ex_o,
-        output wire increment_counter_ex_o,
-        output wire decrement_counter_ex_o,
 
-        input periheral_stall_ex_i
+  //Inputs From WriteBack Stage
+  input reg_write_en_wb_i,
+  input [4:0] rd_label_wb_i,
+
+  
+  //Multi-Usage output
+  output wire branching_ex_o,
+  output wire [31:0] branch_address_ex_o,
+  output wire increment_counter_ex_o,
+  output wire decrement_counter_ex_o,
+
+  input periheral_stall_ex_i
     );
 
-//Branch Jump Unit
-wire branch_jump_unit_o;
-wire branch_is_taken; // The branch real result 
-wire wrong_prediction_NT_T; 
-//ALU Signals
-wire [31:0] alu_result;
-wire [31:0] alu1_input, alu2_input;
+  //Branch Jump Unit
+  wire branch_jump_unit_o;
+  wire branch_is_taken; // The branch real result 
+  wire wrong_prediction_NT_T; 
+  //ALU Signals
+  wire [31:0] alu_result;
+  wire [31:0] alu1_input, alu2_input;
 
-//Fowarding Unit Signals
-wire [1:0] forwardA, forwardB;
-wire [31:0] rs1_latest_value, rs2_latest_value;
+  //Fowarding Unit Signals
+  wire [1:0] forwardA, forwardB;
+  wire [31:0] rs1_latest_value, rs2_latest_value;
 
-wire ex_stage_stall;
-assign ex_stage_stall = periheral_stall_ex_i;
+  wire ex_stage_stall;
+  assign ex_stage_stall = periheral_stall_ex_i;
 
-// assign branching
-assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
-assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
-assign branching_ex_o = branch_is_taken ^ branch_is_taken_prediction_ex_i; // We have branching because the branch status differens from the prediction
+  // assign branching
+  assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
+  assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
+  assign branching_ex_o = branch_is_taken ^ branch_is_taken_prediction_ex_i; // We have branching because the branch status differens from the prediction
 
-//If we Guess NT and we Take we need to branch to calculated address
-//If we Guess T and we didn't take we need to branch to PC + 4
-assign branch_address_ex_o = (wrong_prediction_NT_T) ? alu_result : pc_ex_i + 32'h4;
+  //If we Guess NT and we Take we need to branch to calculated address
+  //If we Guess T and we didn't take we need to branch to PC + 4
+  assign branch_address_ex_o = (wrong_prediction_NT_T) ? alu_result : pc_ex_i + 32'h4;
 
 
 
-assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
-assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
+  assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
+  assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
 forwarding_unit forwarding_unit_u(
-    .rd_label_ex_mem_o(rd_label_mem_i),
-    .rd_label_mem_wb_o(rd_label_wb_i),
-    .rs1_label_id_ex_o(rs1_label_ex_i),
-    .rs2_label_id_ex_o(rs2_label_ex_i),
-    .reg_wb_en_ex_mem_o(reg_write_en_mem_i),
-    .reg_wb_en_mem_wb_o(reg_write_en_wb_i),
-    .forwardA(forwardA),
-    .forwardB(forwardB)
+  .rd_label_ex_mem_o(rd_label_mem_i     ),
+  .rd_label_mem_wb_o(rd_label_wb_i      ),
+  .rs1_label_id_ex_o(rs1_label_ex_i     ),
+  .rs2_label_id_ex_o(rs2_label_ex_i     ),
+  .reg_wb_en_ex_mem_o(reg_write_en_mem_i),
+  .reg_wb_en_mem_wb_o(reg_write_en_wb_i ),
+  .forwardA(forwardA                    ),
+  .forwardB(forwardB                    )
 );
 
 //Forwarding The Register Signals
-mux_4x1 #(
-    .DATA_WIDTH(32)
-) rs1_latest_value_selector(
-    .in0_i(rs1_data_ex_i),
-    .in1_i(rd_value_wb_i),
-    .in2_i(rd_value_mem_i),
-    .in3_i(32'hA1A1A1A1),
-    .sel_i(forwardA),
-    .out_o(rs1_latest_value)
-);
+mux_4x1 #(.DATA_WIDTH(32))
+
+  rs1_latest_value_selector (
+    .in0_i(rs1_data_ex_i   ),
+    .in1_i(rd_value_wb_i   ),
+    .in2_i(rd_value_mem_i  ),
+    .in3_i(32'hA1A1A1A1    ),
+    .sel_i(forwardA        ),
+    .out_o(rs1_latest_value));
 
 
 mux_4x1 #(
