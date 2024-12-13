@@ -81,101 +81,98 @@ reg [3:0] alu_op;
 
 
 
-always @(*) begin
-    //defualt values to not infer latch
-    is_load_instr        = 1'b0   ;
-    is_store_instr       = 1'b0   ;
-    is_branch_instr      = 1'b0   ;
-    alu_op               = 4'b0000;
-    unconditional_branch = 1'b0   ;
-    case(opcode_i)
-        `LOAD_OPCODE   : 
-        begin
-                        control_signals = 8'b1_01_0_1_100;
-                        is_load_instr = 1'b1;
-        end
-        `STORE_OPCODE  :
-        begin
-                        control_signals = 8'b0_XX_0_1_010;
-                        is_store_instr = 1'b1;
-        end
-        `RTYPE_OPCODE  : 
-            begin
-                        control_signals = 8'b1_00_0_0_XXX;
-                        case(funct7_i)
-                            //ADD,SLL,SLT,SLTU,XOR,SRL,OR,AND
-                            7'b0000000:
-                            begin
-                                case(funct3_i)
-                                    `ADD_FUNCT3 : alu_op = `ADD_ALU_OP;
-                                    `SLL_FUNCT3 : alu_op = `SLL_ALU_OP;
-                                    `SLT_FUNCT3 : alu_op = `SLT_ALU_OP;
-                                    `SLTU_FUNCT3: alu_op = `SLTU_ALU_OP;
-                                    `XOR_FUNCT3 : alu_op = `XOR_ALU_OP;
-                                    `SRL_FUNCT3 : alu_op = `SRL_ALU_OP;
-                                    `OR_FUNCT3  : alu_op = `OR_ALU_OP;
-                                    `AND_FUNCT3 : alu_op = `AND_ALU_OP;                            
-                                    default    : alu_op = `DEFAULT_ALU_OP;
-                                endcase                                
-                            end
-                                //SUB,SRA
-                            7'b0100000:
-                            begin	
-                            		case(funct3_i)
-                                    `SUB_FUNCT3: alu_op = `SUB_ALU_OP;
-                                    `SRA_FUNCT3: alu_op = `SRA_ALU_OP;
-                                    default   : alu_op = `DEFAULT_ALU_OP;
-                                    endcase 
-                            end
-                            default   : alu_op = `DEFAULT_ALU_OP;
-                            endcase
-            end
-        `ITYPE_OPCODE  :
-        begin
-                        control_signals = 8'b1_00_0_1_100;
-                        if(funct3_i == 3'b101) begin
-                            case(funct7_i)
-                                `SRLI_FUNCT7 : alu_op = `SRL_ALU_OP;
-                                `SRAI_FUNCT7 : alu_op = `SRA_ALU_OP;
-                                 default: alu_op = `DEFAULT_ALU_OP;
-                            endcase
-                        end else begin //To Add Other I-type extensions, funct3 = 001 needs to be cheked
-                            case(funct3_i)
-                                `ADDI_FUNCT3 : alu_op = `ADD_ALU_OP;
-                                `SLTI_FUNCT3 : alu_op = `SLT_ALU_OP;
-                                `SLTIU_FUNCT3: alu_op = `SLTU_ALU_OP;
-                                `XORI_FUNCT3 : alu_op = `XOR_ALU_OP;
-                                `ORI_FUNCT3  : alu_op = `OR_ALU_OP;
-                                `ANDI_FUNCT3 : alu_op = `AND_ALU_OP;
-                                `SLLI_FUNCT3 : alu_op = `SLL_ALU_OP; //If more funct3 = 001 is supported collision might happed and we need to check funct7
-                            default: alu_op = `DEFAULT_ALU_OP;
-                            endcase 
-
-                        end
-        end
-        `BRANCH_OPCODE :
-        begin
-                        control_signals = 8'b0_XX_1_1_011;
-                        is_branch_instr = 1'b1;
-        end
-        `JALR_OPCODE   :
-        begin
-                        control_signals = 8'b1_10_0_1_100;
-                        unconditional_branch = 1'b1;
-        end
-        `JAL_OPCODE    : 
-        begin     
-                        control_signals = 8'b1_10_1_1_001;
-                        unconditional_branch = 1'b1;
-        end
-        `LUI_OPCODE    :
-        begin
-                        control_signals = 8'b1_00_0_1_000;
-                        alu_op          = 4'b1010;
-        end
-        `AUIPC_OPCODE  : control_signals = 8'b1_00_0_1_000;
-        default       : control_signals = ILLEGAL;
-    endcase
+always @(*)
+begin
+  //defualt values to not infer latch
+  is_load_instr        = 1'b0   ;
+  is_store_instr       = 1'b0   ;
+  is_branch_instr      = 1'b0   ;
+  alu_op               = 4'b0000;
+  unconditional_branch = 1'b0   ;
+  case(opcode_i)
+    `LOAD_OPCODE   : 
+    begin
+      control_signals = 8'b1_01_0_1_100;
+      is_load_instr = 1'b1;
+    end
+    `STORE_OPCODE  :
+    begin
+      control_signals = 8'b0_XX_0_1_010;
+      is_store_instr = 1'b1;
+    end
+    `RTYPE_OPCODE  : 
+      begin
+      control_signals = 8'b1_00_0_0_XXX;
+      case(funct7_i) //ADD,SLL,SLT,SLTU,XOR,SRL,OR,AND        
+        7'b0000000:
+          begin
+            case(funct3_i)
+              `ADD_FUNCT3 : alu_op = `ADD_ALU_OP;
+              `SLL_FUNCT3 : alu_op = `SLL_ALU_OP;
+              `SLT_FUNCT3 : alu_op = `SLT_ALU_OP;
+              `SLTU_FUNCT3: alu_op = `SLTU_ALU_OP;
+              `XOR_FUNCT3 : alu_op = `XOR_ALU_OP;
+              `SRL_FUNCT3 : alu_op = `SRL_ALU_OP;
+              `OR_FUNCT3  : alu_op = `OR_ALU_OP;
+              `AND_FUNCT3 : alu_op = `AND_ALU_OP;                            
+              default    : alu_op = `DEFAULT_ALU_OP;
+            endcase                                
+          end       
+        7'b0100000: //SUB,SRA
+          begin	
+            case(funct3_i)
+              `SUB_FUNCT3: alu_op = `SUB_ALU_OP;
+              `SRA_FUNCT3: alu_op = `SRA_ALU_OP;
+              default   : alu_op = `DEFAULT_ALU_OP;
+            endcase 
+          end
+        default   : alu_op = `DEFAULT_ALU_OP;
+      endcase
+      end
+    `ITYPE_OPCODE  :
+    begin
+      control_signals = 8'b1_00_0_1_100;
+      if(funct3_i == 3'b101) 
+        case(funct7_i)
+            `SRLI_FUNCT7 : alu_op = `SRL_ALU_OP;
+            `SRAI_FUNCT7 : alu_op = `SRA_ALU_OP;
+              default: alu_op = `DEFAULT_ALU_OP;
+        endcase
+      else  //To Add Other I-type extensions, funct3 = 001 needs to be cheked
+        case(funct3_i)
+          `ADDI_FUNCT3 : alu_op = `ADD_ALU_OP;
+          `SLTI_FUNCT3 : alu_op = `SLT_ALU_OP;
+          `SLTIU_FUNCT3: alu_op = `SLTU_ALU_OP;
+          `XORI_FUNCT3 : alu_op = `XOR_ALU_OP;
+          `ORI_FUNCT3  : alu_op = `OR_ALU_OP;
+          `ANDI_FUNCT3 : alu_op = `AND_ALU_OP;
+          `SLLI_FUNCT3 : alu_op = `SLL_ALU_OP; //If more funct3 = 001 is supported collision might happed and we need to check funct7
+        default: alu_op = `DEFAULT_ALU_OP;
+        endcase                   
+    end
+    `BRANCH_OPCODE :
+    begin
+                    control_signals = 8'b0_XX_1_1_011;
+                    is_branch_instr = 1'b1;
+    end
+    `JALR_OPCODE   :
+    begin
+                    control_signals = 8'b1_10_0_1_100;
+                    unconditional_branch = 1'b1;
+    end
+    `JAL_OPCODE    : 
+    begin     
+                    control_signals = 8'b1_10_1_1_001;
+                    unconditional_branch = 1'b1;
+    end
+    `LUI_OPCODE    :
+    begin
+                    control_signals = 8'b1_00_0_1_000;
+                    alu_op          = 4'b1010;
+    end
+    `AUIPC_OPCODE  : control_signals = 8'b1_00_0_1_000;
+    default       : control_signals = ILLEGAL;
+  endcase
 end
 
 assign {reg_write_en_o, wb_sel_o, rs1_pc_sel_o, rs2_imm_sel_o, imm_type_o} = control_signals;

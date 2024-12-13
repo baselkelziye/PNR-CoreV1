@@ -46,7 +46,7 @@ module branch_target_buffer
 
 	always @(posedge clk_i) begin
 		if(update_btb_address_i) begin
-			BTB[pc_ex_i[N:2]] = btb_address_value_i;
+			BTB[pc_ex_i[N:2]] <= btb_address_value_i;
 		end
 	end
 

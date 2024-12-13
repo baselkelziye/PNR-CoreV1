@@ -13,14 +13,15 @@ module mux_4x1
     output reg [DATA_WIDTH-1:0] out_o   // Output
 );
 
-always @* begin
+  always @*
+  begin
     case (sel_i)
-        2'b00: out_o = in0_i;  // Select input 0
-        2'b01: out_o = in1_i;  // Select input 1
-        2'b10: out_o = in2_i;  // Select input 2
-        2'b11: out_o = in3_i;  // Select input 3
+        2'b00  : out_o = in0_i;  // Select input 0
+        2'b01  : out_o = in1_i;  // Select input 1
+        2'b10  : out_o = in2_i;  // Select input 2
+        2'b11  : out_o = in3_i;  // Select input 3
         default: out_o = {DATA_WIDTH{1'b0}}; // Default output to all zeros
     endcase
-end
+  end
 
 endmodule
