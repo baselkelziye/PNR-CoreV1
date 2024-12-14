@@ -83,6 +83,7 @@ module instruction_decode(
   //Immediate Result
   wire [31:0] imm_value;
   
+  
   //Hazard Detection Unit Signals
   wire load_stall, load_store_forward_sel;
 
