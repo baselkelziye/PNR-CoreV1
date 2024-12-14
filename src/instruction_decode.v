@@ -56,7 +56,6 @@ module instruction_decode(
 	output reg [31:0] btb_predicted_pc_id_o,
 	output reg branch_is_taken_prediction_id_o,
 
-
 	//Inputs From Execution Stage
 	input wire is_load_instruction_ex_i,
 	input wire [4:0] rd_label_ex_i,
@@ -191,8 +190,8 @@ module instruction_decode(
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
       rs1_data_id_o  			            <= rs1_value			       			    ;
-      rs2_data_id_o  			            <= rs2_value			  			        ; 
-      imm_value_id_o 			            <= imm_value			  			        ; 
+      rs2_data_id_o  			            <= rs2_value			  			        ;
+      imm_value_id_o 			            <= imm_value			  			        ;
       load_store_forward_sel_id_o     <= load_store_forward_sel			    ;
       reg_write_en_id_o 			        <= reg_write_en   		  			    ;
       rs1_pc_sel_id_o 			          <= rs1_pc_sel	   		  			      ;
