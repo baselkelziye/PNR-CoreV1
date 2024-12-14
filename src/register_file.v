@@ -13,15 +13,12 @@ module register_file(
 
   always @(posedge clk_i, posedge rst_i)
   begin
-    if(rst_i)
-    begin
-      for(i = 0; i < 32; i = i + 1)
-          registers[i] <= 32'h0;
-    end else
-      begin
-          if(reg_write_en_i && rd_label_i != 5'b0) 
-            registers[rd_label_i] <= wr_data_i;
-      end
+    if(rst_i)   
+      // for(i = 0; i < 32; i = i + 1)
+          registers[0] <= 32'h0;
+    else      
+      if(reg_write_en_i && rd_label_i != 5'b0) 
+        registers[rd_label_i] <= wr_data_i;
   end
   /*
   If WB value matches read value we must forward the WB value

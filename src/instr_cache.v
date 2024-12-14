@@ -6,7 +6,7 @@ module instr_cache(
     output [31:0] instr_o
 );
 
-reg [31:0] instructions[0:8191];
+reg [31:0] instructions[0:127];
 
 
 assign instr_o = instructions[pc_i[31:2]];

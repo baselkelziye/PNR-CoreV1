@@ -16,6 +16,7 @@ Bug Detection Codes:
 A9A9A9A9 = RD MUX Selection In Mem Stage
 A2A2A2A2 = Rs2 Mux Selector in EX Stage
 A1A1A1A1 = Rs1 Mux Selector in EX Stage
+B1B1B1B1 = Defulat Load Value in datum_cache
 */
 module core(
     input clk_i, rst_i

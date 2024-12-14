@@ -10,7 +10,8 @@ logger.setLevel(logging.INFO)
 
 filepath = "machine_codes/"
 period_ns = 4
-
+datum_cache_size = 1024
+instruction_cache_size = 100
 
 async def get_register_file(dut):
     return dut.id_u.register_file_u.registers
@@ -18,11 +19,23 @@ async def get_register_file(dut):
 async def get_data_cache(dut):
     return dut.mem_u.datum_cache_u.cache_r
 
+async def reset_register_file(dut):
+    for i in range(32):
+        dut.id_u.register_file_u.registers[i].value = 0
+
+async def reset_data_cache(dut):
+    for i in range(datum_cache_size):
+        dut.mem_u.datum_cache_u.cache_r[i].value = 0
+
+async def reset_instruction_cache(dut):
+    for i in range(instruction_cache_size):
+        dut.if_u.instr_cache_u.instructions[i].value = 0x13
 
 async def load_instruction_cache(dut, file_path):
-    cache_size = 100
-    for i in range(cache_size):
-        dut.if_u.instr_cache_u.instructions[i].value = 0x13
+    #We reset instruction cache, datum cache and register file to mimic a full reset
+    await reset_register_file(dut)
+    await reset_data_cache(dut)
+    await reset_instruction_cache(dut)
     
     await Timer(period_ns, units='ns')
 
@@ -31,6 +44,7 @@ async def load_instruction_cache(dut, file_path):
         for i, line in enumerate(lines):
             instruction = int(line.strip(), 16)
             dut.if_u.instr_cache_u.instructions[i].value = instruction
+
 
 
 @cocotb.coroutine
@@ -82,10 +96,6 @@ async def branch_flush_test(dut):
     await run_clock(dut, num_cycles, period_ns)
     registers = await get_register_file(dut)
     expected_register_values = ["0x10000", "0x20000", "0x0", "0xbbbbb000", "0x0"]
-
-    # for i in range(6):
-    #     # dut_.log.info(f"Register {i}: {registers[i].value}")
-    #     logger.info(f"Register {i}: {int(hex(registers[i].value),16)}")
     for i in range(5):
         assert registers[i+1].value == int(expected_register_values[i],16), f"Register value mismatch at Register: {i+1}. Expected: {int(expected_register_values[i],16)}, Got: {registers[i+1]}"
 
