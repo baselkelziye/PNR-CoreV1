@@ -189,7 +189,7 @@ module instruction_decode(
 			branch_is_taken_prediction_id_o <= 1'b0 ;     
     end
     else if(!id_stage_stall)
-      begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
+    begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
       rs1_data_id_o  			            <= rs1_value			       			    ;
       rs2_data_id_o  			            <= rs2_value			  			        ; 
       imm_value_id_o 			            <= imm_value			  			        ; 
@@ -210,7 +210,7 @@ module instruction_decode(
       unconditional_branch_id_o       <= unconditional_branch  			    ;
       btb_predicted_pc_id_o 		      <= btb_predicted_pc_id_i			    ;
       branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
-		  end 
+		end 
   end
 
 endmodule
