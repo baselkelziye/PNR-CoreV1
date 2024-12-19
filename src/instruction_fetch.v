@@ -64,8 +64,6 @@ module instruction_fetch(
       pc_reg <= pc_next;
   end
     
-
-	
 	always @*
   begin
 		if(branching_i)  // If we have branch, Then Next shall be the calculated New address adn means we predicted wrong.

@@ -24,13 +24,13 @@ module instruction_decode(
   input clk_i, rst_i,
     
   //Inputs from Instruction Fetch Stage
-  input [31:0] fetched_instruction_id_i,
-  input [31:0] pc_id_i,
+    input [31:0] fetched_instruction_id_i,
+    input [31:0] pc_id_i,
 	input [31:0] btb_predicted_pc_id_i,
 	input 		 branch_is_taken_prediction_id_i,
     
   //Register Related Signals
-  output reg [31:0] rs1_data_id_o, rs2_data_id_o,
+    output reg [31:0] rs1_data_id_o, rs2_data_id_o,
 	output reg [4:0] rd_label_id_o, rs1_label_id_o, rs2_label_id_o,
 
 	//Immediate Value
@@ -72,54 +72,56 @@ module instruction_decode(
 	input wire peripheral_stall_id_i
 );
     
-  //Definitions for Instruction Extraction
-  wire [4:0] rd_label, rs1_label, rs2_label;
-  wire [2:0] funct3;
-  wire [6:0] opcode, funct7;
+//Definitions for Instruction Extraction
+wire [4:0] rd_label, rs1_label, rs2_label;
+wire [2:0] funct3;
+wire [6:0] opcode, funct7;
   
-  //Read Register Values
-  wire [31:0] rs1_value, rs2_value;
-  
-  //Immediate Result
-  wire [31:0] imm_value;
-  
-  
-  //Hazard Detection Unit Signals
-  wire load_stall, load_store_forward_sel;
+//Read Register Values
+wire [31:0] rs1_value, rs2_value;
 
-	//Control Unit Signals
-	wire reg_write_en, rs1_pc_sel, rs2_imm_sel, is_branch_instr;
-	wire is_load_instr, is_store_instr;
-	wire [1:0] wb_sel;
-	wire [2:0] imm_type;
-	wire [3:0] alu_op;
-	wire	unconditional_branch; 
-	wire id_stage_stall;
-	wire id_flush;
-    
-    //Extraction of Instruction fields
-  assign rd_label  = fetched_instruction_id_i[11:7];
-  assign rs1_label = fetched_instruction_id_i[19:15];
-  assign rs2_label = fetched_instruction_id_i[24:20];
-  assign funct3    = fetched_instruction_id_i[14:12];
-  assign funct7    = fetched_instruction_id_i[31:25];
-  assign opcode    = fetched_instruction_id_i[6:0];
-    
-    
-  assign load_stall_id_o = load_stall;
-  assign id_stage_stall  =  peripheral_stall_id_i;
-  assign id_flush        = load_stall | branching_id_i;
+//Immediate Result
+wire [31:0] imm_value;
+  
+  
+//Hazard Detection Unit Signals
+wire load_stall, load_store_forward_sel;
 
-  register_file register_file_u(
-  .clk_i(clk_i				          	 ),
-  .rst_i(rst_i					           ),
-  .rd_label_i(rd_label_wb_i		     ),
-	.rs1_label_i(rs1_label		    	 ),
-	.rs2_label_i(rs2_label		    	 ),
-  .reg_write_en_i(reg_write_en_wb_i), //To be filed from WB Stage
-  .wr_data_i(rd_value_wb_i		     ),
-  .rs1_data_o(rs1_value			       ),
-	.rs2_data_o(rs2_value			       ));
+//Control Unit Signals
+wire reg_write_en, rs1_pc_sel, rs2_imm_sel, is_branch_instr;
+wire is_load_instr, is_store_instr;
+wire [1:0] wb_sel;
+wire [2:0] imm_type;
+wire [3:0] alu_op;
+wire	unconditional_branch; 
+wire id_stage_stall;
+wire id_flush;
+    
+//Extraction of Instruction fields
+assign rd_label  = fetched_instruction_id_i[11:7 ];
+assign rs1_label = fetched_instruction_id_i[19:15];
+assign rs2_label = fetched_instruction_id_i[24:20];
+assign funct3    = fetched_instruction_id_i[14:12];
+assign funct7    = fetched_instruction_id_i[31:25];
+assign opcode    = fetched_instruction_id_i[6:0  ];
+    
+    
+assign load_stall_id_o = load_stall;
+assign id_stage_stall  =  peripheral_stall_id_i;
+assign id_flush        = load_stall | branching_id_i;
+
+register_file register_file_u
+(
+    .clk_i(clk_i				     ),
+    .rst_i(rst_i					 ),
+    .rd_label_i(rd_label_wb_i		 ),
+    .rs1_label_i(rs1_label		     ),
+    .rs2_label_i(rs2_label		     ),
+    .reg_write_en_i(reg_write_en_wb_i), //To be filed from WB Stage
+    .wr_data_i(rd_value_wb_i		 ),
+    .rs1_data_o(rs1_value		     ),
+    .rs2_data_o(rs2_value			 )
+);
         
         
   imm_gen imm_gen_u(

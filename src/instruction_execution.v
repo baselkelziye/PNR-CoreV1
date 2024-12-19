@@ -97,8 +97,6 @@ module instruction_execution(
   //If we Guess T and we didn't take we need to branch to PC + 4
   assign branch_address_ex_o = (wrong_prediction_NT_T) ? alu_result : pc_ex_i + 32'h4;
 
-
-
   assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
   assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
@@ -124,7 +122,6 @@ mux_4x1 #(.DATA_WIDTH(32))
     .sel_i(forwardA        ),
     .out_o(rs1_latest_value));
 
-
 mux_4x1 #(
     .DATA_WIDTH(32)
 ) rs2_latest_value_selector(
@@ -136,17 +133,12 @@ mux_4x1 #(
     .out_o(rs2_latest_value)
 );
 
-
 branch_jump branch_jump_u(
     .in1_i(rs1_latest_value),
     .in2_i(rs2_latest_value),
     .funct3_i(funct3_ex_i),
     .PC_sel_o(branch_jump_unit_o)
 );
-
-
-
-//Logic Is Forwarded, Need To select Imm Value Or PC
 
 mux_2x1 #(
     .DATA_WIDTH(32)
@@ -166,10 +158,6 @@ mux_2x1 #(
     .out_o(alu2_input)
 );
 
-
-
-
-
 ALU ALU_u(
     .alu1_i(alu1_input),
     .alu2_i(alu2_input),
@@ -179,29 +167,29 @@ ALU ALU_u(
 
 
 always @(posedge clk_i, posedge rst_i) begin
-    if(rst_i) begin
-        alu_result_ex_o <= 32'h0;
-        load_store_forward_sel_ex_o <= 1'b0;
-        reg_write_en_ex_o <= 1'b0;
-        is_load_instr_ex_o <= 1'b0;
-        rd_label_ex_o <= 5'b0;
-        wb_sel_ex_o <= 3'b0;
-        pc_ex_o 	<= 32'b0;
-        funct3_ex_o <= 3'b0;
-        is_store_instr_ex_o <= 1'b0;
-        latest_rs2_value_ex_o <= 32'h0;
-    end else if (!ex_stage_stall) begin
-        alu_result_ex_o <= alu_result;
-        load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
-        reg_write_en_ex_o <= reg_write_en_ex_i;
-        is_load_instr_ex_o <= is_load_instr_ex_i;
-        rd_label_ex_o <= rd_label_ex_i;
-        wb_sel_ex_o <= wb_sel_ex_i;
-        pc_ex_o     <= pc_ex_i;
-        funct3_ex_o <= funct3_ex_i;
-        is_store_instr_ex_o <= is_store_instr_ex_i;
-        latest_rs2_value_ex_o <= rs2_latest_value;
-    end
+  if(rst_i) begin
+      alu_result_ex_o <= 32'h0;
+      load_store_forward_sel_ex_o <= 1'b0;
+      reg_write_en_ex_o <= 1'b0;
+      is_load_instr_ex_o <= 1'b0;
+      rd_label_ex_o <= 5'b0;
+      wb_sel_ex_o <= 3'b0;
+      pc_ex_o 	<= 32'b0;
+      funct3_ex_o <= 3'b0;
+      is_store_instr_ex_o <= 1'b0;
+      latest_rs2_value_ex_o <= 32'h0;
+  end else if (!ex_stage_stall) begin
+      alu_result_ex_o <= alu_result;
+      load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
+      reg_write_en_ex_o <= reg_write_en_ex_i;
+      is_load_instr_ex_o <= is_load_instr_ex_i;
+      rd_label_ex_o <= rd_label_ex_i;
+      wb_sel_ex_o <= wb_sel_ex_i;
+      pc_ex_o     <= pc_ex_i;
+      funct3_ex_o <= funct3_ex_i;
+      is_store_instr_ex_o <= is_store_instr_ex_i;
+      latest_rs2_value_ex_o <= rs2_latest_value;
+  end
 end
 
 endmodule

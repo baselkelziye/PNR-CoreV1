@@ -21,19 +21,21 @@
 
 
 module control_unit(
-    input  [4:0] opcode_i         , //dismiss lower 2 bits
-    input  [2:0] funct3_i         ,
-    input  [6:0] funct7_i         ,
-    output       reg_write_en_o   ,
-    output [1:0] wb_sel_o         ,
-    output       rs1_pc_sel_o     ,
-    output       rs2_imm_sel_o    ,
-    output [2:0] imm_type_o       ,
-    output       is_branch_instr_o,
-    output       is_load_instr_o  ,
-    output       is_store_instr_o ,
-    output [3:0] alu_op_o         ,
-    output       unconditional_branch_o
+    //Komuttan Gelen Sinyaller
+    input  [4:0] opcode_i               , 
+    input  [2:0] funct3_i               ,
+    input  [6:0] funct7_i               ,
+
+    output       reg_write_en_o         , // Register File'e yazma sinyali
+    output [1:0] wb_sel_o               , // Yazilacak Veriyi secen mux sinyali
+    output       rs1_pc_sel_o           , // rs1'in PC'den mi yoksa reg_file'dan mi alinacagini belirleyen sinyal
+    output       rs2_imm_sel_o          , // rs2'nin immediate mi yoksa reg'dan mi alinacagini belirleyen sinyal
+    output [2:0] imm_type_o             , // Immediate turunu belirleyen sinyal
+    output       is_branch_instr_o      , // Branch komutu mu degil mi
+    output       is_load_instr_o        , // Load komutu mu degil mi 
+    output       is_store_instr_o       , // Store komutu mu degil mi
+    output [3:0] alu_op_o               , // ALU islem turunu belirleyen sinyal
+    output       unconditional_branch_o   // kosulsuz branch komutu mu degil mi
     );
 
 `include "encodings.vh"
