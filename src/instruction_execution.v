@@ -137,7 +137,7 @@ branch_jump branch_jump_u(
     .in1_i(rs1_latest_value),
     .in2_i(rs2_latest_value),
     .funct3_i(funct3_ex_i),
-    .PC_sel_o(branch_jump_unit_o)
+    .branch_valid_o(branch_jump_unit_o)
 );
 
 mux_2x1 #(

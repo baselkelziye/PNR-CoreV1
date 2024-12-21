@@ -1,31 +1,11 @@
 `timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 10/13/2024 08:08:15 AM
-// Design Name: 
-// Module Name: branch_jump
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
 
 module branch_jump
 (
     input [31:0]  in1_i,
     input [31:0]  in2_i,
     input [2:0 ]  funct3_i,
-    output        PC_sel_o
+    output        branch_valid_o
 );
     
   wire beq_reg; // BNE bunun degili
@@ -41,28 +21,18 @@ module branch_jump
 
   reg out_sel_r;
 
-  always @*
-  begin
+always @* begin
     case (funct3_i)
-        3'b000:
-            out_sel_r = beq_reg;
-        3'b001:
-            out_sel_r = ~beq_reg;
-        3'b010:
-            out_sel_r = 1'b0;
-        3'b011:
-            out_sel_r = 1'b1;
-        3'b100:
-            out_sel_r = blt_reg;
-        3'b101: //BGE. EQUAL | !BLT
-            out_sel_r = beq_reg | ~blt_reg;
-        3'b110:
-            out_sel_r = bltu_reg;
-        3'b111:
-            out_sel_r = beq_reg | ~bltu_reg;
+        `BEQ_FUNCT3 :  out_sel_r = beq_reg;         
+        `BNE_FUNCT3 :  out_sel_r = ~beq_reg;        
+        `BLT_FUNCT3 :  out_sel_r = blt_reg;
+        `BGE_FUNCT3 :  out_sel_r = beq_reg | ~blt_reg;  //BGE. EQUAL | !BLT         
+        `BLTU_FUNCT3:  out_sel_r = bltu_reg;          
+        `BGEU_FUNCT3:  out_sel_r = beq_reg | ~bltu_reg;           
+        default     : out_sel_r = 1'b0;
     endcase
-  end
+end
 
-  assign PC_sel_o = out_sel_r;
+assign branch_valid_o = out_sel_r;
     
 endmodule
