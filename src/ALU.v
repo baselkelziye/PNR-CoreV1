@@ -43,7 +43,7 @@ module ALU
   */        
         
   `include "encodings.vh"
-  reg [31:0]result_r;     
+  reg [31:0]result_r; 
         
   always @ (*)
   begin
@@ -55,10 +55,11 @@ module ALU
       `SLTU_ALU_OP:  result_r = alu1_i < alu2_i ? 1 : 0;
       `XOR_ALU_OP :  result_r = alu1_i ^ alu2_i;
       `SRL_ALU_OP :  result_r = alu1_i >> alu2_i[4:0];
-      `SRA_ALU_OP :  result_r = alu1_i >>> alu2_i[4:0];
+      `SRA_ALU_OP :  result_r = $signed(alu1_i) >>> alu2_i[4:0];
       `OR_ALU_OP  :  result_r = alu1_i | alu2_i;
       `AND_ALU_OP :  result_r = alu1_i & alu2_i;
       `LUI_ALU_OP :  result_r = alu2_i;
+      `JALR_ALU_OP:  result_r = (alu1_i + alu2_i) & 32'hfffffffe; //Set lsb to zero
       default     :  result_r = 32'hdeadbeef;
     endcase
   end   
