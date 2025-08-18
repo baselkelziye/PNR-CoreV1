@@ -1,0 +1,61 @@
+# testlist generated on 2025-08-17 18:46 GMT
+/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bgeu-01.S:
+  commit_id: '-'
+  work_dir: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscof_work/src/bgeu-01.S
+  macros:
+  - TEST_CASE_1=True
+  - XLEN=32
+  isa: RV32I
+  coverage_labels:
+  - bgeu
+  test_path: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bgeu-01.S
+/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/blt-01.S:
+  commit_id: '-'
+  work_dir: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscof_work/src/blt-01.S
+  macros:
+  - TEST_CASE_1=True
+  - XLEN=32
+  isa: RV32I
+  coverage_labels:
+  - blt
+  test_path: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/blt-01.S
+/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bltu-01.S:
+  commit_id: '-'
+  work_dir: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscof_work/src/bltu-01.S
+  macros:
+  - TEST_CASE_1=True
+  - XLEN=32
+  isa: RV32I
+  coverage_labels:
+  - bltu
+  test_path: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bltu-01.S
+/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jal-01.S:
+  commit_id: '-'
+  work_dir: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscof_work/src/jal-01.S
+  macros:
+  - TEST_CASE_1=True
+  - XLEN=32
+  isa: RV32I
+  coverage_labels:
+  - jal
+  test_path: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jal-01.S
+/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jalr-01.S:
+  commit_id: '-'
+  work_dir: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscof_work/src/jalr-01.S
+  macros:
+  - TEST_CASE_1=True
+  - XLEN=32
+  isa: RV32I
+  coverage_labels:
+  - jalr
+  test_path: 
+    /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jalr-01.S

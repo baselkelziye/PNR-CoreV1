@@ -1,0 +1,67 @@
+# database generated on 2025-08-17 18:46 GMT
+!!omap
+- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bgeu-01.S:
+    commit_id: '-'
+    isa:
+    - RV32I
+    parts: !!omap
+    - '0':
+        check:
+        - check ISA:=regex(.*32.*)
+        - check ISA:=regex(.*I.*)
+        define:
+        - def TEST_CASE_1=True
+        coverage_labels:
+        - bgeu
+- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/blt-01.S:
+    commit_id: '-'
+    isa:
+    - RV32I
+    parts: !!omap
+    - '0':
+        check:
+        - check ISA:=regex(.*32.*)
+        - check ISA:=regex(.*I.*)
+        define:
+        - def TEST_CASE_1=True
+        coverage_labels:
+        - blt
+- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bltu-01.S:
+    commit_id: '-'
+    isa:
+    - RV32I
+    parts: !!omap
+    - '0':
+        check:
+        - check ISA:=regex(.*32.*)
+        - check ISA:=regex(.*I.*)
+        define:
+        - def TEST_CASE_1=True
+        coverage_labels:
+        - bltu
+- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jal-01.S:
+    commit_id: '-'
+    isa:
+    - RV32I
+    parts: !!omap
+    - '0':
+        check:
+        - check ISA:=regex(.*32.*)
+        - check ISA:=regex(.*I.*)
+        define:
+        - def TEST_CASE_1=True
+        coverage_labels:
+        - jal
+- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/jalr-01.S:
+    commit_id: '-'
+    isa:
+    - RV32I
+    parts: !!omap
+    - '0':
+        check:
+        - check ISA:=regex(.*32.*)
+        - check ISA:=regex(.*I.*)
+        define:
+        - def TEST_CASE_1=True
+        coverage_labels:
+        - jalr

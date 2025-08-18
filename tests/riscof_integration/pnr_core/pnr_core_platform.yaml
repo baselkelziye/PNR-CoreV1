@@ -1,0 +1,11 @@
+mtime:
+  implemented: false
+
+mtimecmp:
+  implemented: false
+
+nmi:
+  label: None
+
+reset:
+  label: None
