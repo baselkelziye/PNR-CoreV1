@@ -129,5 +129,13 @@ module instruction_fetch(
         btb_predicted_pc_if_o           <= btb_predicted_pc;
       end //If There is stall, Latch the last values (No Change)
   end
+
+
+  `ifdef CORE_VERBOSITY
+    function void if_trace_log(int file);
+      $fwrite(file,"\n***********Instruction Fetch Stage****************:");
+      $fwrite(file,"\nTime %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction,pc_reg);
+    endfunction
+  `endif
     
 endmodule

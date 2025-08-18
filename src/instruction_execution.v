@@ -189,7 +189,32 @@ always @(posedge clk_i, posedge rst_i) begin
       funct3_ex_o <= funct3_ex_i;
       is_store_instr_ex_o <= is_store_instr_ex_i;
       latest_rs2_value_ex_o <= rs2_latest_value;
+      fetched_instruction_ex_o <= fetched_instruction_ex_i;
   end
 end
+
+`ifdef CORE_VERBOSITY
+  function void ex_trace_log(int file);
+    $fwrite(file,"\n***********Execution Stage****************:");
+    $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_ex_i,pc_ex_i);
+    if(`CORE_VERBOSITY >= 500 ) begin
+        alu_op_trace(file);
+        branch_op_trace(file);
+    end
+  endfunction
+
+  function void alu_op_trace(int file);
+  $fwrite(file, "\nTime: %1t rs1_latest_value_selector Mux, time, in0_i: 0x%8h, in1_i: 0x%8h, in2_i: 0x%8h, ForwardA: %0b, rs1_latest_value: 0x%8h",$time,rs1_data_ex_i,rd_value_wb_i, rd_value_mem_i,forwardA,rs1_latest_value);
+  $fwrite(file, "\nTime: %1t rs2_latest_value_selector Mux, time, in0_i: 0x%8h, in1_i: 0x%8h, in2_i: 0x%8h, ForwardB: %0b, rs2_latest_value: 0x%8h",$time,rs2_data_ex_i,rd_value_wb_i, rd_value_mem_i,forwardB,rs2_latest_value);
+  ALU_u.alu_trace_log(file);
+  endfunction
+
+  function void branch_op_trace(int file);
+//   $fwrite(file, "\nBranching:");
+  $fwrite(file, "\nTime: %1t Branching, branch_is_taken: %0b, wrong_prediction_NT_T: %0b, branching_ex_o: %0b, branch_address_ex_o: %0h ", $time, branch_is_taken, wrong_prediction_NT_T,branching_ex_o, branch_address_ex_o);
+  
+  endfunction
+`endif
+
 
 endmodule

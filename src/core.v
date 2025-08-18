@@ -237,4 +237,24 @@ instruction_memory_stage mem_u
 );
 
 
+`ifdef CORE_VERBOSITY
+  int trace_file;
+  initial begin
+    trace_file = $fopen("core_trace.log", "w");
+  end
+  `define IF_PATH if_u
+  `define ID_PATH id_u
+  `define EX_PATH ex_u
+  `define MEM_PATH mem_u
+  always @(negedge clk_i) begin
+  if(`CORE_VERBOSITY >= 100) begin
+    $fwrite(trace_file,"\n\n");
+    if_u.if_trace_log(trace_file);
+    id_u.id_trace_log(trace_file);
+    ex_u.ex_trace_log(trace_file);
+    mem_u.mem_trace_log(trace_file);
+  end
+end
+`endif
+
 endmodule
