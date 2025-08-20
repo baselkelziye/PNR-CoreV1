@@ -320,9 +320,11 @@ class pnr_core(pluginTemplate):
                 utils.shellCommand('make clean').run(cwd=make_dir)
 
                 # Run 'make' in ../../
-                utils.shellCommand('make').run(cwd=make_dir)
+                utils.shellCommand('make riscof').run(cwd=make_dir)
                 # Step 3: Run Verilator simulation (assumes hardcoded hex read in RTL)
-                simcmd = os.path.abspath('../../obj_dir/Vcore')
+                here = os.path.dirname(__file__)
+                simcmd = os.path.join(here, '../artifacts/Vcore')
+                simcmd = os.path.abspath(simcmd)
                 utils.shellCommand(simcmd).run()
 
                 # Step 4: Copy DUT-generated signature

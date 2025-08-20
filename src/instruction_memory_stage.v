@@ -75,6 +75,7 @@ module instruction_memory_stage
   datum_cache datum_cache_u
   (
       .clk_i(clk_i                       ),
+      .rst_i(rst_i                       ),
       .address_i(alu_result_mem_i        ),
       .write_data_i(forwarded_store_value),
       .is_load_instr(is_load_mem_i       ),
@@ -88,25 +89,41 @@ module instruction_memory_stage
   (
     .in0_i(alu_result_mem_i),
     .in1_i(loaded_data     ),
-    .in2_i(pc_mem_i        ),
+    .in2_i(pc_mem_i + 32'd4        ), // in JAL, JALR. Save next instruction
     .in3_i(32'hA9A9A9A9    ),
     .sel_i(wb_sel_mem_i    ),
     .out_o(rd_value_mem_wo )
   );
 
+  // //Wishbon Master Signals Generation
+  // assign is_peripheral_access = (is_load_mem_i || is_store_mem_i) && (alu_result_mem_i[31:28] == 4'b0010);
+  // // Start CYC when we have access to peripheral and we don't have ack
+  // assign o_wbm_cyc = is_peripheral_access & ~o_wbs_ack; 
+  // assign o_wbm_stb = o_wbm_cyc;
+  // //Write Enable when we have access to peripheral and we have store instruction
+  // assign o_wbm_we = is_peripheral_access & is_store_mem_i;
+  // assign o_wbm_addr = alu_result_mem_i;
+  // assign o_wbm_data = forwarded_store_value;
+  // /* 1- Stall if we have Slave stall (Wait for result)
+  //     2- Stall if we have peripheral access and we don't have ack
+  // */
+  // assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
+
   //Wishbon Master Signals Generation
-  assign is_peripheral_access = (is_load_mem_i || is_store_mem_i) && (alu_result_mem_i[31:28] == 4'b0010);
+  assign is_peripheral_access = 1'b0;
   // Start CYC when we have access to peripheral and we don't have ack
-  assign o_wbm_cyc = is_peripheral_access & ~o_wbs_ack; 
+  assign o_wbm_cyc = 1'b0; 
   assign o_wbm_stb = o_wbm_cyc;
   //Write Enable when we have access to peripheral and we have store instruction
-  assign o_wbm_we = is_peripheral_access & is_store_mem_i;
-  assign o_wbm_addr = alu_result_mem_i;
-  assign o_wbm_data = forwarded_store_value;
+  assign o_wbm_we = 1'b0;
+  assign o_wbm_addr = 0;
+  assign o_wbm_data = 0;
   /* 1- Stall if we have Slave stall (Wait for result)
       2- Stall if we have peripheral access and we don't have ack
   */
   assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
+
+
 
   wbs_uart wbs_uart_u
   (

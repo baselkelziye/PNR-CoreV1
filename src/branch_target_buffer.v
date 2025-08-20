@@ -38,17 +38,17 @@ module branch_target_buffer
     
   integer i;
 
-	always @(posedge clk_i, posedge rst_i)
+always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i)
-      for(i = 0; i < 2**N; i = i + 1)
-        BTB[i] <= 32'h0;
+    	for(i = 0; i < 2**N; i = i + 1)
+        	BTB[i] = 32'h0;
     else
-		  if(update_btb_address_i) 
-			  BTB[pc_ex_i[N:2]] <= btb_address_value_i;
+		if(update_btb_address_i) 
+			BTB[pc_ex_i[N:2]] <= btb_address_value_i;
 	end
 
   assign btb_fetched_addres_o = BTB[pc_i[N:2]];
-	assign BTB_hit_o = (BTB[pc_i[N:2]] != 32'h0);
+  assign BTB_hit_o = (BTB[pc_i[N:2]] != 32'h0);
     
 endmodule

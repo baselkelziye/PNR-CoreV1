@@ -48,6 +48,7 @@ module instruction_decode(
 
 	//Program Counter
 	output reg [31:0] pc_id_o,
+  output reg [31:0] fetched_instruction_id_o,
 	
 	//Instruction Extraction
 	output reg [2:0] funct3_id_o,
@@ -178,7 +179,8 @@ begin
         funct3_id_o 				     <= 3'b0  ;	
         unconditional_branch_id_o        <= 1'b0  ;
         btb_predicted_pc_id_o 		     <= 32'h0 ;
-        branch_is_taken_prediction_id_o  <= 1'b0  ;      
+        branch_is_taken_prediction_id_o  <= 1'b0  ;   
+        fetched_instruction_id_o         <= 32'h13;   
     end 
     else if(id_flush)
     begin // Komutu NOP'A cevirmek icin bunlar ytrli

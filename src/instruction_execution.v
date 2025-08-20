@@ -37,6 +37,7 @@ module instruction_execution(
   input unconditional_branch_ex_i,
   input [31:0] btb_predicted_pc_ex_i,
   input branch_is_taken_prediction_ex_i,
+  input [31:0] fetched_instruction_ex_i,
 
   //Outputs to Memory Stage
   output reg [31:0] alu_result_ex_o,
@@ -49,6 +50,7 @@ module instruction_execution(
   output reg [31:0] pc_ex_o,
   output reg [2:0] funct3_ex_o,
   output reg [31:0] latest_rs2_value_ex_o,
+  output reg [31:0] fetched_instruction_ex_o,
 
 
   //Inputs From Memory Stage
@@ -178,6 +180,7 @@ always @(posedge clk_i, posedge rst_i) begin
       funct3_ex_o <= 3'b0;
       is_store_instr_ex_o <= 1'b0;
       latest_rs2_value_ex_o <= 32'h0;
+      fetched_instruction_ex_o <= 32'h13;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o <= alu_result;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;

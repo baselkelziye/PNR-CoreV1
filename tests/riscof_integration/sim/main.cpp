@@ -77,13 +77,13 @@ int main(int argc, char **argv) {
     Vcore* top = new Vcore;
     bool memory_loaded = false;
 
-    bool dump_enabled = true;
+    bool dump_enabled = false;
     // Check for dump flag in command line arguments
-    // for (int i = 1; i < argc; ++i) {
-    //     if (std::strcmp(argv[i], "--dump") == 0) {
-    //         dump_enabled = true;
-    //     }
-    // }
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--dump") == 0) {
+            dump_enabled = true;
+        }
+    }
 
     // Optional waveform tracing
     VerilatedVcdC* tfp = nullptr;

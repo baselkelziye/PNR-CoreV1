@@ -161,6 +161,7 @@ begin
     begin
                     control_signals = 8'b1_10_0_1_100;
                     unconditional_branch = 1'b1;
+                    alu_op = `JALR_ALU_OP;
     end
     `JAL_OPCODE    : 
     begin     
@@ -172,7 +173,7 @@ begin
                     control_signals = 8'b1_00_0_1_000;
                     alu_op          = 4'b1010;
     end
-    `AUIPC_OPCODE  : control_signals = 8'b1_00_0_1_000;
+    `AUIPC_OPCODE  : control_signals = 8'b1_00_1_1_000;
     default       : control_signals = ILLEGAL;
   endcase
 end

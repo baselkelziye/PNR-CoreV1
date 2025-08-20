@@ -1,5 +1,7 @@
 `timescale 1ns / 1ps
 
+`include "encodings.vh"
+
 module branch_jump
 (
     input [31:0]  in1_i,

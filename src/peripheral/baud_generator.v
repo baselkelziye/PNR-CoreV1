@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 module baud_generator
 #(
     parameter BAUD_COUNTER = 100,

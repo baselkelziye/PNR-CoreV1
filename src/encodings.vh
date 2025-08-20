@@ -89,6 +89,7 @@
 `define OR_ALU_OP           4'b1000
 `define AND_ALU_OP          4'b1001
 `define LUI_ALU_OP          4'b1010
+`define JALR_ALU_OP         4'b1011
 `define DEFAULT_ALU_OP      4'b1111
 
 //Peripherals Memory Map
