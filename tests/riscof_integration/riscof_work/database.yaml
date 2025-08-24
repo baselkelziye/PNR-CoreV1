@@ -1,4 +1,4 @@
-# database generated on 2025-08-20 10:38 GMT
+# database generated on 2025-08-24 17:06 GMT
 !!omap
 - /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/add-01.S:
     commit_id: '-'
@@ -13,7 +13,7 @@
         - def TEST_CASE_1=True
         coverage_labels:
         - add
-- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/bgeu-01.S:
+- /home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/riscv-arch-test/riscv-test-suite/rv32i_m/I/src/addi-01.S:
     commit_id: '-'
     isa:
     - RV32I
@@ -25,4 +25,4 @@
         define:
         - def TEST_CASE_1=True
         coverage_labels:
-        - bgeu
+        - addi

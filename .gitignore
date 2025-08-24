@@ -6,3 +6,5 @@
 **/__pycache__/
 /tests/cocotb/sim_build/
 /tests/cocotb/results.xml
+/tests/riscof_integration/artifacts/
+/tests/riscof_integration/core_trace.log

@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cstdint>
 #include <cstring>
+#include <unistd.h>
 
 // Global simulation time
 vluint64_t main_time = 0;
@@ -108,7 +109,7 @@ int main(int argc, char **argv) {
             top->rst_i = 0;
 
             if (main_time > 20 && !memory_loaded) {
-                if (!load_data_memory("/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/sim/data_mem.hex", top)) {
+                if (!load_data_memory("artifacts/data_mem.hex", top)) {
                     std::cerr << "Failed to load data memory!" << std::endl;
                     delete top;
                     return 1;
@@ -133,7 +134,9 @@ int main(int argc, char **argv) {
     // === Signature extraction ===
     // (Your existing signature extraction code)
     // ...
-    std::ifstream sig_meta("/home/bkelziye/Desktop/PNR-CoreV1/tests/riscof_integration/sim/sig_meta.txt");
+    // Add this before opening the file
+// ... rest of your code
+std::ifstream sig_meta("artifacts/sig_meta.txt");
     uint32_t sig_begin = 0, sig_end = 0;
     if (!sig_meta.is_open()) {
         std::cerr << "ERROR: Cannot open sig_meta.txt\n";
@@ -146,7 +149,7 @@ int main(int argc, char **argv) {
     std::cout << "Signature range: 0x" << std::hex << sig_begin << " - 0x" << sig_end << std::endl;
 
     // Output signature file
-    std::ofstream sig_out("DUT.signature");
+    std::ofstream sig_out("artifacts/DUT.signature");
     if (!sig_out.is_open()) {
         std::cerr << "ERROR: Cannot create DUT.signature\n";
         delete top;
@@ -177,50 +180,6 @@ int main(int argc, char **argv) {
     }
     
     sig_out.close();
-
-    if (dump_enabled) {
-        std::ofstream mem_file("memory_dump.txt");
-        if (mem_file.is_open()) {
-            mem_file << "==== Data Memory (4-byte words, little-endian) ====" << std::endl;
-
-            for (uint32_t addr = 0; addr < CACHE_SIZE; addr += 4) {
-                uint32_t word = 0;
-                for (int i = 0; i < 4; ++i) {
-                    uint32_t byte_addr = addr + i;
-                    uint8_t val = 0;
-                    if (byte_addr < CACHE_SIZE) {
-                        val = top->core__DOT__mem_u__DOT__datum_cache_u__DOT__cache_r[byte_addr];
-                    }
-                    word |= (val << (8 * i));
-                }
-
-                mem_file << std::hex << std::setw(8) << std::setfill('0') << addr+MEM_BASE << ": "
-                         << std::hex << std::setw(8) << std::setfill('0') << word << std::endl;
-            }
-
-            mem_file.close();
-        } else {
-            std::cerr << "Error: Unable to open file memory_dump.txt" << std::endl;
-        }
-
-        // === Register file dump ===
-        std::ofstream reg_file("register_dump.txt");
-        if (reg_file.is_open()) {
-            reg_file << "==== Register File Dump (x0 - x31) ====" << std::endl;
-
-            for (int i = 0; i < 32; ++i) {
-                uint32_t reg_val = top->core__DOT__id_u__DOT__register_file_u__DOT__registers[i];
-                reg_file << "x" << std::dec << std::setw(2) << i << ": "
-                         << "0x" << std::hex << std::setw(8) << std::setfill('0')
-                         << reg_val << std::endl;
-            }
-
-            reg_file.close();
-        } else {
-            std::cerr << "Error: Unable to open file register_dump.txt" << std::endl;
-        }
-    }
-
     delete top;
     return 0;
 }

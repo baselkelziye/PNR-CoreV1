@@ -18,7 +18,7 @@ logger = logging.getLogger()
 def get_signature_range(elf_path):
     import subprocess
     output = subprocess.check_output(
-        ["/opt/riscv/bin/riscv64-unknown-elf-nm", elf_path]
+        ["riscv32-unknown-elf-nm", elf_path]
     ).decode()
 
     begin = end = None
@@ -272,6 +272,10 @@ class pnr_core(pluginTemplate):
             elf = 'my.elf'
             sig_file = os.path.join(test_dir, self.name[:-1] + ".signature")
             compile_macros = ' -D' + " -D".join(testentry['macros'])
+            make_dir = os.path.abspath('./')
+
+                # Run 'make clean' in ../../
+            utils.shellCommand('make clean').run(cwd=make_dir)
 
             # Step 1: Compile the test to an ELF
             marchstr = testentry['isa'].lower()
@@ -285,10 +289,10 @@ class pnr_core(pluginTemplate):
             if self.target_run:
                 # Step 2: Convert ELF to Verilog HEX (placed at RTL hardcoded location)
                 elf_path = os.path.join(test_dir, elf)
-                binary_path = os.path.abspath('./sim/program_test.bin')
-                hex_path = os.path.abspath('./sim/program_test.hex')
-                data_mem_path = os.path.abspath('./sim/data_mem.hex')
-
+                binary_path = os.path.abspath('./artifacts/program_test.bin')
+                hex_path = os.path.abspath('./artifacts/program_test.hex')
+                data_mem_path = os.path.abspath('./artifacts/data_mem.hex')
+               
                 # Ensure directory exists
                 os.makedirs(os.path.dirname(hex_path), exist_ok=True)
 
@@ -307,17 +311,17 @@ class pnr_core(pluginTemplate):
                 # rearrange_mem_file(hex_path)
 
 
-
                 # Extract signature addresses from ELF and write to meta file
                 sig_begin, sig_end = get_signature_range(elf_path)
-                sig_meta_path = os.path.abspath('./sim/sig_meta.txt')
+                # Create the artifacts directory if it doesn't exist
+                artifacts_dir = os.path.abspath('./artifacts')
+                os.makedirs(artifacts_dir, exist_ok=True)  # This creates the directory
+
+                sig_meta_path = os.path.abspath('./artifacts/sig_meta.txt')
                 with open(sig_meta_path, 'w') as f:
                     f.write(f"{sig_begin:x} {sig_end:x}\n")
 
-                make_dir = os.path.abspath('../../')
 
-                # Run 'make clean' in ../../
-                utils.shellCommand('make clean').run(cwd=make_dir)
 
                 # Run 'make' in ../../
                 utils.shellCommand('make riscof').run(cwd=make_dir)
@@ -328,7 +332,8 @@ class pnr_core(pluginTemplate):
                 utils.shellCommand(simcmd).run()
 
                 # Step 4: Copy DUT-generated signature
-                sig_out = 'DUT.signature'
+                sig_out = './artifacts/DUT.signature'
+                print("Looking for DUT signature at:", os.path.abspath(sig_out))
                 if os.path.exists(sig_out):
                     shutil.copy(sig_out, sig_file)
                 else:
