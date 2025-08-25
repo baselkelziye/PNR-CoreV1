@@ -5,6 +5,8 @@
 .Xil/
 **/__pycache__/
 /tests/cocotb/sim_build/
+/tests/cocotb/core_trace.log
 /tests/cocotb/results.xml
 /tests/riscof_integration/artifacts/
+/tests/riscof_integration/riscof_work/
 /tests/riscof_integration/core_trace.log

@@ -8,7 +8,7 @@ module register_file(
         output [31:0] rs1_data_o, rs2_data_o
 );
 
-(* verilator public_flat_rw *)
+// (* verilator public_flat_rw *)
   reg [31:0] registers[0:31];
   integer i;
 

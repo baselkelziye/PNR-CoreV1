@@ -197,6 +197,7 @@ always @(posedge clk_i, posedge rst_i) begin
 end
 
 `ifdef CORE_VERBOSITY
+  `define ALU_PATH ALU_u
   function void ex_trace_log(int file);
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_ex_i,pc_ex_i);
@@ -209,7 +210,8 @@ end
   function void alu_op_trace(int file);
   $fwrite(file, "\nTime: %1t rs1_latest_value_selector Mux, time, in0_i: 0x%8h, in1_i: 0x%8h, in2_i: 0x%8h, ForwardA: %0b, rs1_latest_value: 0x%8h",$time,rs1_data_ex_i,rd_value_wb_i, rd_value_mem_i,forwardA,rs1_latest_value);
   $fwrite(file, "\nTime: %1t rs2_latest_value_selector Mux, time, in0_i: 0x%8h, in1_i: 0x%8h, in2_i: 0x%8h, ForwardB: %0b, rs2_latest_value: 0x%8h",$time,rs2_data_ex_i,rd_value_wb_i, rd_value_mem_i,forwardB,rs2_latest_value);
-  ALU_u.alu_trace_log(file);
+  $fwrite(file, "\nTime: %1t ALU, alu1_input: 0x%8h, alu2_input: 0x%8h, alu_op_ex_i: %0b,  alu_result: 0x%8h",$time,alu1_input,alu2_input,alu_op_ex_i,alu_result);
+  // ALU_PATH.alu_trace_log(file);
   endfunction
 
   function void branch_op_trace(int file);

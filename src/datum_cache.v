@@ -34,7 +34,7 @@ module datum_cache
 parameter MEM_BASE = 32'h00000000;
 parameter MEM_SIZE = 32'h200000; // 2 MB is safe for most RISCOF tests
   `include "encodings.vh"
-(* verilator public_flat_rw *)
+// (* verilator public_flat_rw *)
   reg [7:0] cache_r [0:MEM_SIZE-1];
 
   wire [7:0 ] datum_byte;
