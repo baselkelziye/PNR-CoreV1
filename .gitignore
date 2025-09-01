@@ -1,5 +1,5 @@
 /project_1/
-/obj_dir/
+/obj/
 /waveform.vcd
 /verilator_config.mk
 .Xil/
