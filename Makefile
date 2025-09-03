@@ -38,7 +38,7 @@ $(BIN): $(SRCS) $(MAIN)
 	$(MAKE) -C $(OBJDIR) -j -f V$(TOP_MODULE).mk V$(TOP_MODULE)
 
 run: build
-	./$(BIN) $(if $(filter 1,$(dump)),--dump,) $(if $(filter 1,$(trace)),--trace,)
+	./$(BIN)
 
 # ---- Clean ----
 clean:

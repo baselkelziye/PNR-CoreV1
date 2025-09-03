@@ -84,6 +84,18 @@ module instruction_memory_stage
       .read_data_o(data_read_from_mem    )
   );
 
+  l1_data_cache l1_data_cache_u
+  (
+      .clk_i(clk_i                       ),
+      .rst_i(rst_i                       ),
+      .address_i(alu_result_mem_i        ),
+      .write_data_i(forwarded_store_value),
+      .is_load_instr(is_load_mem_i       ),
+      .is_store_instr(is_store_mem_i     ),
+      .funct3_i(funct3_mem_i             ),
+      .read_data_o(data_read_from_mem    )
+  );
+
   mux_4x1 #(.DATA_WIDTH(32))
   rd_value_selector_u
   (
@@ -162,16 +174,20 @@ always @(posedge clk_i, posedge rst_i)
   end
 
 `ifdef CORE_VERBOSITY
+  `define L1_DATA_CACHE_PATH l1_data_cache_u
   function void mem_trace_log(int file);
     $fwrite(file,"\n***********Memory Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_mem_i,pc_mem_i);
     if(`CORE_VERBOSITY >= 200)begin
       mem_op_trace(file);
     end
+    if(`CORE_VERBOSITY >= 400)begin
+      l1_data_cache_u.l1_data_cache_trace_log(file);
+    end
   endfunction
 
   function void mem_op_trace(int file);
-    $fwrite(file,"\nTime: %1t, address_i: %8h, write_data_i: %8h, is_load_instr: %0b, is_store_instr: %0b, funct3_i: %0b, read_data_o: %8h",$time,alu_result_mem_i,forwarded_store_value,is_load_mem_i,is_store_mem_i,funct3_mem_i,data_read_from_mem);
+    $fwrite(file,"\nTime: %1t, address_i: 0x%8h, write_data_i: 0x%8h, is_load_instr: %b, is_store_instr: %b, funct3_i: %b, read_data_o: 0x%8h",$time,alu_result_mem_i,forwarded_store_value,is_load_mem_i,is_store_mem_i,funct3_mem_i,data_read_from_mem);
   endfunction
 `endif
 
