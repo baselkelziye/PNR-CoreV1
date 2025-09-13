@@ -1,0 +1,33 @@
+# hart_ids: [0]
+# hart0:
+#   ISA: RV32IC
+#   physical_addr_sz: 32
+#   User_Spec_Version: '2.3'
+#   supported_xlen: [32]
+# misa:
+#   reset-val: 0x40000000 # Correct reset value for RV32I
+#   rv32:
+#     accessible: false
+#     mxl:
+#       # XLEN is fixed for RV32, so mxl is read-only.
+#       # The value 0x1 corresponds to 32-bit XLEN.
+#       implemented: false
+#       type:
+#         ro:
+#           val: 0x1
+#     extensions:
+#       # The extensions field is implemented to report the ISA.
+#       implemented: false
+#       type:
+#         ro:
+#           # The value 0x100 corresponds to the 'I' extension (bit 8).
+#           val: 0x000
+
+hart_ids: [0]
+hart0:
+  ISA: RV32IC
+  User_Spec_Version: '2.3'
+  hw_data_misaligned_support: False
+  pmp_granularity : 4
+  supported_xlen: [32]
+  physical_addr_sz: 32

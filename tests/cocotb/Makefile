@@ -14,7 +14,9 @@ TOPLEVEL = core
 MODULE = general_tests
 
 # Add compile arguments to include the directory for Verilog headers
-COMPILE_ARGS += -I$(HDL_DIR)
+COMPILE_ARGS := -I$(HDL_DIR)
+# Add CORE_VERBOSITY flag for compilation
+COMPILE_ARGS += -DCORE_VERBOSITY=500
 
 # Include cocotb's Makefile
 include $(shell cocotb-config --makefiles)/Makefile.sim

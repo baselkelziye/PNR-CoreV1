@@ -7,7 +7,8 @@ module register_file(
         input  [31:0] wr_data_i,
         output [31:0] rs1_data_o, rs2_data_o
 );
-    
+
+// (* verilator public_flat_rw *)
   reg [31:0] registers[0:31];
   integer i;
 
@@ -24,7 +25,15 @@ module register_file(
   If WB value matches read value we must forward the WB value
   Writing To registers at neg edge would resolve the issue, due to synthesis issue we are using this approach
   */
-  assign rs1_data_o = (rs1_label_i == rd_label_i && reg_write_en_i) ? wr_data_i : registers[rs1_label_i];
-  assign rs2_data_o = (rs2_label_i == rd_label_i && reg_write_en_i) ? wr_data_i : registers[rs2_label_i];
+  assign rs1_data_o =
+  (rs1_label_i == 5'b00000) ? 32'b0 :
+  ((rs1_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
+  registers[rs1_label_i];
+
+assign rs2_data_o =
+  (rs2_label_i == 5'b00000) ? 32'b0 :
+  ((rs2_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
+  registers[rs2_label_i];
+
     
 endmodule

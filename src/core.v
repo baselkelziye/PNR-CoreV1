@@ -1,4 +1,4 @@
-`timescale 1ns/1ps
+`timescale 1ns / 1ps
 /*
 NOTES:
 The wishbone slave is tested on the simulation, TX FIFO is filled on Store instructions and A Tmp value is read from UART_RD_REG on load instruction
@@ -18,6 +18,8 @@ A2A2A2A2 = Rs2 Mux Selector in EX Stage
 A1A1A1A1 = Rs1 Mux Selector in EX Stage
 B1B1B1B1 = Defulat Load Value in datum_cache
 */
+
+
 module core(
     input clk_i, rst_i
 );
@@ -39,7 +41,7 @@ wire reg_write_en_id_o, rs1_pc_sel_id_o, rs2_imm_sel_id_o;
 wire is_branch_instr_id_o, is_store_instr_id_o, is_load_instr_id_o;
 wire [1:0] wb_sel_id_o;
 wire [3:0] alu_op_id_o;
-wire [31:0] pc_id_o;
+wire [31:0] pc_id_o,fetched_instruction_id_o;
 wire [2:0] funct3_id_o;
 wire unconditional_branch_id_o;
 wire [31:0] btb_predicted_pc_id_o;
@@ -61,6 +63,7 @@ wire [2:0] funct3_ex_o;
 wire branching_ex_o;
 wire [31:0] branch_address_ex_o;
 wire increment_counter_ex_o, decrement_counter_ex_o;
+wire [31:0] fetched_instruction_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -135,6 +138,7 @@ instruction_decode id_u
   .unconditional_branch_id_o(unconditional_branch_id_o            ),
   //Program Counter
   .pc_id_o(pc_id_o                                                ),
+  .fetched_instruction_id_o(fetched_instruction_id_o              ),             
   .funct3_id_o(funct3_id_o                                        ),
   //Branch prediction,
   .btb_predicted_pc_id_i(btb_predicted_pc_if_o                    ),
@@ -179,6 +183,7 @@ instruction_execution ex_u
   .unconditional_branch_ex_i(unconditional_branch_id_o            ),
   .btb_predicted_pc_ex_i(btb_predicted_pc_id_o                    ),
   .branch_is_taken_prediction_ex_i(branch_is_taken_prediction_id_o),
+  .fetched_instruction_ex_i(fetched_instruction_id_o              ),
   //Outputs to Memory Stage
   .alu_result_ex_o(alu_result_ex_o                                ),
   .load_store_forward_sel_ex_o(load_store_forward_sel_ex_o        ),
@@ -190,6 +195,7 @@ instruction_execution ex_u
   .pc_ex_o(pc_ex_o                                                ),
   .funct3_ex_o(funct3_ex_o                                        ),
   .latest_rs2_value_ex_o(latest_rs2_value_ex_o                    ),
+  .fetched_instruction_ex_o(fetched_instruction_ex_o              ),
   //Inputs From Memory Stage
   .reg_write_en_mem_i(reg_write_en_ex_o                           ),
   .rd_label_mem_i(rd_label_ex_o                                   ),
@@ -222,6 +228,7 @@ instruction_memory_stage mem_u
   .is_store_mem_i(is_store_instr_ex_o                      ),
   .is_load_mem_i(is_load_instr_ex_o                        ),
   .latest_rs2_value_mem_i(latest_rs2_value_ex_o            ),
+  .fetched_instruction_mem_i(fetched_instruction_ex_o      ),
   //Outputs To WriteBack Stage
   .load_value_mem_o(load_value_mem_o                       ),
   .rd_label_mem_o(rd_label_mem_o                           ),
@@ -236,5 +243,25 @@ instruction_memory_stage mem_u
   .peripheral_stall_o(peripheral_stall_mem_o               )
 );
 
+
+`ifdef CORE_VERBOSITY
+  int trace_file;
+  initial begin
+    trace_file = $fopen("core_trace.log", "w");
+  end
+  `define IF_PATH if_u
+  `define ID_PATH id_u
+  `define EX_PATH ex_u
+  `define MEM_PATH mem_u
+  always @(negedge clk_i) begin
+  if(`CORE_VERBOSITY >= 100) begin
+    $fwrite(trace_file,"\n\n");
+    if_u.if_trace_log(trace_file);
+    id_u.id_trace_log(trace_file);
+    ex_u.ex_trace_log(trace_file);
+    mem_u.mem_trace_log(trace_file);
+  end
+end
+`endif
 
 endmodule

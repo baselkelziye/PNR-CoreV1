@@ -51,7 +51,7 @@ localparam [1:0]
   begin //might need to add IF branch instr
     if(rst_i)
       for(i = 0; i < 2**N; i = i + 1)
-          branch_history_buffer[i] <= STRONGLY_NOT_TAKEN;
+          branch_history_buffer[i] = STRONGLY_NOT_TAKEN;
     else
     begin
       if(ex_pc_2bit_counter != STRONGLY_TAKEN && increment_counter)

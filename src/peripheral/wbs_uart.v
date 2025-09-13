@@ -99,14 +99,14 @@ uart uart_unit(
     .reset(i_rst),
     .rd_uart(initiate_rx_transaction),
     .wr_uart(initiate_tx_transaction),
-    .rx(rx),
+    .rx(),
     .w_data(uart_wdata_reg),
     .tx_full(tx_full),
     .tx_empty(tx_empty),
     .rx_full(rx_full),
     .rx_empty(rx_empty), 
     .rd_data(uart_rdata_reg),
-    .tx(tx)
+    .tx()
 );
 
 

@@ -23,6 +23,7 @@
 module datum_cache
 (
   input              clk_i         ,
+  input              rst_i         ,
   input      [31:0]  address_i     ,
   input      [31:0]  write_data_i  ,
   input              is_load_instr ,
@@ -30,15 +31,22 @@ module datum_cache
   input      [2:0 ]  funct3_i      ,
   output reg [31:0]  read_data_o
 );
+parameter MEM_BASE = 32'h00000000;
+parameter MEM_SIZE = 32'h200000; // 2 MB is safe for most RISCOF tests
   `include "encodings.vh"
-  reg[7:0] cache_r[0:1023];
+// (* verilator public_flat_rw *)
+  reg [7:0] cache_r [0:MEM_SIZE-1];
+
   wire [7:0 ] datum_byte;
   wire [15:0] datum_half;
   wire [31:0] datum_word;    
 
-  assign datum_byte = cache_r[address_i[9:0]];
-  assign datum_half = {cache_r[{address_i[9:1],1'b1}], datum_byte};
-  assign datum_word = {cache_r[{address_i[9:2],2'b11}], cache_r[{address_i[9:2], 2'b10}], datum_half};
+  wire [31:0] base_addr;
+  assign base_addr = address_i - MEM_BASE;
+
+  assign datum_byte = cache_r[base_addr];
+  assign datum_half = {cache_r[base_addr + 1], cache_r[base_addr]};
+  assign datum_word = {cache_r[base_addr + 3], cache_r[base_addr + 2], cache_r[base_addr + 1], cache_r[base_addr]};
 
   always @ (*)
   begin
@@ -56,28 +64,36 @@ module datum_cache
   end
     
   integer i;
-  always @ (posedge clk_i)
-  begin          
-    if(is_store_instr) 
-      case(funct3_i)
-        `SB_FUNCT3:
-            cache_r[address_i[31:0]] <= write_data_i[7:0];
+  always @ (posedge clk_i, posedge rst_i) begin
+    if(rst_i) begin
+      for(i = 0; i < MEM_SIZE; i = i+1) begin
+          cache_r[i] = 8'h00;
+      end
+    end else if (is_store_instr) begin
+      case (funct3_i)
+        `SB_FUNCT3: begin
+          cache_r[address_i - MEM_BASE] <= write_data_i[7:0];
+        end
+  
         `SH_FUNCT3: begin
-            cache_r[{address_i[31:1],1'b0}] <= write_data_i[7:0];
-            cache_r[{address_i[31:1],1'b1}] <= write_data_i[15:8];
+          cache_r[(address_i - MEM_BASE) + 0] <= write_data_i[7:0];
+          cache_r[(address_i - MEM_BASE) + 1] <= write_data_i[15:8];
         end
+  
         `SW_FUNCT3: begin
-            cache_r[{address_i[31:2],{2'b00}}] <= write_data_i[7:0];
-            cache_r[{address_i[31:2],{2'b01}}] <= write_data_i[15:8];
-            cache_r[{address_i[31:2],{2'b10}}] <= write_data_i[23:16];
-            cache_r[{address_i[31:2],{2'b11}}] <= write_data_i[31:24];
+          cache_r[(address_i - MEM_BASE) + 0] <= write_data_i[7:0];
+          cache_r[(address_i - MEM_BASE) + 1] <= write_data_i[15:8];
+          cache_r[(address_i - MEM_BASE) + 2] <= write_data_i[23:16];
+          cache_r[(address_i - MEM_BASE) + 3] <= write_data_i[31:24];
         end
-        default : begin //This needs to be handled in the future
-            cache_r[{address_i[31:2],{2'b00}}] <= 8'hA5;
-            cache_r[{address_i[31:2],{2'b01}}] <= 8'hB6;
-            cache_r[{address_i[31:2],{2'b10}}] <= 8'hC7;
-            cache_r[{address_i[31:2],{2'b11}}] <= 8'hD8;
+  
+        default: begin
+          cache_r[(address_i - MEM_BASE) + 0] <= 8'hA5;
+          cache_r[(address_i - MEM_BASE) + 1] <= 8'hB6;
+          cache_r[(address_i - MEM_BASE) + 2] <= 8'hC7;
+          cache_r[(address_i - MEM_BASE) + 3] <= 8'hD8;
         end
-      endcase   
-  end   
+      endcase
+    end   
+  end
 endmodule

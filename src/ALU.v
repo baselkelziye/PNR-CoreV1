@@ -43,7 +43,7 @@ module ALU
   */        
         
   `include "encodings.vh"
-  reg [31:0]result_r;     
+  reg [31:0]result_r; 
         
   always @ (*)
   begin
@@ -55,15 +55,23 @@ module ALU
       `SLTU_ALU_OP:  result_r = alu1_i < alu2_i ? 1 : 0;
       `XOR_ALU_OP :  result_r = alu1_i ^ alu2_i;
       `SRL_ALU_OP :  result_r = alu1_i >> alu2_i[4:0];
-      `SRA_ALU_OP :  result_r = alu1_i >>> alu2_i[4:0];
+      `SRA_ALU_OP :  result_r = $signed(alu1_i) >>> alu2_i[4:0];
       `OR_ALU_OP  :  result_r = alu1_i | alu2_i;
       `AND_ALU_OP :  result_r = alu1_i & alu2_i;
       `LUI_ALU_OP :  result_r = alu2_i;
+      `JALR_ALU_OP:  result_r = (alu1_i + alu2_i) & 32'hfffffffe; //Set lsb to zero
       default     :  result_r = 32'hdeadbeef;
     endcase
   end   
 
   assign result_o = result_r;
 
+
+`ifdef CORE_VERBOSITY
+  function void alu_trace_log(int file);
+    // $fwrite(file,"\nALU");
+    $fwrite(file, "\nTime: %1t ALU, alu1_i: 0x%8h, alu2_i: 0x%8h, alu_op_i: %0b,  result_o: 0x%8h",$time,alu1_i,alu2_i,alu_op_i,result_o);
+  endfunction
+`endif 
 
 endmodule

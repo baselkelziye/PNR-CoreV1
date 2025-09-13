@@ -48,6 +48,7 @@ module instruction_decode(
 
 	//Program Counter
 	output reg [31:0] pc_id_o,
+  output reg [31:0] fetched_instruction_id_o,
 	
 	//Instruction Extraction
 	output reg [2:0] funct3_id_o,
@@ -178,7 +179,8 @@ begin
         funct3_id_o 				     <= 3'b0  ;	
         unconditional_branch_id_o        <= 1'b0  ;
         btb_predicted_pc_id_o 		     <= 32'h0 ;
-        branch_is_taken_prediction_id_o  <= 1'b0  ;      
+        branch_is_taken_prediction_id_o  <= 1'b0  ;   
+        fetched_instruction_id_o         <= 32'h13;   
     end 
     else if(id_flush)
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
@@ -188,31 +190,40 @@ begin
         is_load_instr_id_o			  <= 1'b0 ;
         unconditional_branch_id_o 	  <= 1'b0 ;
         btb_predicted_pc_id_o 	      <= 32'h0;
-        branch_is_taken_prediction_id_o <= 1'b0 ;     
+        branch_is_taken_prediction_id_o <= 1'b0 ;  
+        fetched_instruction_id_o         <= 32'h13;     
     end
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
-        rs1_data_id_o  			        <= rs1_value			          ;
-        rs2_data_id_o  			        <= rs2_value			  		  ;
-        imm_value_id_o 			        <= imm_value			  		  ;
-        load_store_forward_sel_id_o     <= load_store_forward_sel		  ;
-        reg_write_en_id_o 			    <= reg_write_en   		  		  ;
-        rs1_pc_sel_id_o 			    <= rs1_pc_sel	   		  		  ;
-        rs2_imm_sel_id_o 		        <= rs2_imm_sel	   		  		  ;
-        is_branch_instr_id_o		    <= is_branch_instr		  		  ;
-        is_store_instr_id_o 		    <= is_store_instr 		  		  ;
-        is_load_instr_id_o 		        <= is_load_instr  		  		  ;
-        wb_sel_id_o 			        <= wb_sel	 			  		  ;
-        alu_op_id_o 		            <= alu_op	 			  		  ;
-        pc_id_o               		    <= pc_id_i  			  		  ;
-        rd_label_id_o 				    <= rd_label 			  		  ;
-        rs1_label_id_o				    <= rs1_label			  		  ;
-        rs2_label_id_o				    <= rs2_label			  		  ;
-        funct3_id_o   				    <= funct3   			  		  ;
-        unconditional_branch_id_o       <= unconditional_branch  		  ;
-        btb_predicted_pc_id_o 		    <= btb_predicted_pc_id_i		  ;
+        rs1_data_id_o  			            <= rs1_value			                ;
+        rs2_data_id_o  			            <= rs2_value			  		          ;
+        imm_value_id_o 			            <= imm_value			  		          ;
+        load_store_forward_sel_id_o     <= load_store_forward_sel		      ;
+        reg_write_en_id_o 			        <= reg_write_en   		  		      ;
+        rs1_pc_sel_id_o 			          <= rs1_pc_sel	   		  		        ;
+        rs2_imm_sel_id_o 		            <= rs2_imm_sel	   		  		      ;
+        is_branch_instr_id_o		        <= is_branch_instr		  		      ;
+        is_store_instr_id_o 		        <= is_store_instr 		  		      ;
+        is_load_instr_id_o 		          <= is_load_instr  		  		      ;
+        wb_sel_id_o 			              <= wb_sel	 			  		            ;
+        alu_op_id_o 		                <= alu_op	 			  		            ;
+        pc_id_o               		      <= pc_id_i  			  		          ;
+        rd_label_id_o 				          <= rd_label 			  		          ;
+        rs1_label_id_o				          <= rs1_label			  		          ;
+        rs2_label_id_o				          <= rs2_label			  		          ;
+        funct3_id_o   				          <= funct3   			  		          ;
+        unconditional_branch_id_o       <= unconditional_branch  		      ;
+        btb_predicted_pc_id_o 		      <= btb_predicted_pc_id_i		      ;
         branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
+        fetched_instruction_id_o        <= fetched_instruction_id_i       ;
 	end 
   end
+
+`ifdef CORE_VERBOSITY
+  function void id_trace_log(int file);
+    $fwrite(file,"\n***********Instruction Decode Stage****************:");
+    $fwrite(file,"\nTime %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_id_i,pc_id_i);
+  endfunction
+`endif
 
 endmodule

@@ -59,7 +59,7 @@ module instruction_fetch(
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
-      pc_reg <=  32'd0;
+      pc_reg <=  32'h80000000;
     else if(!if_stage_stall)
       pc_reg <= pc_next;
   end
@@ -79,6 +79,7 @@ module instruction_fetch(
 //    assign pc_next = (branch_is_taken_prediction) ? btb_predicted_pc : pc_reg + 32'd4;
 
   instr_cache instr_cache_u(
+    // .rst_i(rst_i),
     .pc_i(pc_reg),
     .instr_o(fetched_instruction));
 
@@ -110,7 +111,7 @@ module instruction_fetch(
     if(rst_i)
       begin
         fetched_instruction_if_o        <= 32'h0;
-        pc_incremented_if_o             <= 32'h0;
+        pc_incremented_if_o             <= 32'h80000000;
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
       end
@@ -129,5 +130,13 @@ module instruction_fetch(
         btb_predicted_pc_if_o           <= btb_predicted_pc;
       end //If There is stall, Latch the last values (No Change)
   end
+
+
+  `ifdef CORE_VERBOSITY
+    function void if_trace_log(int file);
+      $fwrite(file,"\n***********Instruction Fetch Stage****************:");
+      $fwrite(file,"\nTime %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction,pc_reg);
+    endfunction
+  `endif
     
 endmodule
