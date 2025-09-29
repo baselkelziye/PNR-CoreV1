@@ -72,7 +72,8 @@ module instruction_execution(
   output wire increment_counter_ex_o,
   output wire decrement_counter_ex_o,
 
-  input periheral_stall_ex_i
+  input periheral_stall_ex_i,
+  input mem_stage_stall_i
     );
 
   //Branch Jump Unit
@@ -88,7 +89,7 @@ module instruction_execution(
   wire [31:0] rs1_latest_value, rs2_latest_value;
 
   wire ex_stage_stall;
-  assign ex_stage_stall = periheral_stall_ex_i;
+  assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
 
   // assign branching
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
@@ -198,9 +199,10 @@ end
 
 `ifdef CORE_VERBOSITY
   `define ALU_PATH ALU_u
+  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_ex_i, pc_ex_i);
   function void ex_trace_log(int file);
     $fwrite(file,"\n***********Execution Stage****************:");
-    $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_ex_i,pc_ex_i);
+    $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
         alu_op_trace(file);
         branch_op_trace(file);

@@ -79,6 +79,7 @@ wire [31:0] rd_value_mem_ro;
 
 //Wishbone + Peripherals
 wire peripheral_stall_mem_o;
+wire mem_stage_stall;
 //--------------------------------------------
 
 //WriteBack Stage Variable Declarations
@@ -105,7 +106,8 @@ instruction_fetch if_u
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o(btb_predicted_pc_if_o                    ),
   .branch_is_taken_prediction_if_o(branch_is_taken_prediction_if_o),
-  .periheral_stall_if_i(peripheral_stall_mem_o                    )
+  .periheral_stall_if_i(peripheral_stall_mem_o                    ),
+  .mem_stage_stall_i(mem_stage_stall)
 );
 
 instruction_decode id_u
@@ -154,7 +156,8 @@ instruction_decode id_u
   .rd_value_wb_i(rd_value_mem_ro                                  ),
   //Pipeline Control Signals
   .branching_id_i(branching_ex_o                                  ),
-  .peripheral_stall_id_i(peripheral_stall_mem_o                   )
+  .peripheral_stall_id_i(peripheral_stall_mem_o                   ),
+  .mem_stage_stall_i(mem_stage_stall)
 );
 
 instruction_execution ex_u
@@ -210,7 +213,8 @@ instruction_execution ex_u
   .branch_address_ex_o(branch_address_ex_o                        ),
   .increment_counter_ex_o(increment_counter_ex_o                  ),
   .decrement_counter_ex_o(decrement_counter_ex_o                  ),
-  .periheral_stall_ex_i(peripheral_stall_mem_o                    )
+  .periheral_stall_ex_i(peripheral_stall_mem_o                    ),
+  .mem_stage_stall_i(mem_stage_stall)
 );
 
 instruction_memory_stage mem_u
@@ -240,14 +244,15 @@ instruction_memory_stage mem_u
   //Inputs From Writeback Stage    
   .load_value_wb_i(load_value_mem_o                        ),
   //Wisbone + Peripherals
-  .peripheral_stall_o(peripheral_stall_mem_o               )
+  .peripheral_stall_o(peripheral_stall_mem_o               ),
+  .mem_stage_stall_o(mem_stage_stall)
 );
 
 
 `ifdef CORE_VERBOSITY
   int trace_file;
   initial begin
-    trace_file = $fopen("core_trace.log", "w");
+    trace_file = $fopen("trace_core.log", "w");
   end
   `define IF_PATH if_u
   `define ID_PATH id_u

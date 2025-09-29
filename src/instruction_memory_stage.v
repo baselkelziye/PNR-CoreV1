@@ -52,7 +52,9 @@ module instruction_memory_stage
   input wire [31:0] load_value_wb_i,
   
   //Wishbone + Peripherals
-  output wire peripheral_stall_o
+  output wire peripheral_stall_o,
+
+  output mem_stage_stall_o
 );
   //Load-Store Forwarding
   wire [31:0] forwarded_store_value;
@@ -69,6 +71,10 @@ module instruction_memory_stage
   
   wire [31:0] loaded_data, data_read_from_mem;
 
+  //dcache signals
+  wire dcache_stall;
+  wire mem_stage_stall;
+
   //If read from peripheral assign wishbone value
   assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
 
@@ -84,7 +90,7 @@ module instruction_memory_stage
       .read_data_o(data_read_from_mem    )
   );
 
-  l1_data_cache l1_data_cache_u
+  data_mem_subsystem data_mem_subsystem_u
   (
       .clk_i(clk_i                       ),
       .rst_i(rst_i                       ),
@@ -93,6 +99,7 @@ module instruction_memory_stage
       .is_load_instr(is_load_mem_i       ),
       .is_store_instr(is_store_mem_i     ),
       .funct3_i(funct3_mem_i             ),
+      .dcache_stall_o(dcache_stall       ),
       .read_data_o(data_read_from_mem    )
   );
 
@@ -134,7 +141,8 @@ module instruction_memory_stage
       2- Stall if we have peripheral access and we don't have ack
   */
   assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
-
+  assign mem_stage_stall = dcache_stall;
+  assign mem_stage_stall_o = mem_stage_stall;
 
 
   wbs_uart wbs_uart_u
@@ -153,8 +161,8 @@ module instruction_memory_stage
 
 always @(posedge clk_i, posedge rst_i)
   begin
-  if(rst_i | peripheral_stall_o)
-    begin //Since Peripheral Stalls are generated in MEM we need to flush
+  if(rst_i | peripheral_stall_o | mem_stage_stall)
+    begin //Since Peripheral and Cache Stalls are generated in MEM we need to flush
       load_value_mem_o   <= 32'b0;
       rd_label_mem_o     <= 5'b0 ;
       reg_write_en_mem_o <= 1'b0 ;
@@ -162,7 +170,7 @@ always @(posedge clk_i, posedge rst_i)
       is_load_mem_o      <= 1'b0 ;
       rd_value_mem_ro    <= 32'b0;
     end
-  else
+  else //if(!mem_stage_stall)
     begin
       load_value_mem_o   <= loaded_data       ;
       rd_label_mem_o     <= rd_label_mem_i    ;
@@ -175,14 +183,15 @@ always @(posedge clk_i, posedge rst_i)
 
 `ifdef CORE_VERBOSITY
   `define L1_DATA_CACHE_PATH l1_data_cache_u
+  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_mem_i, pc_mem_i);
   function void mem_trace_log(int file);
     $fwrite(file,"\n***********Memory Stage****************:");
-    $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_mem_i,pc_mem_i);
+    $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h", $time, disasm_str,pc_mem_i);
     if(`CORE_VERBOSITY >= 200)begin
       mem_op_trace(file);
     end
     if(`CORE_VERBOSITY >= 400)begin
-      l1_data_cache_u.l1_data_cache_trace_log(file);
+      data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     end
   endfunction
 

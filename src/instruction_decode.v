@@ -70,7 +70,8 @@ module instruction_decode(
 	input wire branching_id_i,
 
 	//Inputs for Wishbone
-	input wire peripheral_stall_id_i
+	input wire peripheral_stall_id_i,
+  input wire mem_stage_stall_i
 );
     
 //Definitions for Instruction Extraction
@@ -108,7 +109,7 @@ assign opcode    = fetched_instruction_id_i[6:0  ];
     
     
 assign load_stall_id_o = load_stall;
-assign id_stage_stall  =  peripheral_stall_id_i;
+assign id_stage_stall  =  peripheral_stall_id_i | mem_stage_stall_i;
 assign id_flush        = load_stall | branching_id_i;
 
 register_file register_file_u
@@ -172,7 +173,7 @@ begin
         is_load_instr_id_o           	 <= 1'b0  ;
         wb_sel_id_o 				     <= 2'b00 ;
         alu_op_id_o 				     <= 4'b0  ;
-        pc_id_o 			             <= -32'h4;
+        pc_id_o 			             <= 32'h80000000;
         rd_label_id_o 			         <= 5'b0  ;
         rs1_label_id_o 		          	 <= 5'b0  ;
         rs2_label_id_o 		          	 <= 5'b0  ;	
@@ -220,9 +221,10 @@ begin
   end
 
 `ifdef CORE_VERBOSITY
+  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_id_i, pc_id_i);
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
-    $fwrite(file,"\nTime %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_id_i,pc_id_i);
+    $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
   endfunction
 `endif
 
