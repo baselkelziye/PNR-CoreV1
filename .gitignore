@@ -9,4 +9,4 @@
 /tests/cocotb/results.xml
 /tests/riscof_integration/artifacts/
 /tests/riscof_integration/riscof_work/
-/tests/riscof_integration/core_trace.log
+/tests/riscof_integration/trace_core.log

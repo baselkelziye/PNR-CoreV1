@@ -18,9 +18,9 @@ OBJDIR := obj
 # Binary output
 BIN := $(OBJDIR)/V$(TOP_MODULE)
 
-# Common Verilator flags
+# Common Verilator flags 
 VERILATOR_FLAGS := --cc --exe -j 4 --timescale 1ns/1ps -I$(SRC_DIR) \
-                   --Wno-fatal -DCORE_VERBOSITY=$(CORE_VERBOSITY)
+                   --Wno-fatal  -DCORE_VERBOSITY=$(CORE_VERBOSITY)
 
 TRACE_SWITCH  := $(if $(filter 1,$(trace)),--trace,)
 CFLAGS_EXTRA  := $(if $(filter 1,$(trace)),-DTRACE,)
@@ -34,7 +34,7 @@ build: $(BIN)
 $(BIN): $(SRCS) $(MAIN)
 	$(VERILATOR) $(VERILATOR_FLAGS) $(TRACE_SWITCH) -Mdir $(OBJDIR) \
 		--top-module $(TOP_MODULE) $(SRCS) $(abspath $(MAIN)) \
-		-CFLAGS "-I$(SRC_DIR) $(CFLAGS_EXTRA)"
+		-CFLAGS  -DVL_DEBUG"-I$(SRC_DIR) $(CFLAGS_EXTRA)"
 	$(MAKE) -C $(OBJDIR) -j -f V$(TOP_MODULE).mk V$(TOP_MODULE)
 
 run: build
@@ -42,4 +42,4 @@ run: build
 
 # ---- Clean ----
 clean:
-	rm -rf $(OBJDIR) core.vcd memory_dump.txt register_dump.txt DUT.signature
+	rm -rf $(OBJDIR) core.vcd memory_dump.txt register_dump.txt DUT.signature trace_core.log
