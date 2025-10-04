@@ -104,6 +104,7 @@ always @(*) begin
                 if(is_store_instr_i) begin //Store miss, If dirty=1, Write back to not lose the data
                     if(indexed_dirty_bit_i) begin
                         state_next = WRITE_BACK;
+                        start_ram_wr_next = 1'b1;
                     end else begin //If dirty is not set, Write to cache
                         dcache_cntrl_valid_bit = 1'b1;
                         dcache_cntrl_dirty_bit = 1'b1;
@@ -114,24 +115,25 @@ always @(*) begin
                 end
                 end else begin //Load Miss, Go to Allocate
                     if(indexed_dirty_bit_i) begin //Here we have Dirty Bit, We need to Write to RAM before Allocating
+                        start_ram_wr_next = 1'b1;
                         state_next = WRITE_BACK;
                     end else begin
+                        start_ram_rd_next = 1'b1;
                         state_next = ALLOCATE;
                     end
                 end
             end
         end
         WRITE_BACK: begin
-            start_ram_wr_next = 1'b1;
-            if(start_ram_wr_next & ram_wr_done_i) begin //Ram Access is Done
-                start_ram_wr_next = 1'b0;
+            start_ram_wr_next = 1'b0;
+            if(~start_ram_wr_reg & ram_wr_done_i) begin //Ram Access is Done
+                start_ram_rd_next = 1'b1;
                 state_next      = ALLOCATE; //Go Allocate the requested block from RAM
             end 
         end
         ALLOCATE : begin
-            start_ram_rd_next = 1'b1;
-            if(start_ram_rd_next & ram_rd_done_i) begin //When we Allocate Data, We should Update our Tag Array
-                start_ram_rd_next = 1'b0;
+            start_ram_rd_next = 1'b0;
+            if(~start_ram_rd_reg & ram_rd_done_i) begin //When we Allocate Data, We should Update our Tag Array
                 dcache_cntrl_valid_bit    = 1'b1;
                 dcache_cntrl_dirty_bit    = 1'b0;// Fresh Data
                 dcache_cntrl_tag          = tag_i;

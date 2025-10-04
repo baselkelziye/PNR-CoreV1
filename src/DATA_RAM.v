@@ -25,15 +25,15 @@ module DATA_RAM
 );
 
 parameter MEM_BASE = 32'h00000000;
-parameter MEM_SIZE = 32'h20000; // 2 MB is safe for most RISCOF tests
+parameter MEM_SIZE = 32'h2000; // 2 MB is safe for most RISCOF tests
 localparam [2:0] IDLE       = 3'b000,
                  WRITE_WORD = 3'b001,
                  WRITE_DONE = 3'b010,
-                 READ_WORD  = 3'b010,
-                 READ_DONE  = 3'b011;
+                 READ_WORD  = 3'b011,
+                 READ_DONE  = 3'b100;
 `include "encodings.vh"
-// (* verilator public_flat_rw *)
-  reg [31:0] RAM [0:MEM_SIZE-1];
+
+reg [31:0] RAM [0:MEM_SIZE-1];
 
 reg ram_wr_done_reg, ram_wr_done_next;
 reg ram_rd_done_reg, ram_rd_done_next;
@@ -69,11 +69,11 @@ always @* begin
     ram_rd_done_next  = 1'b0;
     case (ram_state_reg)
         IDLE: begin
+            word_write_counter_next = 0;
+            word_read_counter_next  = 0;
             if(start_ram_write_i) begin
-                word_write_counter_next = 0;
                 ram_state_next = WRITE_WORD;
             end else if(start_ram_read_i) begin
-                word_read_counter_next  = 0;
                 ram_state_next = READ_WORD;
             end
         end
@@ -124,7 +124,7 @@ end
 //Read Block
 always @(posedge clk_i) begin
     if(read_ram_enable) begin
-        rd_data_word[i] <= RAM[rd_data_addr_i + word_read_counter_reg];
+        rd_data_word[word_read_counter_reg] <= RAM[rd_data_addr_i + word_read_counter_reg];
     end
 end
 
@@ -143,25 +143,31 @@ reg [127:0] ram_state_str_reg,ram_state_str_next; // enough width to hold your l
 
 always @* begin
   case (ram_state_reg)
-    IDLE:        ram_state_str_reg = "IDLE";
+    IDLE      : ram_state_str_reg = "IDLE";
     WRITE_WORD: ram_state_str_reg = "WRITE_WORD";
-    WRITE_DONE:  ram_state_str_reg = "WRITE_DONE";
-    default:     ram_state_str_reg = "UNKNOWN";
+    WRITE_DONE: ram_state_str_reg = "WRITE_DONE";
+    READ_WORD : ram_state_str_reg = "READ_WORD";
+    READ_DONE : ram_state_str_reg = "READ_DONE";
+    default   : ram_state_str_reg = "UNKNOWN";
   endcase
 end
 
 always @* begin
   case (ram_state_next)
-    IDLE:        ram_state_str_next = "IDLE";
+    IDLE      : ram_state_str_next = "IDLE";
     WRITE_WORD: ram_state_str_next = "WRITE_WORD";
-    WRITE_DONE:  ram_state_str_next = "WRITE_DONE";
-    default:     ram_state_str_next = "UNKNOWN";
+    WRITE_DONE: ram_state_str_next = "WRITE_DONE";
+    READ_WORD : ram_state_str_next = "READ_WORD";
+    READ_DONE : ram_state_str_next = "READ_DONE";
+    default   : ram_state_str_next = "UNKNOWN";
   endcase
 end
 
-`endif
 function void DATA_RAM_trace_log(int file);
     $fwrite(file,"\nTime: %1t, DATA_RAM, ram_state_reg: %0s, ram_state_next: %0s, start_ram_write_i: %b, start_ram_read_i: %b, ram_wr_done_o: %b, ram_rd_done_o: %b", $time, ram_state_str_reg,ram_state_str_next,start_ram_write_i,start_ram_read_i,ram_wr_done_o,ram_rd_done_o);
 endfunction
+
+`endif
+
 
 endmodule

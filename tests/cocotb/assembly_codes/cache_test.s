@@ -12,3 +12,6 @@ srli x13,x13,12
 sw x14, 0(x13) #Old value should go and be store in DATA RAM
 
 lw x15 0 x0 #This should make us Bring back the data from RAM.
+NOP
+NOP
+NOP
