@@ -33,6 +33,7 @@ localparam [2:0] IDLE       = 3'b000,
                  READ_DONE  = 3'b100;
 `include "encodings.vh"
 
+// (* verilator public *) reg [31:0] RAM [0:MEM_SIZE-1];
 reg [31:0] RAM [0:MEM_SIZE-1];
 
 reg ram_wr_done_reg, ram_wr_done_next;
@@ -78,7 +79,7 @@ always @* begin
             end
         end
         WRITE_WORD: begin
-            if(word_write_counter_reg == WORDS_PER_LINE-1) begin
+            if(word_write_counter_reg == WORDS_PER_LINE) begin
                 write_ram_enable = 1'b0;
                 ram_state_next = WRITE_DONE;
             end else begin
@@ -92,7 +93,7 @@ always @* begin
         end
 
         READ_WORD: begin
-            if(word_read_counter_reg == WORDS_PER_LINE-1) begin
+            if(word_read_counter_reg == WORDS_PER_LINE) begin
                 read_ram_enable = 1'b0;
                 ram_state_next  = READ_DONE;
             end else begin
@@ -117,14 +118,14 @@ end
 
 always @(posedge clk_i) begin
     if(write_ram_enable) begin
-        RAM[wr_data_addr_i + word_write_counter_reg] <= wr_data_i[word_write_counter_reg];
+        RAM[{wr_data_addr_i , word_write_counter_reg}] <= wr_data_i[word_write_counter_reg];
     end
 end
 
 //Read Block
 always @(posedge clk_i) begin
     if(read_ram_enable) begin
-        rd_data_word[word_read_counter_reg] <= RAM[rd_data_addr_i + word_read_counter_reg];
+        rd_data_word[word_read_counter_reg] <= RAM[{rd_data_addr_i , word_read_counter_reg}];
     end
 end
 
@@ -164,7 +165,26 @@ always @* begin
 end
 
 function void DATA_RAM_trace_log(int file);
+    integer i;
     $fwrite(file,"\nTime: %1t, DATA_RAM, ram_state_reg: %0s, ram_state_next: %0s, start_ram_write_i: %b, start_ram_read_i: %b, ram_wr_done_o: %b, ram_rd_done_o: %b", $time, ram_state_str_reg,ram_state_str_next,start_ram_write_i,start_ram_read_i,ram_wr_done_o,ram_rd_done_o);
+    $fwrite(file,"\nTime: %1t, DATA_RAM,  wr_data_addr_i: 0x%h ",$time,{wr_data_addr_i,2'b00});
+    for(i = 0; i < WORDS_PER_LINE; i = i + 1) begin
+        $fwrite(file, "wr_data_i[%1d] : 0x%h ",i, wr_data_i[i]);
+    end
+    $fwrite(file, "rd_data_addr_i: 0x%h ", {rd_data_addr_i,2'b00} );
+    for(i = 0; i < WORDS_PER_LINE; i = i + 1) begin
+        $fwrite(file, "rd_data_o[%1d] : 0x%h ",i, rd_data_o[i]);
+    end
+endfunction
+
+function void memory_dump(int mem_dump_file, int cycle);
+    int i;
+    $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
+    for (i = 0; i < 100; i = i + 1) begin
+        // Print each memory location as "address: value"
+        $fwrite(mem_dump_file, "0x%h: 0x%h\n", i, RAM[i]);
+    end
+    $fwrite(mem_dump_file, "0x%h: 0x%h\n", 32'h6600,RAM[16'h6600]);
 endfunction
 
 `endif

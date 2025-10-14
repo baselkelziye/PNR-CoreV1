@@ -21,11 +21,15 @@ module l1_dcache_array
     input [INDEX_BITS-1:0] index_bits_i,
     input [BYTE_OFF_BITS-1:0] byte_off_i,
     input [WORD_OFF_BITS-1:0] word_off_i,
-    input update_entry_i,
+    // input update_entry_i,
     // Value Inputs
     input dirty_bit_i,
     input valid_bit_i,
     input [TAG_SIZE-1:0] tag_i,
+    input [DATA_WIDTH-1:0] ram_rd_data_i[0:WORDS_PER_LINE-1],
+
+    input update_entry_cpu_i,
+    input update_entry_mem_i,
     
     //outputs to cache controller
     output indexed_dirty_bit_o,
@@ -49,48 +53,57 @@ reg [DATA_WIDTH-1:0]      data_cache [0:ENTRIES-1][0:WORDS_PER_LINE-1]; // the d
 
 // Internal read latch
 reg [DATA_WIDTH-1:0] rd_word;
-
+wire update_entry;
+assign update_entry = update_entry_cpu_i | update_entry_mem_i;
 // Reset
-integer i,j;
+integer i,j,y;
 always @(posedge clk_i or posedge rst_i) begin
   if (rst_i) begin
     for (i=0; i<ENTRIES; i=i+1) begin
       valid_bit[i] <= 1'b0;
       dirty_bit[i] <= 1'b0;
       tag_arr[i]   <= {TAG_SIZE{1'b0}};
+      for(j=0; j < WORDS_PER_LINE-1; j=j+1) begin
+        data_cache[i][j] <= '0;  
+      end
     end
   end else begin
     // store path
-    if (update_entry_i) begin
+    if (update_entry) begin
       valid_bit[index_bits_i] <= valid_bit_i;
       dirty_bit[index_bits_i] <= dirty_bit_i;
       tag_arr[index_bits_i]   <= tag_i;
-
-      case (funct3_i)
-        `SB_FUNCT3: begin
-          // write a single byte inside the word
-          case (byte_off_i)
-            2'd0: data_cache[index_bits_i][word_off_i][ 7: 0] <= write_data_i[7:0];
-            2'd1: data_cache[index_bits_i][word_off_i][15: 8] <= write_data_i[7:0];
-            2'd2: data_cache[index_bits_i][word_off_i][23:16] <= write_data_i[7:0];
-            2'd3: data_cache[index_bits_i][word_off_i][31:24] <= write_data_i[7:0];
-          endcase
-        end
-        `SH_FUNCT3: begin
-          // write a halfword
-          if (byte_off_i[1]==1'b0)
-            data_cache[index_bits_i][word_off_i][15:0]  <= write_data_i[15:0];
-          else
-            data_cache[index_bits_i][word_off_i][31:16] <= write_data_i[15:0];
-        end
-        `SW_FUNCT3: begin
-          // write full word
-          data_cache[index_bits_i][word_off_i] <= write_data_i;
-        end
-        default: begin
-          data_cache[index_bits_i][word_off_i] <= 32'hD8C7B6A5;
-        end
-      endcase
+      if(update_entry_cpu_i) begin
+        case (funct3_i)
+          `SB_FUNCT3: begin
+            // write a single byte inside the word
+            case (byte_off_i)
+              2'd0: data_cache[index_bits_i][word_off_i][ 7: 0] <= write_data_i[7:0];
+              2'd1: data_cache[index_bits_i][word_off_i][15: 8] <= write_data_i[7:0];
+              2'd2: data_cache[index_bits_i][word_off_i][23:16] <= write_data_i[7:0];
+              2'd3: data_cache[index_bits_i][word_off_i][31:24] <= write_data_i[7:0];
+            endcase
+          end
+          `SH_FUNCT3: begin
+            // write a halfword
+            if (byte_off_i[1]==1'b0)
+              data_cache[index_bits_i][word_off_i][15:0]  <= write_data_i[15:0];
+            else
+              data_cache[index_bits_i][word_off_i][31:16] <= write_data_i[15:0];
+          end
+          `SW_FUNCT3: begin
+            // write full word
+            data_cache[index_bits_i][word_off_i] <= write_data_i;
+          end
+          default: begin
+            data_cache[index_bits_i][word_off_i] <= 32'hD8C7B6A5;
+          end
+        endcase
+      end else begin // write from mem
+          for(y = 0; y < WORDS_PER_LINE; y=y+1) begin
+            data_cache[index_bits_i][y] <= ram_rd_data_i[y];
+          end
+      end
     end
 
   end
@@ -108,7 +121,7 @@ end
   
   function void l1_dcache_array_trace_log(int file);
   integer idx, widx;
-    $fwrite(file, "\nTime: %1t, Cache Array, index_bits: %d,  indexed_valid: %b, indexed_dirty: %b, indexed_tag: %x, update_entry_i: %b, valid_bit_i: %b, dirty_bit_i: %b, tag_i: %x, write_data_i: %x",$time, index_bits_i,indexed_valid_bit_o,indexed_dirty_bit_o,indexed_tag_o, update_entry_i,valid_bit_i,dirty_bit_i,tag_i,write_data_i);
+    $fwrite(file, "\nTime: %1t, Cache Array, index_bits: %d,  indexed_valid: %b, indexed_dirty: %b, indexed_tag: %x, update_entry_cpu_i: %b, update_entry_mem_i: %b, valid_bit_i: %b, dirty_bit_i: %b, tag_i: %x, write_data_i: %x",$time, index_bits_i,indexed_valid_bit_o,indexed_dirty_bit_o,indexed_tag_o, update_entry_cpu_i, update_entry_mem_i,valid_bit_i,dirty_bit_i,tag_i,write_data_i);
     if(`CORE_VERBOSITY >= 600) begin
       
     

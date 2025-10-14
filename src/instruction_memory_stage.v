@@ -78,17 +78,17 @@ module instruction_memory_stage
   //If read from peripheral assign wishbone value
   assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
 
-  datum_cache datum_cache_u
-  (
-      .clk_i(clk_i                       ),
-      .rst_i(rst_i                       ),
-      .address_i(alu_result_mem_i        ),
-      .write_data_i(forwarded_store_value),
-      .is_load_instr(is_load_mem_i       ),
-      .is_store_instr(is_store_mem_i     ),
-      .funct3_i(funct3_mem_i             ),
-      .read_data_o(data_read_from_mem    )
-  );
+  // datum_cache datum_cache_u
+  // (
+  //     .clk_i(clk_i                       ),
+  //     .rst_i(rst_i                       ),
+  //     .address_i(alu_result_mem_i        ),
+  //     .write_data_i(forwarded_store_value),
+  //     .is_load_instr(is_load_mem_i       ),
+  //     .is_store_instr(is_store_mem_i     ),
+  //     .funct3_i(funct3_mem_i             ),
+  //     .read_data_o(data_read_from_mem    )
+  // );
 
   data_mem_subsystem data_mem_subsystem_u
   (
@@ -184,15 +184,18 @@ always @(posedge clk_i, posedge rst_i)
 `ifdef CORE_VERBOSITY
   `define L1_DATA_CACHE_PATH l1_data_cache_u
   wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_mem_i, pc_mem_i);
-  function void mem_trace_log(int file);
+  function void mem_trace_log(int file, int mem_dump_file,int cycle);
     $fwrite(file,"\n***********Memory Stage****************:");
-    $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h", $time, disasm_str,pc_mem_i);
+    $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, Instruction(x): 0x%8h", $time, disasm_str,pc_mem_i,fetched_instruction_mem_i);
     if(`CORE_VERBOSITY >= 200)begin
       mem_op_trace(file);
     end
     if(`CORE_VERBOSITY >= 400)begin
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     end
+    `ifdef MEM_DUMP
+    data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);
+    `endif
   endfunction
 
   function void mem_op_trace(int file);

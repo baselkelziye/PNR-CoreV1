@@ -251,20 +251,34 @@ instruction_memory_stage mem_u
 
 `ifdef CORE_VERBOSITY
   int trace_file;
+  int memory_dump;
   initial begin
-    trace_file = $fopen("trace_core.log", "w");
+    trace_file  = $fopen("trace_core.log", "w");
+    memory_dump = $fopen("memory_dump.log","w");
   end
   `define IF_PATH if_u
   `define ID_PATH id_u
   `define EX_PATH ex_u
   `define MEM_PATH mem_u
+  reg  [11:0] cycle_reg;
+  wire [11:0] cycle_next;
+
+  always @(posedge clk_i) begin
+    if(rst_i) begin
+      cycle_reg <= 0;
+    end else begin
+      cycle_reg <= cycle_next;
+    end
+  end
+  assign cycle_next = cycle_reg + 12'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
-    $fwrite(trace_file,"\n\n");
+    $fwrite(trace_file,"\n");
+    $fwrite(trace_file, "Cycle: %d", cycle_reg);
     if_u.if_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
-    mem_u.mem_trace_log(trace_file);
+    mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
 end
 `endif

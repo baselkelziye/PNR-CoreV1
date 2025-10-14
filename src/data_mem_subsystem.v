@@ -14,7 +14,7 @@ module data_mem_subsystem #(
     input              is_store_instr,
     input      [2:0 ]  funct3_i,
     output             dcache_stall_o,
-    output reg [31:0]  read_data_o
+    output     [31:0]  read_data_o
 );
 
 // Address field sizes
@@ -33,13 +33,16 @@ wire [TAG_SIZE-1:0]       tag        = address_i[ADDRESS_WIDTH-1 :
 //Signals From dcache array -> dcache controller
 wire indexed_dirty_bit,indexed_valid_bit;
 wire [TAG_SIZE-1:0] indexed_tag;
+wire [TAG_SIZE-1:0] dcache_cntrl_tag_o;
 
 //Signals From dcache controller -> dcache array
 wire dcache_cntrl_valid_bit_o, dcache_cntrl_dirty_bit_o,dcache_cntrl_update_entry_o;
-wire [TAG_SIZE-1:0] dcache_cntrl_update_entry_o;
 
 //dcache controller -> RAM
 wire [ADDRESS_WIDTH-1-2:0] ram_wr_addr;
+//RAM-> dcache array tag
+wire [ADDRESS_WIDTH-1-2:0] ram_rd_addr;
+
 wire start_ram_write,start_ram_read;
 
 //Ram -> dcache controller
@@ -49,74 +52,84 @@ wire ram_wr_done, ram_rd_done;
 wire [DATA_WIDTH-1:0] dcache_array_dline_wr[0:WORDS_PER_LINE-1];
 wire [DATA_WIDTH-1:0] dcache_array_dline_rd[0:WORDS_PER_LINE-1];
 
-assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}};
+assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
+assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:2],{WORD_OFF_BITS{1'b0}}};
+assign read_data_o = dcache_array_dline_wr[word_off];
 
 l1_dcache_array #(
-    .ENTRIES(ENTRIES),
-    .WORDS_PER_LINE(WORDS_PER_LINE),
-    .ADDRESS_WIDTH(ADDRESS_WIDTH),
-    .DATA_WIDTH(DATA_WIDTH)
+    .ENTRIES        (   ENTRIES         ),
+    .WORDS_PER_LINE (   WORDS_PER_LINE  ),
+    .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
+    .DATA_WIDTH     (   DATA_WIDTH      )
 ) l1_dcache_array_u
 (
-    .clk_i(clk_i                       ),
-    .rst_i(rst_i                       ),
-    .write_data_i(write_data_i         ),
-    .funct3_i(funct3_i             ),
-    .index_bits_i(index_bits           ),
-    .byte_off_i(byte_off               ),
-    .word_off_i(word_off               ),
-    .update_entry_i(dcache_cntrl_update_entry_o),
-    .dirty_bit_i(dcache_cntrl_dirty_bit_o),
-    .valid_bit_i(dcache_cntrl_valid_bit_o),
-    .tag_i(dcache_cntrl_tag_o             ),
-    .indexed_dirty_bit_o(indexed_dirty_bit),
-    .indexed_valid_bit_o(indexed_valid_bit),
-    .indexed_tag_o(indexed_tag),
-    .ram_wr_data_o(dcache_array_dline_wr    )
+    .clk_i              (   clk_i                           ),
+    .rst_i              (   rst_i                           ),
+    .write_data_i       (   write_data_i                    ),
+    .funct3_i           (   funct3_i                        ),
+    .index_bits_i       (   index_bits                      ),
+    .byte_off_i         (   byte_off                        ),
+    .word_off_i         (   word_off                        ),
+    // .update_entry_i     (   dcache_cntrl_update_entry_o     ),
+    .update_entry_cpu_i (   dcache_cntrl_update_entry_cpu   ),
+    .update_entry_mem_i (   dcache_cntrl_update_entry_mem   ),
+    .dirty_bit_i        (   dcache_cntrl_dirty_bit_o        ),
+    .valid_bit_i        (   dcache_cntrl_valid_bit_o        ),
+    .tag_i              (   dcache_cntrl_tag_o              ),
+    .ram_rd_data_i      (   dcache_array_dline_rd           ),
+    .indexed_dirty_bit_o(   indexed_dirty_bit               ),
+    .indexed_valid_bit_o(   indexed_valid_bit               ),
+    .indexed_tag_o      (   indexed_tag                     ),
+    .ram_wr_data_o      (   dcache_array_dline_wr           )
 );
+
+logic dcache_cntrl_update_entry_cpu,dcache_cntrl_update_entry_mem;
 
 l1_dcache_controller l1_dcache_controller_u
 (
-    .clk_i(clk_i                          ),
-    .rst_i(rst_i                          ),
-    .is_load_instr_i(is_load_instr          ),
-    .is_store_instr_i(is_store_instr        ),
+    .clk_i                           (   clk_i                          ),
+    .rst_i                           (   rst_i                          ),
+    .is_load_instr_i                 (   is_load_instr                  ),
+    .is_store_instr_i                (   is_store_instr                 ),
     //The tag of the current address_i
-    .tag_i(tag                            ),
+    .tag_i                           (   tag                            ),
     //Indexed Valid, Dirty and Tags from dcache_array
-    .indexed_tag_i(indexed_tag            ),
-    .indexed_dirty_bit_i(indexed_dirty_bit),
-    .indexed_valid_bit_i(indexed_valid_bit),
-    .dcache_stall_o(dcache_stall_o          ),
-    .dcache_cntrl_valid_bit_o(dcache_cntrl_valid_bit_o),
-    .dcache_cntrl_dirty_bit_o(dcache_cntrl_dirty_bit_o),
-    .dcache_cntrl_tag_o(dcache_cntrl_tag_o),
-    .dcache_cntrl_update_entry_o(dcache_cntrl_update_entry_o),
-    //Outputs to RAM memory
-    .start_ram_write_o(start_ram_write),
-    .start_ram_read_o(start_ram_read),
-    //Inputs from RAM Memory
-    .ram_wr_done_i(ram_wr_done),
-    .ram_rd_done_i(ram_rd_done)
+    .indexed_tag_i                   (   indexed_tag                    ),
+    .indexed_dirty_bit_i             (   indexed_dirty_bit              ),
+    .indexed_valid_bit_i             (   indexed_valid_bit              ),
+    .indexed_data_raw_i              (   dcache_array_dline_wr          ),
+    .dcache_stall_o                  (   dcache_stall_o                 ),
+    .dcache_cntrl_valid_bit_o        (   dcache_cntrl_valid_bit_o       ),
+    .dcache_cntrl_dirty_bit_o        (   dcache_cntrl_dirty_bit_o       ),
+    .dcache_cntrl_tag_o              (   dcache_cntrl_tag_o             ),
+    // .dcache_cntrl_update_entry_o     (   dcache_cntrl_update_entry_o    ),
+    .dcache_cntrl_update_entry_cpu_o (   dcache_cntrl_update_entry_cpu  ),
+    .dcache_cntrl_update_entry_mem_o (   dcache_cntrl_update_entry_mem  ),
+    //Outputs to RAM memory 
+    .start_ram_write_o               (   start_ram_write                ),
+    .start_ram_read_o                (   start_ram_read                 ),
+    //Inputs from RAM Memory 
+    .ram_wr_done_i                   (   ram_wr_done                    ),
+    .ram_rd_done_i                   (   ram_rd_done                    )
 );
 
 
 DATA_RAM #(
-    .WORDS_PER_LINE(WORDS_PER_LINE),
-    .ADDRESS_WIDTH(ADDRESS_WIDTH),
-    .DATA_WIDTH(DATA_WIDTH)
+    .WORDS_PER_LINE (   WORDS_PER_LINE  ),
+    .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
+    .DATA_WIDTH     (   DATA_WIDTH      )
 )
 DATA_RAM_u(
-    .clk_i(clk_i),
-    .rst_i(rst_i),
-    .wr_data_i(dcache_array_dline_wr),
-    .rd_data_addr_i(),
-    .wr_data_addr_i(ram_wr_addr),
-    .start_ram_write_i(start_ram_write),
-    .start_ram_read_i(start_ram_read),
-    .rd_data_o(dcache_array_dline_rd),
-    .ram_wr_done_o(ram_wr_done),
-    .ram_rd_done_o(ram_rd_done)
+    .clk_i              (   clk_i                   ),
+    .rst_i              (   rst_i                   ),
+    .wr_data_i          (   dcache_array_dline_wr   ),
+    .rd_data_addr_i     (   ram_rd_addr             ),
+    .wr_data_addr_i     (   ram_wr_addr             ),
+    .start_ram_write_i  (   start_ram_write         ),
+    .start_ram_read_i   (   start_ram_read          ),
+    .rd_data_o          (   dcache_array_dline_rd   ),
+    .ram_wr_done_o      (   ram_wr_done             ),
+    .ram_rd_done_o      (   ram_rd_done             )
     
 );
 `ifdef CORE_VERBOSITY

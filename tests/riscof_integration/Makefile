@@ -22,8 +22,7 @@ BIN_BASIC := $(OBJDIR_BASIC)/V$(TOP_MODULE)
 
 # Common Verilator flags (using SRC_DIR variable)
 VERILATOR_FLAGS := --cc --exe -j 4 --timescale 1ns/1ps -I$(SRC_DIR) \
-                   --Wno-fatal -DCORE_VERBOSITY=$(CORE_VERBOSITY)
-
+                   --Wno-fatal --public -DCORE_VERBOSITY=$(CORE_VERBOSITY)
 TRACE_SWITCH  := $(if $(filter 1,$(trace)),--trace,)
 CFLAGS_EXTRA  := $(if $(filter 1,$(trace)),-DTRACE,)
 
@@ -35,7 +34,7 @@ build-riscof: $(BIN_RISCOF)
 $(BIN_RISCOF): $(SRCS) $(RISCOF_MAIN)
 	$(VERILATOR) $(VERILATOR_FLAGS) $(TRACE_SWITCH) -Mdir $(OBJDIR_RISCOF) \
     --top-module $(TOP_MODULE) $(SRCS) $(abspath $(RISCOF_MAIN)) \
-    -CFLAGS "-I$(SRC_DIR) $(CFLAGS_EXTRA)"
+    -CFLAGS "-I$(SRC_DIR) $(CFLAGS_EXTRA)" --trace
 	$(MAKE) -C $(OBJDIR_RISCOF) -j -f V$(TOP_MODULE).mk V$(TOP_MODULE)
 
 riscof: build-riscof

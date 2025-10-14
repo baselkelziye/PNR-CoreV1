@@ -15,3 +15,4 @@ lw x15 0 x0 #This should make us Bring back the data from RAM.
 NOP
 NOP
 NOP
+jal x0, 0 #Endless loop

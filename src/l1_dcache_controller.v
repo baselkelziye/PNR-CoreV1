@@ -16,16 +16,19 @@ module l1_dcache_controller
     input              is_load_instr_i,
     input              is_store_instr_i,
 
-    input [TAG_SIZE-1:0] tag_i,
-    input [TAG_SIZE-1:0] indexed_tag_i,
-    input                indexed_dirty_bit_i,
-    input                indexed_valid_bit_i,
+    input [TAG_SIZE-1:0]   tag_i,
+    input [TAG_SIZE-1:0]   indexed_tag_i,
+    input                  indexed_dirty_bit_i,
+    input                  indexed_valid_bit_i,
+    input [DATA_WIDTH-1:0] indexed_data_raw_i[0:WORDS_PER_LINE-1],
 
-    output               dcache_stall_o,
-    output               dcache_cntrl_valid_bit_o,
-    output               dcache_cntrl_dirty_bit_o,
-    output [TAG_SIZE-1:0] dcache_cntrl_tag_o,
-    output               dcache_cntrl_update_entry_o,
+    output                 dcache_stall_o,
+    output                 dcache_cntrl_valid_bit_o,
+    output                 dcache_cntrl_dirty_bit_o,
+    output [TAG_SIZE-1:0]  dcache_cntrl_tag_o,
+    // output               dcache_cntrl_update_entry_o,
+    output               dcache_cntrl_update_entry_cpu_o, // Write to data cache line from CPU
+    output               dcache_cntrl_update_entry_mem_o, // Write to data cache line from MEM
 
     //Outputs to RAM DATA
     output               start_ram_write_o,
@@ -49,9 +52,11 @@ reg cache_access_stall_reg, cache_access_stall_next;
 reg cache_hit;
 reg dcache_cntrl_valid_bit, dcache_cntrl_dirty_bit;
 reg [TAG_SIZE-1:0]  dcache_cntrl_tag;
-reg dcache_cntrl_update_entry;
+// reg dcache_cntrl_update_entry;
+reg update_entry_cpu, update_entry_mem;
 reg start_ram_wr_reg, start_ram_wr_next;
 reg start_ram_rd_reg, start_ram_rd_next;
+reg [DATA_WIDTH-1:0] updated_data_raw [0:WORDS_PER_LINE-1];
 always @(posedge clk_i) begin
     if(rst_i) begin
         state_reg <= IDLE;
@@ -76,7 +81,10 @@ always @(*) begin
     dcache_cntrl_valid_bit = 1'b0;
     dcache_cntrl_dirty_bit = 1'b0;
     dcache_cntrl_tag       = '0;
-    dcache_cntrl_update_entry = 1'b0;
+    // dcache_cntrl_update_entry = 1'b0;
+    update_entry_cpu = 1'b0;
+    update_entry_mem = 1'b0;
+    
     start_ram_rd_next = start_ram_rd_reg;
     start_ram_wr_next = start_ram_wr_reg;
     case (state_reg)
@@ -93,7 +101,8 @@ always @(*) begin
                     dcache_cntrl_valid_bit = 1'b1;
                     dcache_cntrl_dirty_bit = 1'b1;
                     dcache_cntrl_tag       = tag_i;
-                    dcache_cntrl_update_entry = 1'b1;
+                    // dcache_cntrl_update_entry = 1'b1;
+                    update_entry_cpu          = 1'b1;
                     cache_access_stall_next = 1'b0;
                     state_next             = IDLE;
                 end else begin //Here we read directly the values.
@@ -109,7 +118,8 @@ always @(*) begin
                         dcache_cntrl_valid_bit = 1'b1;
                         dcache_cntrl_dirty_bit = 1'b1;
                         dcache_cntrl_tag       = tag_i;
-                        dcache_cntrl_update_entry = 1'b1;
+                        // dcache_cntrl_update_entry = 1'b1;
+                        update_entry_cpu          = 1'b1;
                         cache_access_stall_next = 1'b0;
                         state_next             = IDLE;
                 end
@@ -137,7 +147,8 @@ always @(*) begin
                 dcache_cntrl_valid_bit    = 1'b1;
                 dcache_cntrl_dirty_bit    = 1'b0;// Fresh Data
                 dcache_cntrl_tag          = tag_i;
-                dcache_cntrl_update_entry = 1'b1;
+                update_entry_mem          = 1'b1;
+                // dcache_cntrl_update_entry = 1'b1;
                 state_next                = COMPARE_TAG; //After we Allocate, Go and try to find.
             end 
         end
@@ -148,11 +159,17 @@ always @(*) begin
     endcase
 end
 
+always @(posedge clk_i) begin
+    
+end
+
 assign dcache_stall_o = cache_access_stall_next; //If we capture reg, stall will fire in next cycle and we will miss the mem instruction in mem stage
 assign dcache_cntrl_valid_bit_o = dcache_cntrl_valid_bit;
 assign dcache_cntrl_dirty_bit_o = dcache_cntrl_dirty_bit;
 assign dcache_cntrl_tag_o       = dcache_cntrl_tag;
-assign dcache_cntrl_update_entry_o = dcache_cntrl_update_entry;
+// assign dcache_cntrl_update_entry_o = dcache_cntrl_update_entry;
+assign dcache_cntrl_update_entry_cpu_o = update_entry_cpu;
+assign dcache_cntrl_update_entry_mem_o = update_entry_mem;
 assign start_ram_write_o = start_ram_wr_reg;
 assign start_ram_read_o  = start_ram_rd_reg;
 

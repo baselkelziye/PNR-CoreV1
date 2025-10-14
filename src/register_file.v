@@ -8,8 +8,9 @@ module register_file(
         output [31:0] rs1_data_o, rs2_data_o
 );
 
-// (* verilator public_flat_rw *)
-  reg [31:0] registers[0:31];
+
+// (* verilator public *)  reg [31:0] registers[0:31];
+reg [31:0] registers[0:31];
   integer i;
 
   always @(posedge clk_i, posedge rst_i)

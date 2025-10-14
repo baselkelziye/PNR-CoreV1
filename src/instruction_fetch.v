@@ -122,10 +122,11 @@ module instruction_fetch(
         pc_incremented_if_o             <= 32'hDEADC0DE;
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
+        fetched_instruction_if_o        <= 32'h13;
       end
     else if(!if_stage_stall)
       begin
-        fetched_instruction_if_o        <= fetched_instruction;
+        fetched_instruction_if_o        <= (fetched_instruction == 32'h00130001 | fetched_instruction == 32'h00130000) ? 32'h13 : fetched_instruction;
         pc_incremented_if_o 	          <=  pc_reg;
         branch_is_taken_prediction_if_o <= branch_is_taken_prediction;
         btb_predicted_pc_if_o           <= btb_predicted_pc;
