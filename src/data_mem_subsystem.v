@@ -53,7 +53,7 @@ wire [DATA_WIDTH-1:0] dcache_array_dline_wr[0:WORDS_PER_LINE-1];
 wire [DATA_WIDTH-1:0] dcache_array_dline_rd[0:WORDS_PER_LINE-1];
 
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
-assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:2],{WORD_OFF_BITS{1'b0}}};
+assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:3],{WORD_OFF_BITS{1'b0}}};
 assign read_data_o = dcache_array_dline_wr[word_off];
 
 l1_dcache_array #(

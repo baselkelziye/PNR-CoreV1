@@ -1,18 +1,15 @@
 #include "Vcore.h"
 #include "verilated.h"
 #include "verilated_vcd_c.h"
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
 #include <cstdint>
 #include <cstring>
-#include <sstream>
 #include <unistd.h>
+#include <sstream>
 
-// ========================================================
 // Global simulation time
-// ========================================================
 vluint64_t main_time = 0;
 
 // Called by $time in Verilog
@@ -20,18 +17,19 @@ double sc_time_stamp() {
     return main_time;
 }
 
-// ========================================================
-// Memory configuration
-// ========================================================
-const uint32_t MEM_BASE   = 0x80000000;
-// 0x200000 bytes (2 MB) / 4 bytes/word = 0x80000 words.
-// This is the number of 32-bit elements in your RAM array.
-const uint32_t MEM_WORDS  = 0x80000;
 
-// ========================================================
-// Load memory contents from hex file into 32-bit wide RAM
-// (Uses RMW (Read-Modify-Write) to handle little-endian byte loading)
-// ========================================================
+const uint32_t MEM_BASE = 0x80000000;
+const uint32_t CACHE_SIZE = 0x200000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
+
+// --- L1 Data Cache Geometry Assumptions ---
+// Assuming a 32KB cache with 32-byte lines (typical L1 structure)
+const uint32_t ENTRIES = 64;
+const uint32_t WORDS_PER_LINE = 2;
+const uint32_t LINE_SIZE_BYTES = WORDS_PER_LINE * 4; // 8 bytes per line
+const uint32_t BLOCK_OFFSET_BITS = 3;  // log2(LINE_SIZE_BYTES)
+const uint32_t TAG_SHIFT = 9;          // INDEX_BITS (6) + BLOCK_OFFSET_BITS (3)
+// ------------------------------------------
+
 bool load_data_memory(const char* filename, Vcore* top) {
     std::ifstream mem_file(filename);
     if (!mem_file.is_open()) {
@@ -47,51 +45,32 @@ bool load_data_memory(const char* filename, Vcore* top) {
         std::string addr_str;
         iss >> addr_str;
 
-        uint32_t byte_addr = 0;
+        uint32_t offset = 0;
         std::stringstream ss;
         ss << std::hex << addr_str;
-        ss >> byte_addr;
+        ss >> offset;
 
-        // Calculate offset and index based on byte address
-        uint32_t word_offset = (byte_addr - MEM_BASE) / 4; // Index into the 32-bit RAM array
-        uint32_t byte_index  = (byte_addr - MEM_BASE) % 4; // Byte position within the 32-bit word
-
-        if (word_offset >= MEM_WORDS) {
-            std::cerr << "WARNING: Address out of range: 0x" 
-                      << std::hex << byte_addr << std::endl;
-            continue;
+        if (offset >= CACHE_SIZE) {
+            std::cerr << "WARNING: Address out of range: 0x" << std::hex << offset << std::endl;
+            continue; // skip line
         }
 
         std::string byte_str;
         while (iss >> byte_str) {
             if (byte_str.length() != 2) {
-                std::cerr << "WARNING: Invalid byte format '" 
-                          << byte_str << "'\n";
+                std::cerr << "WARNING: Invalid byte format '" << byte_str << "'\n";
                 break;
             }
 
-            uint8_t byte_val = static_cast<uint8_t>(
-                std::stoul(byte_str, nullptr, 16)
-            );
+            uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
 
-            // Access the 32-bit word element using the word offset
-            // NOTE: Assumes the RAM path structure from our previous conversation.
-            uint32_t& word = 
-                top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[word_offset];
-
-            // 1. Clear the target byte location (0xFF mask shifted by byte_index * 8)
-            word &= ~(0xFFu << (byte_index * 8));
-            // 2. Insert the new byte value (shifted into the correct position)
-            word |= (static_cast<uint32_t>(byte_val) << (byte_index * 8));
-
-            // Move to the next byte position
-            byte_index++;
-            if (byte_index == 4) {
-                // Crossed word boundary, reset byte index and move to next word
-                byte_index = 0;
-                word_offset++;
-                if (word_offset >= MEM_WORDS) break; // End of RAM
+            if (offset >= CACHE_SIZE) {
+                std::cerr << "WARNING: Memory write out of bounds at offset 0x" << std::hex << offset << std::endl;
+                break;
             }
+            // Accessing the RAM array via Verilator-generated path
+            top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset] = byte_val;
+            offset++;
         }
     }
 
@@ -99,63 +78,101 @@ bool load_data_memory(const char* filename, Vcore* top) {
     return true;
 }
 
-// ========================================================
-// Memory dump function (Writes to a specified file)
-// ========================================================
-void dump_memory(Vcore* top, const char* output_filename) {
-    std::ofstream out_file(output_filename);
+// Function to simulate L1 D-Cache write-back to main memory
+void write_back_cache_to_mem(Vcore* top) {
+    std::ofstream marker("artifacts/writeback_marker.txt");
+    marker << "write_back_cache_to_mem() executed\n";
+    marker.close();
 
-    if (!out_file.is_open()) {
-        std::cerr << "ERROR: Cannot create memory dump file: " << output_filename << std::endl;
+    std::cout << "Starting L1 D-Cache write-back to main memory..." << std::endl;
+    std::cout.flush();
+    for (uint32_t i = 0; i < ENTRIES; ++i) {
+        // Accessing valid and dirty bits
+        bool valid = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__valid_bit[i];
+        bool dirty = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__dirty_bit[i];
+        
+        // Always calculate the address if valid for debugging purposes
+        if (valid) {
+            // Reconstruct the physical address
+            uint32_t tag = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__tag_arr[i];
+            
+            // Index i already contains the index bits (since we iterate over ENTRIES)
+            uint32_t physical_line_addr = (tag << TAG_SHIFT) | (i << BLOCK_OFFSET_BITS);
+            
+            // Print statement for all valid lines (for general debug)
+            std::cout << "Entry: " << i << " | Valid (" << (dirty ? "Dirty" : "Clean") << ") Address: 0x" 
+                      << std::hex << std::setw(8) << std::setfill('0') << physical_line_addr 
+                      << std::dec << "\n"; // Use \n instead of endl for performance
+
+            if (dirty) {
+                // Boundary check against the simulated main memory (CACHE_SIZE)
+                if (physical_line_addr < MEM_BASE || (physical_line_addr - MEM_BASE) >= (CACHE_SIZE - LINE_SIZE_BYTES + 1)) {
+                    std::cerr << "WARNING: Write-back target 0x" << std::hex << physical_line_addr 
+                              << " is outside simulated RAM bounds (0x" << (MEM_BASE + CACHE_SIZE) << ")." << std::endl;
+                    continue;
+                }
+
+                // Iterate through the 8 words in the line
+                for (uint32_t j = 0; j < WORDS_PER_LINE; ++j) {
+                    // Accessing the data word
+                    uint32_t word = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__data_cache[i][j];
+                    
+                    uint32_t current_word_addr = physical_line_addr + (j * 4);
+                    uint32_t mem_offset = current_word_addr - MEM_BASE;
+                    
+                    // Write the 4 bytes of the word (little-endian) to the main RAM array
+                    for (int k = 0; k < 4; ++k) {
+                        uint8_t byte_val = (word >> (8 * k)) & 0xFF;
+                        top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset + k] = byte_val;
+                    }
+                }
+            }
+        }
+    }
+    std::cout << "L1 D-Cache write-back complete." << std::endl;
+    std::cout.flush(); // Ensure the final message is also printed
+}
+
+// Function to dump the data memory contents to a file, printing every 4 bytes (a word) per line, including zeros.
+void dump_data_memory(const char* filename, Vcore* top) {
+    std::ofstream dump_file(filename);
+    if (!dump_file.is_open()) {
+        std::cerr << "ERROR: Cannot create " << filename << " for memory dump.\n";
         return;
     }
 
-    std::cout << "\nWriting memory dump to: " << output_filename << std::endl;
+    // Setup output stream formatting
+    dump_file << std::hex << std::uppercase << std::setfill('0');
     
-    out_file << "========================================================" << std::endl;
-    out_file << "MEMORY DUMP (Address: Value)" << std::endl;
-    uint32_t last_addr = MEM_BASE + (MEM_WORDS * 4) - 4;
-    out_file << "Range: 0x" << std::hex << std::uppercase << std::setw(8) << std::setfill('0') << MEM_BASE 
-              << " - 0x" << std::setw(8) << std::setfill('0') << last_addr << std::endl;
-    out_file << "========================================================" << std::endl;
+    // Iterate through the RAM array, advancing by 4 bytes (one word)
+    for (uint32_t offset = 0; offset < CACHE_SIZE; offset += 4) {
+        uint32_t word = 0;
 
-    for (uint32_t word_offset = 0; word_offset < MEM_WORDS; ++word_offset) {
-        uint32_t address = MEM_BASE + (word_offset * 4);
-        
-        // Read the full 32-bit word directly
-        uint32_t word = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[word_offset];
-
-        if (word != 0x0) {
-            out_file << "0x" << std::setw(8) << std::setfill('0') << address
-                     << ": 0x" << std::setw(8) << std::setfill('0') << word << std::endl;
+        // Read 4 bytes from memory and combine them into a word (little-endian)
+        for (int i = 0; i < 4; ++i) {
+            uint32_t byte_offset = offset + i;
+            uint8_t val = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[byte_offset];
+            word |= (uint32_t)val << (8 * i);
         }
+
+        // Physical Address (MEM_BASE + offset)
+        dump_file << "0x" << std::setw(8) << (MEM_BASE + offset) << ": ";
+        
+        // 32-bit word of data
+        dump_file << std::setw(8) << word << "\n";
     }
-    
-    out_file << "========================================================" << std::endl;
-    out_file.close();
-    std::cout << std::dec << std::nouppercase;
+
+    dump_file.close();
+    std::cout << "Memory dumped successfully to " << filename << " (all words, 4 bytes per line)\n";
+    std::cout.flush(); // Ensure the message is printed
 }
 
-// ========================================================
-// Main simulation entry point
-// ========================================================
+
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
 
     Vcore* top = new Vcore;
     bool memory_loaded = false;
-    // dump_enabled is no longer needed since we are dumping unconditionally
-    // bool dump_enabled  = false; 
-
-    // Check for dump flag in command line arguments (only trace is checked now)
-    for (int i = 1; i < argc; ++i) {
-        // We still need this loop if you want to keep checking for --dump, 
-        // but its result (dump_enabled) is ignored for the dump_memory call.
-        // It's removed here for simplicity based on the request.
-        /* if (std::strcmp(argv[i], "--dump") == 0) {
-            dump_enabled = true;
-        } */
-    }
 
     // Optional waveform tracing
     VerilatedVcdC* tfp = nullptr;
@@ -170,7 +187,8 @@ int main(int argc, char **argv) {
     top->rst_i = 1;
     top->clk_i = 0;
 
-    while (!Verilated::gotFinish() && main_time < 150000) {
+
+    while (!Verilated::gotFinish() && main_time < 1500000) {
         // Toggle clock
         top->clk_i = !top->clk_i;
 
@@ -178,18 +196,22 @@ int main(int argc, char **argv) {
         if (main_time > 20)
             top->rst_i = 0;
 
-        // Load memory once after reset deassertion
-        if (main_time > 20 && !memory_loaded) {
-            if (!load_data_memory("artifacts/data_mem.hex", top)) {
-                std::cerr << "Failed to load data memory!" << std::endl;
-                delete top;
-                return 1;
+            if (main_time > 20 && !memory_loaded) {
+                // Load data memory on the first rising edge after reset release
+                if (top->clk_i == 1) {
+                    if (!load_data_memory("artifacts/data_mem.hex", top)) {
+                        std::cerr << "Failed to load data memory!" << std::endl;
+                        delete top;
+                        return 1;
+                    }
+                    memory_loaded = true;
+                }
             }
-            memory_loaded = true;
-        }
-
+            
         // Evaluate the DUT
         top->eval();
+
+    
 
         if (tfp) tfp->dump(main_time);
         main_time += 5;
@@ -199,13 +221,16 @@ int main(int argc, char **argv) {
         tfp->close();
         delete tfp;
     }
+    
+    std::cout << "[DEBUG] About to call write_back_cache_to_mem()" << std::endl;
 
-    // Dump memory unconditionally after simulation
-    dump_memory(top, "artifacts/memory_dump.txt");
+    // === Write-back cache contents before memory operations ===
+    write_back_cache_to_mem(top);
 
-    // ====================================================
-    // Signature extraction (now using word-addressed access)
-    // ====================================================
+    // === MANDATORY: Memory Dump before termination ===
+    dump_data_memory("artifacts/memory_dump.txt", top);
+
+    // === Signature extraction ===
     std::ifstream sig_meta("artifacts/sig_meta.txt");
     uint32_t sig_begin = 0, sig_end = 0;
     if (!sig_meta.is_open()) {
@@ -216,9 +241,9 @@ int main(int argc, char **argv) {
 
     sig_meta >> std::hex >> sig_begin >> sig_end;
     sig_meta.close();
-    std::cout << "Signature range: 0x" << std::hex 
-              << sig_begin << " - 0x" << sig_end << std::endl;
+    std::cout << "Signature range: 0x" << std::hex << sig_begin << " - 0x" << sig_end << std::endl;
 
+    // Output signature file
     std::ofstream sig_out("artifacts/DUT.signature");
     if (!sig_out.is_open()) {
         std::cerr << "ERROR: Cannot create DUT.signature\n";
@@ -226,28 +251,29 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Loop through byte addresses, advancing by 4 for each word
+    
     for (uint32_t addr = sig_begin; addr < sig_end; addr += 4) {
-        // Check for out-of-bounds access
-        if (addr < MEM_BASE || (addr - MEM_BASE) >= (MEM_WORDS * 4)) {
-            std::cerr << "ERROR: Attempt to access out-of-bounds memory at 0x"
-                      << std::hex << addr << std::endl;
-            delete top;
-            return 1;
+        uint32_t word = 0;
+    
+        for (int i = 0; i < 4; ++i) {
+            uint32_t byte_addr = addr + i;
+    
+            // Compute memory offset
+            if (byte_addr < MEM_BASE || (byte_addr - MEM_BASE) >= CACHE_SIZE) {
+                std::cerr << "ERROR: Attempt to access out-of-bounds memory at 0x"
+                          << std::hex << byte_addr << std::endl;
+                delete top;
+                return 1;
+            }
+    
+            uint32_t offset = byte_addr - MEM_BASE;
+            uint8_t val = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset];
+            word |= val << (8 * i);
         }
-
-        // Compute the word index (offset)
-        uint32_t word_offset = (addr - MEM_BASE) / 4;
-        
-        // Read the full 32-bit word directly from the array
-        uint32_t word = 
-            top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[word_offset];
-
-        // Output the word to the signature file
-        sig_out << std::hex << std::setw(8) 
-                << std::setfill('0') << word << "\n";
+    
+        sig_out << std::hex << std::setw(8) << std::setfill('0') << word << "\n";
     }
-
+    
     sig_out.close();
     delete top;
     return 0;

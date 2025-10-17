@@ -25,7 +25,7 @@ module DATA_RAM
 );
 
 parameter MEM_BASE = 32'h00000000;
-parameter MEM_SIZE = 32'h2000; // 2 MB is safe for most RISCOF tests
+parameter MEM_SIZE = 32'h400000; // 2 MB is safe for most RISCOF tests
 localparam [2:0] IDLE       = 3'b000,
                  WRITE_WORD = 3'b001,
                  WRITE_DONE = 3'b010,
@@ -34,7 +34,7 @@ localparam [2:0] IDLE       = 3'b000,
 `include "encodings.vh"
 
 // (* verilator public *) reg [31:0] RAM [0:MEM_SIZE-1];
-reg [31:0] RAM [0:MEM_SIZE-1];
+reg [7:0] RAM [0:MEM_SIZE-1];
 
 reg ram_wr_done_reg, ram_wr_done_next;
 reg ram_rd_done_reg, ram_rd_done_next;
@@ -116,16 +116,29 @@ always @* begin
     endcase
 end
 
+//Since our memory is 1 byte at each cell, we have aligned access as well
+logic [30:0] wr_addr;
+logic [30:0] rd_addr;
+assign wr_addr = wr_data_addr_i + word_write_counter_reg;
+assign rd_addr = rd_data_addr_i + word_read_counter_reg;
+
+localparam ADDRESSABLE_MEM = 29; // Clog2 of Memory size -2 
 always @(posedge clk_i) begin
     if(write_ram_enable) begin
-        RAM[{wr_data_addr_i , word_write_counter_reg}] <= wr_data_i[word_write_counter_reg];
+        RAM[{wr_addr[ADDRESSABLE_MEM:0],2'b00}] <= wr_data_i[word_write_counter_reg][7:0];
+        RAM[{wr_addr[ADDRESSABLE_MEM:0],2'b01}] <= wr_data_i[word_write_counter_reg][15:8];
+        RAM[{wr_addr[ADDRESSABLE_MEM:0],2'b10}] <= wr_data_i[word_write_counter_reg][23:16];
+        RAM[{wr_addr[ADDRESSABLE_MEM:0],2'b11}] <= wr_data_i[word_write_counter_reg][31:24];
     end
 end
 
 //Read Block
 always @(posedge clk_i) begin
     if(read_ram_enable) begin
-        rd_data_word[word_read_counter_reg] <= RAM[{rd_data_addr_i , word_read_counter_reg}];
+        rd_data_word[word_read_counter_reg][7:0]   <= RAM[{rd_addr[ADDRESSABLE_MEM:0],2'b00}];
+        rd_data_word[word_read_counter_reg][15:8]  <= RAM[{rd_addr[ADDRESSABLE_MEM:0],2'b01}];
+        rd_data_word[word_read_counter_reg][23:16] <= RAM[{rd_addr[ADDRESSABLE_MEM:0],2'b10}];
+        rd_data_word[word_read_counter_reg][31:24] <= RAM[{rd_addr[ADDRESSABLE_MEM:0],2'b11}];
     end
 end
 

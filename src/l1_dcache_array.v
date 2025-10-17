@@ -121,6 +121,13 @@ end
   
   function void l1_dcache_array_trace_log(int file);
   integer idx, widx;
+  integer i;
+  logic [INDEX_BITS-1:0] index_bits_iterator;
+  // logic [DATA_WIDTH] physical_address[0:ENTRIES-1][0:WORDS_PER_LINE-1];
+  //{indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}};
+    // for(i = 0; i < WORDS_PER_LINE; i = i+1) begin
+    //   assign phstical_address[i] = {tag_arr[i],re}
+    // end
     $fwrite(file, "\nTime: %1t, Cache Array, index_bits: %d,  indexed_valid: %b, indexed_dirty: %b, indexed_tag: %x, update_entry_cpu_i: %b, update_entry_mem_i: %b, valid_bit_i: %b, dirty_bit_i: %b, tag_i: %x, write_data_i: %x",$time, index_bits_i,indexed_valid_bit_o,indexed_dirty_bit_o,indexed_tag_o, update_entry_cpu_i, update_entry_mem_i,valid_bit_i,dirty_bit_i,tag_i,write_data_i);
     if(`CORE_VERBOSITY >= 600) begin
       
@@ -129,11 +136,17 @@ end
     for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin
         $fwrite(file, "Word%1d \t \t", widx);
       end
+      for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin
+        $fwrite(file, "PA%1d \t \t", widx);
+      end
     $fwrite(file,"\n");
     for (idx = 0; idx < ENTRIES; idx = idx + 1) begin  
+      index_bits_iterator = idx;
        $fwrite(file, "%3d,    %1b, %1b, 0x%x", idx, valid_bit[idx], dirty_bit[idx], tag_arr[idx]);
     for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1)
         $fwrite(file, "\t0x%08h", data_cache[idx][widx]);
+    for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1)
+        $fwrite(file, "\t0x%08h", {tag_arr[i], index_bits_iterator,{WORD_OFF_BITS{1'b0}},2'b00});
     $fwrite(file, "\n");
     end
   end
