@@ -178,9 +178,9 @@ always @(posedge clk_i, posedge rst_i) begin
       rd_label_ex_o <= 5'b0;
       wb_sel_ex_o <= 3'b0;
       pc_ex_o 	<= 32'b0;
-      funct3_ex_o <= 3'b0;
-      is_store_instr_ex_o <= 1'b0;
-      latest_rs2_value_ex_o <= 32'h0;
+      funct3_ex_o              <= 3'b0;
+      is_store_instr_ex_o      <= 1'b0;
+      latest_rs2_value_ex_o    <= 32'h0;
       fetched_instruction_ex_o <= 32'h13;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o <= alu_result;
@@ -197,9 +197,10 @@ always @(posedge clk_i, posedge rst_i) begin
   end
 end
 
+(* verilator public *)
+wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_ex_i, pc_ex_i);
 `ifdef CORE_VERBOSITY
   `define ALU_PATH ALU_u
-  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_ex_i, pc_ex_i);
   function void ex_trace_log(int file);
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);

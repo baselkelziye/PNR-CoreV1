@@ -6,7 +6,7 @@ module instr_cache(
     output [31:0] instr_o
 );
 
-localparam MEM_SIZE = 32'h2000000;  // 16 KB
+localparam MEM_SIZE = 32'h20000;  // 16 KB
 localparam IMEM_BASE = 32'h80000000;
 
 reg [7:0] instructions[0:MEM_SIZE-1];

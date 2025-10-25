@@ -116,7 +116,7 @@ module instruction_fetch(
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
       end
-    else if(branching_i)
+    else if(branching_i & !if_stage_stall) // If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
       begin //Flush Sadece Branchte olur simdilik
         fetched_instruction_if_o        <= INSTR_NOP;
         pc_incremented_if_o             <= 32'hDEADC0DE;
@@ -133,10 +133,8 @@ module instruction_fetch(
       end //If There is stall, Latch the last values (No Change)
   end
 
-
+  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction, pc_reg);
   `ifdef CORE_VERBOSITY
-    wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction, pc_reg);
-    
     function void if_trace_log(int file);
       $fwrite(file,"\n***********Instruction Fetch Stage****************:");
       $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, load_stall_if_i: %b, periheral_stall_if_i: %b, mem_stage_stall_i: %b ", $time, disasm_str,pc_reg,load_stall_if_i,periheral_stall_if_i,mem_stage_stall_i);

@@ -20,7 +20,7 @@ module l1_dcache_controller
     input [TAG_SIZE-1:0]   indexed_tag_i,
     input                  indexed_dirty_bit_i,
     input                  indexed_valid_bit_i,
-    input [DATA_WIDTH-1:0] indexed_data_raw_i[0:WORDS_PER_LINE-1],
+    input [WORDS_PER_LINE-1:0] [DATA_WIDTH-1:0] indexed_data_raw_i,
 
     output                 dcache_stall_o,
     output                 dcache_cntrl_valid_bit_o,

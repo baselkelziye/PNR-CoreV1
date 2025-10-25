@@ -49,16 +49,28 @@ module instruction_memory_stage
 
   
   //Inputs From Writeback stage
-  input wire [31:0] load_value_wb_i,
+  input wire [31:0] load_value_wb_i, 
   
   //Wishbone + Peripherals
   output wire peripheral_stall_o,
 
   output mem_stage_stall_o
 );
-  //Load-Store Forwarding
-  wire [31:0] forwarded_store_value;
-  assign forwarded_store_value = (load_store_forward_sel_mem_i) ? load_value_wb_i : latest_rs2_value_mem_i;
+
+
+  //Since memory writes take more than 1 clock cycles,
+  //When we stall at MEM stage, WB continue to execute, hence when we are going to write our value to cache array we will not be able to 
+  // have the correct value from WB, hence we need to latch it!
+  reg [31:0] forwarded_store_value;
+  always @(posedge clk_i) begin
+    if(rst_i) begin
+      forwarded_store_value <= '0;
+    end else if(load_store_forward_sel_mem_i) begin
+      forwarded_store_value <= load_value_wb_i;
+    end else begin
+      forwarded_store_value <= latest_rs2_value_mem_i;
+    end
+  end
 
   //Wishbone Master Signals.
   wire o_wbm_cyc, o_wbm_stb, o_wbm_we;
@@ -181,9 +193,9 @@ always @(posedge clk_i, posedge rst_i)
     end
   end
 
+  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_mem_i, pc_mem_i);
 `ifdef CORE_VERBOSITY
   `define L1_DATA_CACHE_PATH l1_data_cache_u
-  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_mem_i, pc_mem_i);
   function void mem_trace_log(int file, int mem_dump_file,int cycle);
     $fwrite(file,"\n***********Memory Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, Instruction(x): 0x%8h", $time, disasm_str,pc_mem_i,fetched_instruction_mem_i);

@@ -248,6 +248,12 @@ instruction_memory_stage mem_u
   .mem_stage_stall_o(mem_stage_stall)
 );
 
+`ifdef COCOTB_SIM
+    initial begin
+        $dumpfile("waves.vcd");
+        $dumpvars(0, core);
+    end
+`endif
 
 `ifdef CORE_VERBOSITY
   int trace_file;

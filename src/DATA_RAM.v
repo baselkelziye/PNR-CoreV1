@@ -11,14 +11,14 @@ module DATA_RAM
     input rst_i,
     input [ADDRESS_WIDTH-1-2:0] wr_data_addr_i,
     input [ADDRESS_WIDTH-1-2:0] rd_data_addr_i,
-    input [DATA_WIDTH-1:0] wr_data_i[0:WORDS_PER_LINE-1],
+    input [WORDS_PER_LINE-1:0] [DATA_WIDTH-1:0] wr_data_i,
 
     //Inputs from dcache controller
     input start_ram_write_i,
     input start_ram_read_i,
 
 
-    output [DATA_WIDTH-1:0] rd_data_o[0:WORDS_PER_LINE-1],
+    output [WORDS_PER_LINE-1:0] [DATA_WIDTH-1:0] rd_data_o,
     output ram_wr_done_o,
     output ram_rd_done_o
 

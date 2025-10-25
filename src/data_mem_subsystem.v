@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 module data_mem_subsystem #(
-    parameter ENTRIES        = 64,
-    parameter WORDS_PER_LINE = 2,
+    parameter ENTRIES        = 32,
+    parameter WORDS_PER_LINE = 4,
     parameter ADDRESS_WIDTH  = 32,
     parameter DATA_WIDTH     = 32
 )
@@ -17,6 +17,7 @@ module data_mem_subsystem #(
     output     [31:0]  read_data_o
 );
 
+`include "encodings.vh"
 // Address field sizes
 localparam INDEX_BITS    = $clog2(ENTRIES);
 localparam WORD_OFF_BITS = $clog2(WORDS_PER_LINE);
@@ -49,12 +50,19 @@ wire start_ram_write,start_ram_read;
 wire ram_wr_done, ram_rd_done;
 
 //dcache Array => RAM
-wire [DATA_WIDTH-1:0] dcache_array_dline_wr[0:WORDS_PER_LINE-1];
-wire [DATA_WIDTH-1:0] dcache_array_dline_rd[0:WORDS_PER_LINE-1];
-
+wire [WORDS_PER_LINE-1:0][DATA_WIDTH-1:0] dcache_array_dline_wr;
+wire [WORDS_PER_LINE-1:0][DATA_WIDTH-1:0] dcache_array_dline_rd;
+wire [DATA_WIDTH-1:0] read_word_darray;
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
 assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:3],{WORD_OFF_BITS{1'b0}}};
-assign read_data_o = dcache_array_dline_wr[word_off];
+assign read_word_darray = dcache_array_dline_wr[word_off];
+
+assign read_data_o = (funct3_i == `LB_FUNCT3)  ? {{24{read_word_darray[7]}},read_word_darray[7:0]}    :
+                     (funct3_i == `LH_FUNCT3)  ? {{16{read_word_darray[15]}}, read_word_darray[15:0]} :
+                     (funct3_i == `LW_FUNCT3)  ? read_word_darray                                     :
+                     (funct3_i == `LBU_FUNCT3) ? {24'b0, read_word_darray[7:0]}                      :
+                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_word_darray[15:0]}                     :
+                                                                                    32'hA1A1A1A1;
 
 l1_dcache_array #(
     .ENTRIES        (   ENTRIES         ),
