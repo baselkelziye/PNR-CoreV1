@@ -78,49 +78,93 @@ bool load_data_memory(const char* filename, Vcore* top) {
     return true;
 }
 
-// Function to simulate L1 D-Cache write-back to main memory
+#include <fstream>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
+#include <string>
+#include <cstdint>
+
 void write_back_cache_to_mem(Vcore* top) {
+    // --- Marker for execution ---
     std::ofstream marker("artifacts/writeback_marker.txt");
     marker << "write_back_cache_to_mem() executed\n";
     marker.close();
 
+    // --- Read signature metadata file ---
+    uint32_t sig_start = 0, sig_end = 0;
+    {
+        std::ifstream sigfile("artifacts/sig_meta.txt");
+        if (sigfile.is_open()) {
+            std::string line;
+            if (std::getline(sigfile, line)) {
+                std::istringstream iss(line);
+                iss >> std::hex >> sig_start >> sig_end;
+                std::cout << "Signature range loaded: 0x"
+                          << std::hex << sig_start << " - 0x" << sig_end << std::dec << std::endl;
+            } else {
+                std::cerr << "WARNING: sig_meta.txt is empty or malformed.\n";
+            }
+        } else {
+            std::cerr << "WARNING: Could not open artifacts/sig_meta.txt\n";
+        }
+    }
+
+    // --- Open main log file ---
+    std::ofstream log("artifacts/writeback_log.txt");
+    if (!log.is_open()) {
+        std::cerr << "ERROR: Could not open artifacts/writeback_log.txt for writing.\n";
+        return;
+    }
+
     std::cout << "Starting L1 D-Cache write-back to main memory..." << std::endl;
     std::cout.flush();
+
     for (uint32_t i = 0; i < ENTRIES; ++i) {
-        // Accessing valid and dirty bits
         bool valid = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__valid_bit[i];
         bool dirty = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__dirty_bit[i];
-        
-        // Always calculate the address if valid for debugging purposes
+
         if (valid) {
-            // Reconstruct the physical address
             uint32_t tag = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__tag_arr[i];
-            
-            // Index i already contains the index bits (since we iterate over ENTRIES)
             uint32_t physical_line_addr = (tag << TAG_SHIFT) | (i << BLOCK_OFFSET_BITS);
-            
-            // Print statement for all valid lines (for general debug)
-            std::cout << "Entry: " << i << " | Valid (" << (dirty ? "Dirty" : "Clean") << ") Address: 0x" 
-                      << std::hex << std::setw(8) << std::setfill('0') << physical_line_addr 
-                      << std::dec << "\n"; // Use \n instead of endl for performance
+
+            log << "Entry: " << std::dec << i
+                << " | " << (dirty ? "DIRTY" : "CLEAN")
+                << " | Physical Line Addr: 0x" << std::hex << std::setw(8)
+                << std::setfill('0') << physical_line_addr << std::dec << "\n";
 
             if (dirty) {
-                // Boundary check against the simulated main memory (CACHE_SIZE)
-                if (physical_line_addr < MEM_BASE || (physical_line_addr - MEM_BASE) >= (CACHE_SIZE - LINE_SIZE_BYTES + 1)) {
-                    std::cerr << "WARNING: Write-back target 0x" << std::hex << physical_line_addr 
-                              << " is outside simulated RAM bounds (0x" << (MEM_BASE + CACHE_SIZE) << ")." << std::endl;
+                if (physical_line_addr < MEM_BASE ||
+                    (physical_line_addr - MEM_BASE) >= (CACHE_SIZE - LINE_SIZE_BYTES + 1)) {
+                    std::cerr << "WARNING: Write-back target 0x" << std::hex << physical_line_addr
+                              << " is outside simulated RAM bounds.\n";
+                    log << "  WARNING: Write-back target out of bounds!\n";
                     continue;
                 }
 
                 // Iterate through the 8 words in the line
                 for (uint32_t j = 0; j < WORDS_PER_LINE; ++j) {
-                    // Accessing the data word
                     uint32_t word = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__data_cache[i][j];
-                    
                     uint32_t current_word_addr = physical_line_addr + (j * 4);
                     uint32_t mem_offset = current_word_addr - MEM_BASE;
-                    
-                    // Write the 4 bytes of the word (little-endian) to the main RAM array
+
+                    // 🚫 Skip any writes at or beyond (sig_end - 4)
+                    if (sig_end != 0 && current_word_addr >= (sig_end - 4)) {
+                        log << "    SKIP: Word " << j
+                            << " | Addr: 0x" << std::hex << std::setw(8) << current_word_addr
+                            << " >= (sig_end - 4)=0x" << (sig_end - 4)
+                            << " | Value: 0x" << std::setw(8) << word
+                            << " | NOT WRITTEN\n" << std::dec;
+                        continue;
+                    }
+
+                    // Normal write-back logging
+                    log << "    Word " << std::setw(2) << j
+                        << " | Addr: 0x" << std::hex << std::setw(8)
+                        << std::setfill('0') << current_word_addr
+                        << " | Value: 0x" << std::setw(8) << word << std::dec << "\n";
+
+                    // Perform the actual write (little-endian)
                     for (int k = 0; k < 4; ++k) {
                         uint8_t byte_val = (word >> (8 * k)) & 0xFF;
                         top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset + k] = byte_val;
@@ -129,9 +173,14 @@ void write_back_cache_to_mem(Vcore* top) {
             }
         }
     }
+
+    log << "L1 D-Cache write-back complete.\n";
+    log.close();
+
     std::cout << "L1 D-Cache write-back complete." << std::endl;
-    std::cout.flush(); // Ensure the final message is also printed
+    std::cout.flush();
 }
+
 
 // Function to dump the data memory contents to a file, printing every 4 bytes (a word) per line, including zeros.
 void dump_data_memory(const char* filename, Vcore* top) {
@@ -205,6 +254,7 @@ int main(int argc, char **argv) {
                         return 1;
                     }
                     memory_loaded = true;
+                    // dump_data_memory("artifacts/memory_before.txt", top);
                 }
             }
             
@@ -228,7 +278,7 @@ int main(int argc, char **argv) {
     write_back_cache_to_mem(top);
 
     // === MANDATORY: Memory Dump before termination ===
-    dump_data_memory("artifacts/memory_dump.txt", top);
+    // dump_data_memory("artifacts/memory_dump.txt", top);
 
     // === Signature extraction ===
     std::ifstream sig_meta("artifacts/sig_meta.txt");

@@ -183,15 +183,15 @@ begin
         branch_is_taken_prediction_id_o  <= 1'b0  ;   
         fetched_instruction_id_o         <= 32'h13;   
     end 
-    else if(id_flush)
+    else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
-        reg_write_en_id_o 		      <= 1'b0 ;
-        is_store_instr_id_o 	          <= 1'b0 ;
-        is_branch_instr_id_o 			  <= 1'b0 ;
-        is_load_instr_id_o			  <= 1'b0 ;
-        unconditional_branch_id_o 	  <= 1'b0 ;
-        btb_predicted_pc_id_o 	      <= 32'h0;
-        branch_is_taken_prediction_id_o <= 1'b0 ;  
+        reg_write_en_id_o 		           <= 1'b0 ;
+        is_store_instr_id_o 	           <= 1'b0 ;
+        is_branch_instr_id_o 			       <= 1'b0 ;
+        is_load_instr_id_o			         <= 1'b0 ;
+        unconditional_branch_id_o 	     <= 1'b0 ;
+        btb_predicted_pc_id_o 	         <= 32'h0;
+        branch_is_taken_prediction_id_o  <= 1'b0 ;  
         fetched_instruction_id_o         <= 32'h13;     
     end
     else if(!id_stage_stall)
@@ -220,11 +220,12 @@ begin
 	end 
   end
 
+wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_id_i, pc_id_i);
 `ifdef CORE_VERBOSITY
-  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_id_i, pc_id_i);
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
-    $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
+    $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
+    // register_file_u.dump_register_file(file);
   endfunction
 `endif
 
