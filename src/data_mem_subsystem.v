@@ -52,17 +52,25 @@ wire ram_wr_done, ram_rd_done;
 //dcache Array => RAM
 wire [WORDS_PER_LINE-1:0][DATA_WIDTH-1:0] dcache_array_dline_wr;
 wire [WORDS_PER_LINE-1:0][DATA_WIDTH-1:0] dcache_array_dline_rd;
-wire [DATA_WIDTH-1:0] read_word_darray;
+wire [3:0] [7:0] read_word_darray;
+wire [7:0] read_byte;
+wire [15:0] read_half;
+wire [ADDRESS_WIDTH-1:0] read_word;
+
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
 assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:3],{WORD_OFF_BITS{1'b0}}};
-assign read_word_darray = dcache_array_dline_wr[word_off];
+assign {read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]} = dcache_array_dline_wr[word_off];
 
-assign read_data_o = (funct3_i == `LB_FUNCT3)  ? {{24{read_word_darray[7]}},read_word_darray[7:0]}    :
-                     (funct3_i == `LH_FUNCT3)  ? {{16{read_word_darray[15]}}, read_word_darray[15:0]} :
-                     (funct3_i == `LW_FUNCT3)  ? read_word_darray                                     :
-                     (funct3_i == `LBU_FUNCT3) ? {24'b0, read_word_darray[7:0]}                      :
-                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_word_darray[15:0]}                     :
-                                                                                    32'hA1A1A1A1;
+assign read_byte = read_word_darray[byte_off]; // Read 1 Byte
+assign read_half = {read_word_darray[{byte_off[1],1'b1}] , read_word_darray[{byte_off[1],1'b0}]};
+assign read_word = dcache_array_dline_wr[word_off];
+
+assign read_data_o = (funct3_i == `LB_FUNCT3)  ? {{24{read_byte[7]}},read_byte}    :
+                     (funct3_i == `LH_FUNCT3)  ? {{16{read_half[15]}}, read_half}  :
+                     (funct3_i == `LW_FUNCT3)  ? read_word                         :
+                     (funct3_i == `LBU_FUNCT3) ? {24'b0, read_byte}                :
+                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_word_darray[15:0]}   :
+                                                                        32'hA1A1A1A1;
 
 l1_dcache_array #(
     .ENTRIES        (   ENTRIES         ),
@@ -150,6 +158,8 @@ if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
     l1_dcache_array_u.l1_dcache_array_trace_log(file);
     DATA_RAM_u.DATA_RAM_trace_log(file);
+    $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);
+    $fwrite(file,"\nTime: %1t , byte_off: %b,  read_byte: %h, read_half: %h, read_word: %h, dcache_array_dline_wr[word_off]: %h", $time,byte_off,read_byte,read_half,read_word, dcache_array_dline_wr[word_off]);
     end
 endfunction
 

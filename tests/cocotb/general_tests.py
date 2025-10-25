@@ -97,13 +97,10 @@ def get_tag_array(dut):
     data_cache_arr = dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.data_cache
     return valid_bit_arr,dirty_bit_arr,tag_arr,data_cache_arr
 
-def write_cache_to_memory(dut):
+async def write_cache_to_memory(dut):
     """
     Writes all valid & dirty cache lines back to byte-addressable main memory.
-    Uses async get_data_cache(dut) to obtain RAM handle.
     """
-
-    # Obtain handles
     valid_bit_arr, dirty_bit_arr, tag_arr, data_cache_arr = get_tag_array(dut)
     data_ram = get_data_cache(dut)
 
@@ -112,7 +109,7 @@ def write_cache_to_memory(dut):
         dirty = int(dirty_bit_arr[index].value)
 
         if not (valid and dirty):
-            continue  # only write back valid + dirty lines
+            continue
 
         tag = int(tag_arr[index].value)
 
@@ -125,37 +122,24 @@ def write_cache_to_memory(dut):
                       | (index << (WORD_OFF_BITS + BYTE_OFF_BITS)) \
                       | (WORD_OFF << BYTE_OFF_BITS)
 
-            # Read 32-bit word from cache - FIXED ACCESS
-            # For multi-dimensional arrays in cocotb, you need to use the proper indexing
+            # Read 32-bit word from cache
             try:
-                # Method 1: Try direct 2D access (depends on simulator)
                 data_val = int(data_cache_arr[index][widx].value)
             except:
-                try:
-                    # Method 2: Some simulators flatten multi-dimensional arrays
-                    flat_index = index * WORDS_PER_LINE + widx
-                    data_val = int(data_cache_arr[flat_index].value)
-                except:
-                    # Method 3: Debug approach - log the actual structure
-                    dut._log.info(f"data_cache_arr type: {type(data_cache_arr)}")
-                    dut._log.info(f"data_cache_arr[index] type: {type(data_cache_arr[index])}")
-                    # Try to discover the correct access pattern
-                    if hasattr(data_cache_arr[index], 'value'):
-                        # It might be that we need to access sub-elements differently
-                        data_val = int(data_cache_arr[index].value)
-                    else:
-                        raise Exception("Cannot determine correct access pattern for data_cache_arr")
+                flat_index = index * WORDS_PER_LINE + widx
+                data_val = int(data_cache_arr[flat_index].value)
 
             # Write each byte separately (little-endian)
             for byte_i in range(4):  # 32-bit = 4 bytes
                 byte_val = (data_val >> (8 * byte_i)) & 0xFF
                 byte_addr = addr_word + byte_i
+                
+                # Write single byte to byte-addressable memory
                 data_ram[byte_addr].value = byte_val
+                
+                # Allow time for write to propagate
+                await Timer(1, units='ns')
 
-            dut._log.info(
-                f"[WRITEBACK] Entry={index:02d} Word={widx} "
-                f"WordAddr=0x{addr_word:08X} Data=0x{data_val:08X}"
-            )
 @cocotb.test()
 async def basel_bubblesort(dut):
     filename = "basel_bubblesort.hex"
@@ -164,7 +148,7 @@ async def basel_bubblesort(dut):
     await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1250
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
-    write_cache_to_memory(dut)
+    await write_cache_to_memory(dut)
     data_memory =  get_data_cache(dut)
     expected_data_values = ["0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08", "0x09", "0x0b"]
     for i in range(10):

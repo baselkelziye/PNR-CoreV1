@@ -13,7 +13,7 @@ MODULE = general_tests
 CORE_VERBOSITY=600
 
 VERILATOR_FLAGS := --timescale 1ns/1ps -I$(HDL_DIR) \
-                   --Wno-fatal --public -DCORE_VERBOSITY=$(CORE_VERBOSITY) \
+                   --Wno-fatal --public -DCORE_VERBOSITY=$(CORE_VERBOSITY) -DMEM_DUMP \
                    -fno-dedup -Wno-WIDTH 
 
 # Base compile args

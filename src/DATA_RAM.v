@@ -23,6 +23,7 @@ module DATA_RAM
     output ram_rd_done_o
 
 );
+ 
 
 parameter MEM_BASE = 32'h00000000;
 parameter MEM_SIZE = 32'h400000; // 2 MB is safe for most RISCOF tests
@@ -32,8 +33,6 @@ localparam [2:0] IDLE       = 3'b000,
                  READ_WORD  = 3'b011,
                  READ_DONE  = 3'b100;
 `include "encodings.vh"
-
-// (* verilator public *) reg [31:0] RAM [0:MEM_SIZE-1];
 reg [7:0] RAM [0:MEM_SIZE-1];
 
 reg ram_wr_done_reg, ram_wr_done_next;
