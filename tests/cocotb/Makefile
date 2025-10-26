@@ -1,22 +1,31 @@
-SIM=icarus
+SIM=verilator
+WAVES=1
 TOPLEVEL_LANG=verilog
 
-# Define the directory containing Verilog source files
 HDL_DIR := ../../src
 PERIPHERAL_DIR := ../../src/peripheral
-# Use wildcard to include all Verilog (*.v) files from HDL_DIR
 VERILOG_SOURCES := $(wildcard $(HDL_DIR)/*.v)
 VERILOG_SOURCES += $(wildcard $(PERIPHERAL_DIR)/*.v)
-# Specify the name of your top-level module (not the file name)
 TOPLEVEL = core
-
-# Specify the name of your test module
 MODULE = general_tests
 
-# Add compile arguments to include the directory for Verilog headers
-COMPILE_ARGS := -I$(HDL_DIR)
-# Add CORE_VERBOSITY flag for compilation
-COMPILE_ARGS += -DCORE_VERBOSITY=500
+# Hard code core_verbosity - use +define+ for Verilog
+CORE_VERBOSITY=600
 
-# Include cocotb's Makefile
+VERILATOR_FLAGS := --timescale 1ns/1ps -I$(HDL_DIR) \
+                   --Wno-fatal --public -DCORE_VERBOSITY=$(CORE_VERBOSITY) -DMEM_DUMP \
+                   -fno-dedup -Wno-WIDTH 
+
+# Base compile args
+COMPILE_ARGS := -I$(HDL_DIR)
+
+# Add Verilator-specific flags when using verilator
+ifeq ($(SIM),verilator)
+    COMPILE_ARGS += $(VERILATOR_FLAGS)
+endif
+
+ifeq ($(WAVES), 1)
+    COMPILE_ARGS += -DCOCOTB_SIM=1
+endif
+
 include $(shell cocotb-config --makefiles)/Makefile.sim

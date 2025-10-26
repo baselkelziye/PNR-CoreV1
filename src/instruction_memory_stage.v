@@ -49,14 +49,28 @@ module instruction_memory_stage
 
   
   //Inputs From Writeback stage
-  input wire [31:0] load_value_wb_i,
+  input wire [31:0] load_value_wb_i, 
   
   //Wishbone + Peripherals
-  output wire peripheral_stall_o
+  output wire peripheral_stall_o,
+
+  output mem_stage_stall_o
 );
-  //Load-Store Forwarding
-  wire [31:0] forwarded_store_value;
-  assign forwarded_store_value = (load_store_forward_sel_mem_i) ? load_value_wb_i : latest_rs2_value_mem_i;
+
+
+  //Since memory writes take more than 1 clock cycles,
+  //When we stall at MEM stage, WB continue to execute, hence when we are going to write our value to cache array we will not be able to 
+  // have the correct value from WB, hence we need to latch it!
+  reg [31:0] forwarded_store_value;
+  always @(posedge clk_i) begin
+    if(rst_i) begin
+      forwarded_store_value <= '0;
+    end else if(load_store_forward_sel_mem_i) begin
+      forwarded_store_value <= load_value_wb_i;
+    end else begin
+      forwarded_store_value <= latest_rs2_value_mem_i;
+    end
+  end
 
   //Wishbone Master Signals.
   wire o_wbm_cyc, o_wbm_stb, o_wbm_we;
@@ -69,10 +83,26 @@ module instruction_memory_stage
   
   wire [31:0] loaded_data, data_read_from_mem;
 
+  //dcache signals
+  wire dcache_stall;
+  wire mem_stage_stall;
+
   //If read from peripheral assign wishbone value
   assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
 
-  datum_cache datum_cache_u
+  // datum_cache datum_cache_u
+  // (
+  //     .clk_i(clk_i                       ),
+  //     .rst_i(rst_i                       ),
+  //     .address_i(alu_result_mem_i        ),
+  //     .write_data_i(forwarded_store_value),
+  //     .is_load_instr(is_load_mem_i       ),
+  //     .is_store_instr(is_store_mem_i     ),
+  //     .funct3_i(funct3_mem_i             ),
+  //     .read_data_o(data_read_from_mem    )
+  // );
+
+  data_mem_subsystem data_mem_subsystem_u
   (
       .clk_i(clk_i                       ),
       .rst_i(rst_i                       ),
@@ -81,6 +111,7 @@ module instruction_memory_stage
       .is_load_instr(is_load_mem_i       ),
       .is_store_instr(is_store_mem_i     ),
       .funct3_i(funct3_mem_i             ),
+      .dcache_stall_o(dcache_stall       ),
       .read_data_o(data_read_from_mem    )
   );
 
@@ -122,7 +153,8 @@ module instruction_memory_stage
       2- Stall if we have peripheral access and we don't have ack
   */
   assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
-
+  assign mem_stage_stall = dcache_stall;
+  assign mem_stage_stall_o = mem_stage_stall;
 
 
   wbs_uart wbs_uart_u
@@ -141,8 +173,8 @@ module instruction_memory_stage
 
 always @(posedge clk_i, posedge rst_i)
   begin
-  if(rst_i | peripheral_stall_o)
-    begin //Since Peripheral Stalls are generated in MEM we need to flush
+  if(rst_i | peripheral_stall_o | mem_stage_stall)
+    begin //Since Peripheral and Cache Stalls are generated in MEM we need to flush
       load_value_mem_o   <= 32'b0;
       rd_label_mem_o     <= 5'b0 ;
       reg_write_en_mem_o <= 1'b0 ;
@@ -150,7 +182,7 @@ always @(posedge clk_i, posedge rst_i)
       is_load_mem_o      <= 1'b0 ;
       rd_value_mem_ro    <= 32'b0;
     end
-  else
+  else //if(!mem_stage_stall)
     begin
       load_value_mem_o   <= loaded_data       ;
       rd_label_mem_o     <= rd_label_mem_i    ;
@@ -161,17 +193,25 @@ always @(posedge clk_i, posedge rst_i)
     end
   end
 
+  wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_mem_i, pc_mem_i);
 `ifdef CORE_VERBOSITY
-  function void mem_trace_log(int file);
+  `define L1_DATA_CACHE_PATH l1_data_cache_u
+  function void mem_trace_log(int file, int mem_dump_file,int cycle);
     $fwrite(file,"\n***********Memory Stage****************:");
-    $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_mem_i,pc_mem_i);
+    $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, Instruction(x): 0x%8h", $time, disasm_str,pc_mem_i,fetched_instruction_mem_i);
     if(`CORE_VERBOSITY >= 200)begin
       mem_op_trace(file);
     end
+    if(`CORE_VERBOSITY >= 400)begin
+      data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
+    end
+    `ifdef MEM_DUMP
+    data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);
+    `endif
   endfunction
 
   function void mem_op_trace(int file);
-    $fwrite(file,"\nTime: %1t, address_i: %8h, write_data_i: %8h, is_load_instr: %0b, is_store_instr: %0b, funct3_i: %0b, read_data_o: %8h",$time,alu_result_mem_i,forwarded_store_value,is_load_mem_i,is_store_mem_i,funct3_mem_i,data_read_from_mem);
+    $fwrite(file,"\nTime: %1t, address_i: 0x%8h, write_data_i: 0x%8h, is_load_instr: %b, is_store_instr: %b, funct3_i: %b, read_data_o: 0x%8h",$time,alu_result_mem_i,forwarded_store_value,is_load_mem_i,is_store_mem_i,funct3_mem_i,data_read_from_mem);
   endfunction
 `endif
 

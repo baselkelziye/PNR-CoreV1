@@ -79,6 +79,7 @@ wire [31:0] rd_value_mem_ro;
 
 //Wishbone + Peripherals
 wire peripheral_stall_mem_o;
+wire mem_stage_stall;
 //--------------------------------------------
 
 //WriteBack Stage Variable Declarations
@@ -105,7 +106,8 @@ instruction_fetch if_u
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o(btb_predicted_pc_if_o                    ),
   .branch_is_taken_prediction_if_o(branch_is_taken_prediction_if_o),
-  .periheral_stall_if_i(peripheral_stall_mem_o                    )
+  .periheral_stall_if_i(peripheral_stall_mem_o                    ),
+  .mem_stage_stall_i(mem_stage_stall)
 );
 
 instruction_decode id_u
@@ -154,7 +156,8 @@ instruction_decode id_u
   .rd_value_wb_i(rd_value_mem_ro                                  ),
   //Pipeline Control Signals
   .branching_id_i(branching_ex_o                                  ),
-  .peripheral_stall_id_i(peripheral_stall_mem_o                   )
+  .peripheral_stall_id_i(peripheral_stall_mem_o                   ),
+  .mem_stage_stall_i(mem_stage_stall)
 );
 
 instruction_execution ex_u
@@ -210,7 +213,8 @@ instruction_execution ex_u
   .branch_address_ex_o(branch_address_ex_o                        ),
   .increment_counter_ex_o(increment_counter_ex_o                  ),
   .decrement_counter_ex_o(decrement_counter_ex_o                  ),
-  .periheral_stall_ex_i(peripheral_stall_mem_o                    )
+  .periheral_stall_ex_i(peripheral_stall_mem_o                    ),
+  .mem_stage_stall_i(mem_stage_stall)
 );
 
 instruction_memory_stage mem_u
@@ -240,26 +244,47 @@ instruction_memory_stage mem_u
   //Inputs From Writeback Stage    
   .load_value_wb_i(load_value_mem_o                        ),
   //Wisbone + Peripherals
-  .peripheral_stall_o(peripheral_stall_mem_o               )
+  .peripheral_stall_o(peripheral_stall_mem_o               ),
+  .mem_stage_stall_o(mem_stage_stall)
 );
 
+`ifdef COCOTB_SIM
+    initial begin
+        $dumpfile("waves.vcd");
+        $dumpvars(0, core);
+    end
+`endif
 
 `ifdef CORE_VERBOSITY
   int trace_file;
+  int memory_dump;
   initial begin
-    trace_file = $fopen("core_trace.log", "w");
+    trace_file  = $fopen("trace_core.log", "w");
+    memory_dump = $fopen("memory_dump.log","w");
   end
   `define IF_PATH if_u
   `define ID_PATH id_u
   `define EX_PATH ex_u
   `define MEM_PATH mem_u
+  reg  [11:0] cycle_reg;
+  wire [11:0] cycle_next;
+
+  always @(posedge clk_i) begin
+    if(rst_i) begin
+      cycle_reg <= 0;
+    end else begin
+      cycle_reg <= cycle_next;
+    end
+  end
+  assign cycle_next = cycle_reg + 12'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
-    $fwrite(trace_file,"\n\n");
+    $fwrite(trace_file,"\n");
+    $fwrite(trace_file, "Cycle: %d", cycle_reg);
     if_u.if_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
-    mem_u.mem_trace_log(trace_file);
+    mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
 end
 `endif

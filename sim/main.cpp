@@ -9,65 +9,99 @@
 #include <memory>
 
 // ---- Global simulation parameters ----
-vluint64_t sim_time = 0;              // Simulation time
-const vluint64_t MAX_CYCLES = 10000;  // Number of cycles to run
+vluint64_t sim_time = 0;              // Simulation time in ps
+const vluint64_t MAX_CYCLES = 500;  // Number of cycles to run
+const vluint64_t CLOCK_PERIOD = 1000; // 1ns = 1000ps clock period
+const vluint64_t HALF_CLOCK_PERIOD = CLOCK_PERIOD / 2;
 
 #ifdef TRACE
-// Trace pointer
-std::unique_ptr<VerilatedVcdC> tfp;
+VerilatedVcdC* tfp = nullptr; // Use raw pointer for better control
 #endif
+
+Vcore* core = nullptr; // Use raw pointer
 
 // Required by Verilator for timekeeping
 double sc_time_stamp() {
     return sim_time;
 }
 
+void cleanup() {
+#ifdef TRACE
+    if (tfp) {
+        tfp->close();
+        delete tfp;
+        tfp = nullptr;
+    }
+#endif
+    
+    if (core) {
+        core->final();
+        delete core;
+        core = nullptr;
+    }
+}
+
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
 
+    try {
 #ifdef TRACE
-    Verilated::traceEverOn(true);
+        Verilated::traceEverOn(true);
+        tfp = new VerilatedVcdC();
 #endif
 
-    // Instantiate DUT
-    std::unique_ptr<Vcore> core{new Vcore};
+        // Instantiate DUT
+        core = new Vcore;
 
 #ifdef TRACE
-    tfp = std::make_unique<VerilatedVcdC>();
-    core->trace(tfp.get(), 99);
-    tfp->open("core.vcd");
+        core->trace(tfp, 99);
+        tfp->open("core.vcd");
 #endif
 
-    // Apply reset
-    core->rst_i = 1;
-    core->clk_i = 0;
+        // Apply reset
+        core->rst_i = 1;
+        core->clk_i = 0;
 
-    for (int i = 0; i < 10; i++) {
-        core->clk_i = !core->clk_i;
-        core->eval();
-        sim_time++;
+        // Reset sequence
+        for (int i = 0; i < 20; i++) {
+            core->clk_i = !core->clk_i;
+            core->eval();
+            sim_time += HALF_CLOCK_PERIOD;
 #ifdef TRACE
-        tfp->dump(sim_time);
+            tfp->dump(sim_time);
 #endif
+        }
+
+        core->rst_i = 0;
+
+        // ---- Main simulation loop ----
+        for (vluint64_t cycle = 0; cycle < MAX_CYCLES; cycle++) {
+            core->clk_i = 1;
+            core->eval();
+            sim_time += HALF_CLOCK_PERIOD;
+#ifdef TRACE
+            tfp->dump(sim_time);
+#endif
+
+            core->clk_i = 0;
+            core->eval();
+            sim_time += HALF_CLOCK_PERIOD;
+#ifdef TRACE
+            tfp->dump(sim_time);
+#endif
+        }
+
+        std::cout << "Simulation finished after " << MAX_CYCLES << " cycles." << std::endl;
+        std::cout << "Total simulation time: " << sim_time << "ps" << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+    } catch (...) {
+        std::cerr << "Unknown exception caught" << std::endl;
     }
 
-    core->rst_i = 0; // Release reset
+    // Explicit cleanup
+    cleanup();
 
-    // ---- Main simulation loop ----
-    for (vluint64_t cycle = 0; cycle < MAX_CYCLES; cycle++) {
-        core->clk_i = !core->clk_i; // Toggle clock
-        core->eval();
-        sim_time++;
-#ifdef TRACE
-        tfp->dump(sim_time);
-#endif
-    }
-
-#ifdef TRACE
-    tfp->close();
-#endif
-
-    core->final();
-    std::cout << "Simulation finished after " << MAX_CYCLES << " cycles." << std::endl;
     return 0;
 }

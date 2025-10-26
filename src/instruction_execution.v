@@ -72,7 +72,8 @@ module instruction_execution(
   output wire increment_counter_ex_o,
   output wire decrement_counter_ex_o,
 
-  input periheral_stall_ex_i
+  input periheral_stall_ex_i,
+  input mem_stage_stall_i
     );
 
   //Branch Jump Unit
@@ -88,7 +89,7 @@ module instruction_execution(
   wire [31:0] rs1_latest_value, rs2_latest_value;
 
   wire ex_stage_stall;
-  assign ex_stage_stall = periheral_stall_ex_i;
+  assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
 
   // assign branching
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
@@ -102,13 +103,48 @@ module instruction_execution(
   assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
   assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
+
+
+reg rd_value_wb_is_latched, reg_write_en_wb_latched;
+reg [31:0] rd_wb_latched_value;
+reg [4:0] rd_wb_latched;
+
+
+always @(posedge clk_i) begin
+  if(rst_i) begin
+    rd_value_wb_is_latched  <= 1'b0;
+    rd_wb_latched_value     <= 32'hB00BB00B;
+    rd_wb_latched           <= 5'b0;
+    reg_write_en_wb_latched <= 1'b0;
+  end else if(ex_stage_stall) begin
+    rd_value_wb_is_latched  <= 1'b1;
+    rd_wb_latched_value     <= rd_value_wb_i;
+    rd_wb_latched           <= rd_label_wb_i;
+    reg_write_en_wb_latched <= reg_write_en_wb_i;
+  end else begin
+    rd_value_wb_is_latched  <= 1'b0;
+    rd_wb_latched_value     <= 32'hB00BB00B;
+    rd_wb_latched           <= 5'b0;
+    reg_write_en_wb_latched <= 1'b0;
+  end
+end
+
+
+wire [31:0] rd_value_wb_selected;
+wire [4:0] rd_label_wb_selected;
+wire reg_write_en_wb_selected;
+
+assign rd_value_wb_selected     =  (rd_value_wb_is_latched) ? rd_wb_latched_value     : rd_value_wb_i    ;
+assign rd_label_wb_selected     =  (rd_value_wb_is_latched) ? rd_wb_latched           : rd_label_wb_i    ;
+assign reg_write_en_wb_selected =  (rd_value_wb_is_latched) ? reg_write_en_wb_latched : reg_write_en_wb_i;
+
 forwarding_unit forwarding_unit_u(
   .rd_label_ex_mem_o(rd_label_mem_i     ),
-  .rd_label_mem_wb_o(rd_label_wb_i      ),
+  .rd_label_mem_wb_o(rd_label_wb_selected      ),
   .rs1_label_id_ex_o(rs1_label_ex_i     ),
   .rs2_label_id_ex_o(rs2_label_ex_i     ),
   .reg_wb_en_ex_mem_o(reg_write_en_mem_i),
-  .reg_wb_en_mem_wb_o(reg_write_en_wb_i ),
+  .reg_wb_en_mem_wb_o(reg_write_en_wb_selected ),
   .forwardA(forwardA                    ),
   .forwardB(forwardB                    )
 );
@@ -118,7 +154,7 @@ mux_4x1 #(.DATA_WIDTH(32))
 
   rs1_latest_value_selector (
     .in0_i(rs1_data_ex_i   ),
-    .in1_i(rd_value_wb_i   ),
+    .in1_i(rd_value_wb_selected   ),
     .in2_i(rd_value_mem_i  ),
     .in3_i(32'hA1A1A1A1    ),
     .sel_i(forwardA        ),
@@ -128,7 +164,7 @@ mux_4x1 #(
     .DATA_WIDTH(32)
 ) rs2_latest_value_selector(
     .in0_i(rs2_data_ex_i),
-    .in1_i(rd_value_wb_i),
+    .in1_i(rd_value_wb_selected),
     .in2_i(rd_value_mem_i),
     .in3_i(32'hA2A2A2A2),
     .sel_i(forwardB),
@@ -177,9 +213,9 @@ always @(posedge clk_i, posedge rst_i) begin
       rd_label_ex_o <= 5'b0;
       wb_sel_ex_o <= 3'b0;
       pc_ex_o 	<= 32'b0;
-      funct3_ex_o <= 3'b0;
-      is_store_instr_ex_o <= 1'b0;
-      latest_rs2_value_ex_o <= 32'h0;
+      funct3_ex_o              <= 3'b0;
+      is_store_instr_ex_o      <= 1'b0;
+      latest_rs2_value_ex_o    <= 32'h0;
       fetched_instruction_ex_o <= 32'h13;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o <= alu_result;
@@ -196,11 +232,12 @@ always @(posedge clk_i, posedge rst_i) begin
   end
 end
 
+wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_ex_i, pc_ex_i);
 `ifdef CORE_VERBOSITY
   `define ALU_PATH ALU_u
   function void ex_trace_log(int file);
     $fwrite(file,"\n***********Execution Stage****************:");
-    $fwrite(file,"\nTime: %1t, Instruction: 0x%8h, Program Counter: 0x%8h", $time, fetched_instruction_ex_i,pc_ex_i);
+    $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
         alu_op_trace(file);
         branch_op_trace(file);

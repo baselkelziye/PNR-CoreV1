@@ -9,4 +9,11 @@
 /tests/cocotb/results.xml
 /tests/riscof_integration/artifacts/
 /tests/riscof_integration/riscof_work/
-/tests/riscof_integration/core_trace.log
+/tests/riscof_integration/trace_core.log
+/tests/cocotb/memory_dump.log
+/tests/cocotb/trace_core.log
+/core.vcd
+/tests/cocotb/waves.vcd
+/tests/cocotb/xt2
+/trace_core.log
+/memory_dump.log

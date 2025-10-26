@@ -1,31 +1,46 @@
 import cocotb
 
 from cocotb.triggers import Timer
+from cocotb.clock import Clock
+from cocotb.triggers import ClockCycles, FallingEdge
 import logging
 logging.basicConfig(level=logging.NOTSET)
 logger = logging.getLogger("cocotb")
 logger.setLevel(logging.INFO)
 
 
+ENTRIES        = 32
+WORDS_PER_LINE = 4
+ADDRESS_WIDTH  = 32
+DATA_WIDTH     = 32
+INDEX_BITS     = 5        # $clog2(32) = 5
+WORD_OFF_BITS  = 2        # $clog2(4) = 2
+BYTE_OFF_BITS  = 2        # $clog2(4) = 2, but typically fixed at 2 for 32-bit words
+TAG_SIZE       = ADDRESS_WIDTH - (INDEX_BITS + WORD_OFF_BITS + BYTE_OFF_BITS)
 
 filepath = "machine_codes/"
 period_ns = 4
-datum_cache_size = 1024
-instruction_cache_size = 100 *4
+datum_cache_size = 0x2000
+instruction_cache_size = 0x2000
+
+def get_int_value(signal):
+    """Return integer value from cocotb signal or BinaryValue safely."""
+    try:
+        # Works for handles and BinaryValue objects
+        return int(signal.value)
+    except AttributeError:
+        return int(signal)
+
 
 async def get_register_file(dut):
     return dut.id_u.register_file_u.registers
 
-async def get_data_cache(dut):
-    return dut.mem_u.datum_cache_u.cache_r
+def get_data_cache(dut):
+    return dut.mem_u.data_mem_subsystem_u.DATA_RAM_u.RAM
 
 async def reset_register_file(dut):
     for i in range(32):
         dut.id_u.register_file_u.registers[i].value = 0
-
-async def reset_data_cache(dut):
-    for i in range(datum_cache_size):
-        dut.mem_u.datum_cache_u.cache_r[i].value = 0
 
 async def reset_instruction_cache(dut):
     for i in range(0, instruction_cache_size, 4):
@@ -35,13 +50,26 @@ async def reset_instruction_cache(dut):
         dut.if_u.instr_cache_u.instructions[i + 2].value = 0x00
         dut.if_u.instr_cache_u.instructions[i + 3].value = 0x00  # MSB
 
-async def load_instruction_cache(dut, file_path):
-    # We reset instruction cache, datum cache and register file to mimic a full reset
-    await reset_register_file(dut)
-    await reset_data_cache(dut)
-    await reset_instruction_cache(dut)
+async def reset_data_mem(dut):
+    data_mem =  get_data_cache(dut)
+    for i in range(datum_cache_size):
+        data_mem[i].value = 0x0
     
-    await Timer(period_ns, units='ns')
+async def reset(dut):
+    """Complete reset of the DUT including hardware reset pulse"""
+    await FallingEdge(dut.clk_i)
+    # Pulse hardware reset
+    dut.rst_i.value = 1
+    await ClockCycles(dut.clk_i, 3, rising=True)
+    dut.rst_i.value = 0
+    await FallingEdge(dut.clk_i)
+    
+    # Reset all memory structures
+    await reset_register_file(dut)
+    await reset_instruction_cache(dut)
+    await reset_data_mem(dut)
+
+async def load_instruction_cache(dut, file_path):
 
     with open(file_path, "r") as file:
         lines = file.readlines()
@@ -51,57 +79,77 @@ async def load_instruction_cache(dut, file_path):
             if not line:  # Skip empty lines
                 continue
             
-            # Convert the 32-bit instruction to little-endian bytes
-            instruction = int(line, 16)
+            # Split the line into individual byte strings
+            byte_strings = line.split()
             
-            # Break into bytes in little-endian order
-            byte0 = (instruction >> 0) & 0xFF
-            byte1 = (instruction >> 8) & 0xFF
-            byte2 = (instruction >> 16) & 0xFF
-            byte3 = (instruction >> 24) & 0xFF
-            
-            # Store each byte in separate memory locations
-            dut.if_u.instr_cache_u.instructions[instruction_index].value = byte0
-            dut.if_u.instr_cache_u.instructions[instruction_index + 1].value = byte1
-            dut.if_u.instr_cache_u.instructions[instruction_index + 2].value = byte2
-            dut.if_u.instr_cache_u.instructions[instruction_index + 3].value = byte3
-            
-            instruction_index += 4
+            # Each byte is already in the correct order (little-endian)
+            # Store each byte directly in memory
+            for byte_str in byte_strings:
+                byte_value = int(byte_str, 16)
+                dut.if_u.instr_cache_u.instructions[instruction_index].value = byte_value
+                instruction_index += 1
 
 
+def get_tag_array(dut):
+    valid_bit_arr = dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.valid_bit
+    dirty_bit_arr = dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.dirty_bit
+    tag_arr = dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.tag_arr
+    data_cache_arr = dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.data_cache
+    return valid_bit_arr,dirty_bit_arr,tag_arr,data_cache_arr
 
-@cocotb.coroutine
-async def run_clock(dut, num_cycles, period_ns):
+async def write_cache_to_memory(dut):
     """
-    Coroutine to drive the clock signal of the DUT.
-    
-    :param dut: The device under test.
-    :param num_cycles: Number of clock cycles to run.
-    :param period_ns: Clock period in nanoseconds.
+    Writes all valid & dirty cache lines back to byte-addressable main memory.
     """
-    # Half period time calculation for toggling the clock.
-    half_period = period_ns // 2
+    valid_bit_arr, dirty_bit_arr, tag_arr, data_cache_arr = get_tag_array(dut)
+    data_ram = get_data_cache(dut)
 
-    # Run the clock for a specified number of cycles.
-    for _ in range(num_cycles):
-        dut.clk_i.value = 0
-        await Timer(half_period, units='ns')
-        dut.clk_i.value = 1
-        await Timer(half_period, units='ns')
+    for index in range(ENTRIES):
+        valid = int(valid_bit_arr[index].value)
+        dirty = int(dirty_bit_arr[index].value)
 
+        if not (valid and dirty):
+            continue
 
+        tag = int(tag_arr[index].value)
+
+        for widx in range(WORDS_PER_LINE):
+            WORD_OFF = widx
+
+            # Construct physical word address:
+            # {tag, index, {BYTE_OFF_BITS{1'b0}}, WORD_OFF}
+            addr_word = (tag << (INDEX_BITS + WORD_OFF_BITS + BYTE_OFF_BITS)) \
+                      | (index << (WORD_OFF_BITS + BYTE_OFF_BITS)) \
+                      | (WORD_OFF << BYTE_OFF_BITS)
+
+            # Read 32-bit word from cache
+            try:
+                data_val = int(data_cache_arr[index][widx].value)
+            except:
+                flat_index = index * WORDS_PER_LINE + widx
+                data_val = int(data_cache_arr[flat_index].value)
+
+            # Write each byte separately (little-endian)
+            for byte_i in range(4):  # 32-bit = 4 bytes
+                byte_val = (data_val >> (8 * byte_i)) & 0xFF
+                byte_addr = addr_word + byte_i
+                
+                # Write single byte to byte-addressable memory
+                data_ram[byte_addr].value = byte_val
+                
+                # Allow time for write to propagate
+                await Timer(1, units='ns')
 
 @cocotb.test()
 async def basel_bubblesort(dut):
     filename = "basel_bubblesort.hex"
-    dut.rst_i.value = 1
-    await Timer(period_ns, units='ns')
-    dut.rst_i.value = 0
-    await Timer(period_ns, units='ns')
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1250
-    await run_clock(dut, num_cycles, period_ns)
-    data_memory = await get_data_cache(dut)
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
+    await write_cache_to_memory(dut)
+    data_memory =  get_data_cache(dut)
     expected_data_values = ["0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08", "0x09", "0x0b"]
     for i in range(10):
         assert data_memory[256 + i].value == int(expected_data_values[i],16), f"Data memory value mismatch at index {i}. Expected: {int(expected_data_values[i],16)}, Got: {data_memory[256 + i]}"
@@ -110,13 +158,11 @@ async def basel_bubblesort(dut):
 @cocotb.test()
 async def branch_flush_test(dut):
     filename = "branch_flush.hex"
-    dut.rst_i.value = 1
-    await Timer(period_ns, units='ns')
-    dut.rst_i.value = 0
-    await Timer(period_ns, units='ns')
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
     num_cycles = 100
-    await run_clock(dut, num_cycles, period_ns)
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0x10000", "0x20000", "0x0", "0xbbbbb000", "0x0"]
     for i in range(5):
@@ -126,13 +172,11 @@ async def branch_flush_test(dut):
 @cocotb.test()
 async def load_hazard_test(dut):
     filename = "load_hazard.hex"
-    dut.rst_i.value = 1
-    await Timer(period_ns, units='ns')
-    dut.rst_i.value = 0
-    await Timer(period_ns, units='ns')
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
     num_cycles = 100
-    await run_clock(dut, num_cycles, period_ns)
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0xa", "0xa", "0x14", "0x1", "0xa", "0xa"]
     registers_id = [1,2,3,4,5,6]
@@ -145,13 +189,11 @@ async def load_hazard_test(dut):
 @cocotb.test()
 async def forwarding_test(dut):
     filename = "forwarding_test.hex"
-    dut.rst_i.value = 1
-    await Timer(period_ns, units='ns')
-    dut.rst_i.value = 0
-    await Timer(period_ns, units='ns')
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
     num_cycles = 100
-    await run_clock(dut, num_cycles, period_ns)
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0xc", "0x2", "0xe", "0xa", "0x55555000", "0x2", "0x55555002", "0x4", "0x2"]
     registers_id = [1,2,3,5,6,12,13,14,15]
@@ -163,13 +205,11 @@ async def forwarding_test(dut):
 @cocotb.test()
 async def loop_test(dut):
     filename = "loop.hex"
-    dut.rst_i.value = 1
-    await Timer(period_ns, units='ns')
-    dut.rst_i.value = 0
-    await Timer(period_ns, units='ns')
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
     num_cycles = 400
-    await run_clock(dut, num_cycles, period_ns)
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0xa", "0xb", "0x00eef000"]
     registers_id = [1,2,3]
@@ -203,4 +243,3 @@ async def loop_test(dut):
 #     expected_fifo_values = ["0xA5", "0xF0", "0x55"]
 #     for i in range(3):
 #         assert tx_fifo_array[i].value == int(expected_fifo_values[i],16), f"TX FIFO value mismatch at index {i}. Expected: {int(expected_fifo_values[i],16)}, Got: {tx_fifo_array[i]}"
-    

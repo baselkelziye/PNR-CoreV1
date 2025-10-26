@@ -8,8 +8,9 @@ module register_file(
         output [31:0] rs1_data_o, rs2_data_o
 );
 
-// (* verilator public_flat_rw *)
-  reg [31:0] registers[0:31];
+
+// (* verilator public *)  reg [31:0] registers[0:31];
+reg [31:0] registers[0:31];
   integer i;
 
   always @(posedge clk_i, posedge rst_i)
@@ -35,5 +36,18 @@ assign rs2_data_o =
   ((rs2_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
   registers[rs2_label_i];
 
+`ifdef CORE_VERBOSITY
+  function dump_register_file(int file);
+    for(i = 0; i < 32; i = i+1) begin
+      if((i%4) == 0) begin
+        $fwrite("Time: %1t ", $time);
+      end
+      $fwrite(file, "x%2d: 0x%h ",i,registers[i]);
+      if((i+1)%4 == 0) begin
+        $fwrite(file, "\n");
+      end
+    end
+  endfunction
+`endif
     
 endmodule
