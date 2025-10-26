@@ -39,6 +39,9 @@ module instruction_execution(
   input branch_is_taken_prediction_ex_i,
   input [31:0] fetched_instruction_ex_i,
 
+  //Inputs to Decode Stage
+  output wire [31:0] alu_result_comb_o,
+
   //Outputs to Memory Stage
   output reg [31:0] alu_result_ex_o,
   output reg load_store_forward_sel_ex_o,
@@ -84,10 +87,6 @@ module instruction_execution(
   wire [31:0] alu_result;
   wire [31:0] alu1_input, alu2_input;
 
-  //Fowarding Unit Signals
-  wire [1:0] forwardA, forwardB;
-  wire [31:0] rs1_latest_value, rs2_latest_value;
-
   wire ex_stage_stall;
   assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
 
@@ -103,77 +102,9 @@ module instruction_execution(
   assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
   assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
-
-
-reg rd_value_wb_is_latched, reg_write_en_wb_latched;
-reg [31:0] rd_wb_latched_value;
-reg [4:0] rd_wb_latched;
-
-
-always @(posedge clk_i) begin
-  if(rst_i) begin
-    rd_value_wb_is_latched  <= 1'b0;
-    rd_wb_latched_value     <= 32'hB00BB00B;
-    rd_wb_latched           <= 5'b0;
-    reg_write_en_wb_latched <= 1'b0;
-  end else if(ex_stage_stall) begin
-    rd_value_wb_is_latched  <= 1'b1;
-    rd_wb_latched_value     <= rd_value_wb_i;
-    rd_wb_latched           <= rd_label_wb_i;
-    reg_write_en_wb_latched <= reg_write_en_wb_i;
-  end else begin
-    rd_value_wb_is_latched  <= 1'b0;
-    rd_wb_latched_value     <= 32'hB00BB00B;
-    rd_wb_latched           <= 5'b0;
-    reg_write_en_wb_latched <= 1'b0;
-  end
-end
-
-
-wire [31:0] rd_value_wb_selected;
-wire [4:0] rd_label_wb_selected;
-wire reg_write_en_wb_selected;
-
-assign rd_value_wb_selected     =  (rd_value_wb_is_latched) ? rd_wb_latched_value     : rd_value_wb_i    ;
-assign rd_label_wb_selected     =  (rd_value_wb_is_latched) ? rd_wb_latched           : rd_label_wb_i    ;
-assign reg_write_en_wb_selected =  (rd_value_wb_is_latched) ? reg_write_en_wb_latched : reg_write_en_wb_i;
-
-forwarding_unit forwarding_unit_u(
-  .rd_label_ex_mem_o(rd_label_mem_i     ),
-  .rd_label_mem_wb_o(rd_label_wb_selected      ),
-  .rs1_label_id_ex_o(rs1_label_ex_i     ),
-  .rs2_label_id_ex_o(rs2_label_ex_i     ),
-  .reg_wb_en_ex_mem_o(reg_write_en_mem_i),
-  .reg_wb_en_mem_wb_o(reg_write_en_wb_selected ),
-  .forwardA(forwardA                    ),
-  .forwardB(forwardB                    )
-);
-
-//Forwarding The Register Signals
-mux_4x1 #(.DATA_WIDTH(32))
-
-  rs1_latest_value_selector (
-    .in0_i(rs1_data_ex_i   ),
-    .in1_i(rd_value_wb_selected   ),
-    .in2_i(rd_value_mem_i  ),
-    .in3_i(32'hA1A1A1A1    ),
-    .sel_i(forwardA        ),
-    .out_o(rs1_latest_value));
-
-mux_4x1 #(
-    .DATA_WIDTH(32)
-) rs2_latest_value_selector(
-    .in0_i(rs2_data_ex_i),
-    .in1_i(rd_value_wb_selected),
-    .in2_i(rd_value_mem_i),
-    .in3_i(32'hA2A2A2A2),
-    .sel_i(forwardB),
-    .out_o(rs2_latest_value)
-);
-
 branch_jump branch_jump_u(
-    .in1_i(rs1_latest_value),
-    .in2_i(rs2_latest_value),
+    .in1_i(rs1_data_ex_i),
+    .in2_i(rs2_data_ex_i),
     .funct3_i(funct3_ex_i),
     .branch_valid_o(branch_jump_unit_o)
 );
@@ -181,7 +112,7 @@ branch_jump branch_jump_u(
 mux_2x1 #(
     .DATA_WIDTH(32)
 ) alu1_selector(
-    .in0_i(rs1_latest_value),
+    .in0_i(rs1_data_ex_i),
     .in1_i(pc_ex_i),
     .sel_i(rs1_pc_sel_ex_i),
     .out_o(alu1_input)
@@ -190,7 +121,7 @@ mux_2x1 #(
 mux_2x1 #(
     .DATA_WIDTH(32)
 ) alu2_selector(
-    .in0_i(rs2_latest_value),
+    .in0_i(rs2_data_ex_i),
     .in1_i(imm_value_ex_i),
     .sel_i(rs2_imm_sel_ex_i),
     .out_o(alu2_input)
@@ -203,6 +134,7 @@ ALU ALU_u(
     .result_o(alu_result)
 );
 
+assign alu_result_comb_o = alu_result;
 
 always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
@@ -227,7 +159,7 @@ always @(posedge clk_i, posedge rst_i) begin
       pc_ex_o     <= pc_ex_i;
       funct3_ex_o <= funct3_ex_i;
       is_store_instr_ex_o <= is_store_instr_ex_i;
-      latest_rs2_value_ex_o <= rs2_latest_value;
+      latest_rs2_value_ex_o <= rs2_data_ex_i;
       fetched_instruction_ex_o <= fetched_instruction_ex_i;
   end
 end
@@ -245,8 +177,6 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
   endfunction
 
   function void alu_op_trace(int file);
-  $fwrite(file, "\nTime: %1t rs1_latest_value_selector Mux, time, in0_i: 0x%8h, in1_i: 0x%8h, in2_i: 0x%8h, ForwardA: %0b, rs1_latest_value: 0x%8h",$time,rs1_data_ex_i,rd_value_wb_i, rd_value_mem_i,forwardA,rs1_latest_value);
-  $fwrite(file, "\nTime: %1t rs2_latest_value_selector Mux, time, in0_i: 0x%8h, in1_i: 0x%8h, in2_i: 0x%8h, ForwardB: %0b, rs2_latest_value: 0x%8h",$time,rs2_data_ex_i,rd_value_wb_i, rd_value_mem_i,forwardB,rs2_latest_value);
   $fwrite(file, "\nTime: %1t ALU, alu1_input: 0x%8h, alu2_input: 0x%8h, alu_op_ex_i: %0b,  alu_result: 0x%8h",$time,alu1_input,alu2_input,alu_op_ex_i,alu_result);
   // ALU_PATH.alu_trace_log(file);
   endfunction

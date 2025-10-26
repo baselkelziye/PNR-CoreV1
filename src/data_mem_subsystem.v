@@ -69,7 +69,7 @@ assign read_data_o = (funct3_i == `LB_FUNCT3)  ? {{24{read_byte[7]}},read_byte} 
                      (funct3_i == `LH_FUNCT3)  ? {{16{read_half[15]}}, read_half}  :
                      (funct3_i == `LW_FUNCT3)  ? read_word                         :
                      (funct3_i == `LBU_FUNCT3) ? {24'b0, read_byte}                :
-                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_word_darray[15:0]}   :
+                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_half[15:0]}   :
                                                                         32'hA1A1A1A1;
 
 l1_dcache_array #(
