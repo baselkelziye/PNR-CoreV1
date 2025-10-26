@@ -1,6 +1,6 @@
 # ---- Tool & config ----
 VERILATOR        ?= verilator
-CORE_VERBOSITY   ?= 600
+CORE_VERBOSITY   ?= 500
 TOP_MODULE       ?= core
 
 # Define source directory variable
@@ -22,7 +22,7 @@ BIN_BASIC := $(OBJDIR_BASIC)/V$(TOP_MODULE)
 
 # Common Verilator flags (using SRC_DIR variable)
 VERILATOR_FLAGS := --cc --exe -j 4 --timescale 1ns/1ps -I$(SRC_DIR) \
-                   --Wno-fatal --public-depth 10 --quiet-stats -DCORE_VERBOSITY=$(CORE_VERBOSITY)
+                   --Wno-fatal --quiet-stats  -DCORE_VERBOSITY=$(CORE_VERBOSITY)
 
 TRACE_SWITCH  := $(if $(filter 1,$(trace)),--trace,)
 CFLAGS_EXTRA  := $(if $(filter 1,$(trace)),-DTRACE,)
