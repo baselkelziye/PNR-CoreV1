@@ -25,11 +25,11 @@ const uint32_t CACHE_SIZE = 0x10000;  // e.g., 2 MB, 2097152 bytes (Size of simu
 
 // --- L1 Data Cache Geometry Assumptions ---
 // Assuming a 32KB cache with 32-byte lines (typical L1 structure)
-const uint32_t ENTRIES = 64;
-const uint32_t WORDS_PER_LINE = 2;
+const uint32_t ENTRIES = 32;
+const uint32_t WORDS_PER_LINE = 4;
 const uint32_t LINE_SIZE_BYTES = WORDS_PER_LINE * 4; // 8 bytes per line
-const uint32_t BLOCK_OFFSET_BITS = 3;  // log2(LINE_SIZE_BYTES)
-const uint32_t TAG_SHIFT = 9;          // INDEX_BITS (6) + BLOCK_OFFSET_BITS (3)
+const uint32_t BLOCK_OFFSET_BITS = 4;  // log2(LINE_SIZE_BYTES)
+const uint32_t TAG_SHIFT = 9;          // INDEX_BITS (5) + BLOCK_OFFSET_BITS (4)
 // ------------------------------------------
 
 bool load_data_memory(const char* filename, Vcore* top) {
