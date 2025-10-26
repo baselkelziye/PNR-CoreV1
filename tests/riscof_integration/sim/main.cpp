@@ -8,6 +8,8 @@
 #include <cstring>
 #include <unistd.h>
 #include <sstream>
+#include "Vcore___024root.h"  // For internal signals if needed
+
 
 // Global simulation time
 vluint64_t main_time = 0;
@@ -19,7 +21,7 @@ double sc_time_stamp() {
 
 
 const uint32_t MEM_BASE = 0x80000000;
-const uint32_t CACHE_SIZE = 0x200000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
+const uint32_t CACHE_SIZE = 0x10000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
 
 // --- L1 Data Cache Geometry Assumptions ---
 // Assuming a 32KB cache with 32-byte lines (typical L1 structure)
@@ -69,7 +71,7 @@ bool load_data_memory(const char* filename, Vcore* top) {
                 break;
             }
             // Accessing the RAM array via Verilator-generated path
-            top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset] = byte_val;
+            top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset] = byte_val;
             offset++;
         }
     }
@@ -78,7 +80,10 @@ bool load_data_memory(const char* filename, Vcore* top) {
     return true;
 }
 
-// Function to simulate L1 D-Cache write-back to main memory
+
+
+
+
 void write_back_cache_to_mem(Vcore* top) {
     std::ofstream marker("artifacts/writeback_marker.txt");
     marker << "write_back_cache_to_mem() executed\n";
@@ -87,16 +92,11 @@ void write_back_cache_to_mem(Vcore* top) {
     std::cout << "Starting L1 D-Cache write-back to main memory..." << std::endl;
     std::cout.flush();
     for (uint32_t i = 0; i < ENTRIES; ++i) {
-        // Accessing valid and dirty bits
-        bool valid = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__valid_bit[i];
-        bool dirty = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__dirty_bit[i];
-        
-        // Always calculate the address if valid for debugging purposes
+        bool valid = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__valid_bit[i];
+        bool dirty = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__dirty_bit[i];
+
         if (valid) {
-            // Reconstruct the physical address
-            uint32_t tag = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__tag_arr[i];
-            
-            // Index i already contains the index bits (since we iterate over ENTRIES)
+            uint32_t tag = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__tag_arr[i];
             uint32_t physical_line_addr = (tag << TAG_SHIFT) | (i << BLOCK_OFFSET_BITS);
             
             // Print statement for all valid lines (for general debug)
@@ -114,16 +114,14 @@ void write_back_cache_to_mem(Vcore* top) {
 
                 // Iterate through the 8 words in the line
                 for (uint32_t j = 0; j < WORDS_PER_LINE; ++j) {
-                    // Accessing the data word
-                    uint32_t word = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__data_cache[i][j];
-                    
+                    uint32_t word = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__data_cache[i][j];
                     uint32_t current_word_addr = physical_line_addr + (j * 4);
                     uint32_t mem_offset = current_word_addr - MEM_BASE;
                     
                     // Write the 4 bytes of the word (little-endian) to the main RAM array
                     for (int k = 0; k < 4; ++k) {
                         uint8_t byte_val = (word >> (8 * k)) & 0xFF;
-                        top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset + k] = byte_val;
+                        top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset + k] = byte_val;
                     }
                 }
             }
@@ -151,7 +149,7 @@ void dump_data_memory(const char* filename, Vcore* top) {
         // Read 4 bytes from memory and combine them into a word (little-endian)
         for (int i = 0; i < 4; ++i) {
             uint32_t byte_offset = offset + i;
-            uint8_t val = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[byte_offset];
+            uint8_t val = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[byte_offset];
             word |= (uint32_t)val << (8 * i);
         }
 
@@ -267,7 +265,7 @@ int main(int argc, char **argv) {
             }
     
             uint32_t offset = byte_addr - MEM_BASE;
-            uint8_t val = top->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset];
+            uint8_t val = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset];
             word |= val << (8 * i);
         }
     
