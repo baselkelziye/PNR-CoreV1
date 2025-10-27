@@ -118,39 +118,39 @@ for(genvar i=0; i < WORDS_PER_LINE; i = i+1) begin :g_darray_2_ram_data_assignme
   assign ram_wr_data_o[i] = data_cache[index_bits_i][i];
 end
 
-// `ifdef CORE_VERBOSITY
+`ifdef CORE_VERBOSITY
   
-//   function void l1_dcache_array_trace_log(int file);
-//   integer idx, widx;
-//   integer i;
-//   logic [INDEX_BITS-1:0] index_bits_iterator;
-//   logic [WORD_OFF_BITS-1:0] WORD_OFF;
+  function void l1_dcache_array_trace_log(int file);
+  integer idx, widx;
+  integer i;
+  logic [INDEX_BITS-1:0] index_bits_iterator;
+  logic [WORD_OFF_BITS-1:0] WORD_OFF;
 
-//     $fwrite(file, "\nTime: %1t, Cache Array, index_bits: %d,  indexed_valid: %b, indexed_dirty: %b, indexed_tag: %x, update_entry_cpu_i: %b, update_entry_mem_i: %b, valid_bit_i: %b, dirty_bit_i: %b, tag_i: %x, write_data_i: %x",$time, index_bits_i,indexed_valid_bit_o,indexed_dirty_bit_o,indexed_tag_o, update_entry_cpu_i, update_entry_mem_i,valid_bit_i,dirty_bit_i,tag_i,write_data_i);
-//     if(`CORE_VERBOSITY >= 600) begin
+    $fwrite(file, "\nTime: %1t, Cache Array, index_bits: %d,  indexed_valid: %b, indexed_dirty: %b, indexed_tag: %x, update_entry_cpu_i: %b, update_entry_mem_i: %b, valid_bit_i: %b, dirty_bit_i: %b, tag_i: %x, write_data_i: %x",$time, index_bits_i,indexed_valid_bit_o,indexed_dirty_bit_o,indexed_tag_o, update_entry_cpu_i, update_entry_mem_i,valid_bit_i,dirty_bit_i,tag_i,write_data_i);
+    if(`CORE_VERBOSITY >= 600) begin
       
     
-//     $fwrite(file, "\n Index, V, D, tag_i \t\t");
-//     for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin
-//         $fwrite(file, "Word%1d \t \t", widx);
-//       end
-//       for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin
-//         $fwrite(file, "PA%1d \t \t", widx);
-//       end
-//     $fwrite(file,"\n");
-//     for (idx = 0; idx < ENTRIES; idx = idx + 1) begin  
-//       index_bits_iterator = idx;
-//        $fwrite(file, "%3d,    %1b, %1b, 0x%x", idx, valid_bit[idx], dirty_bit[idx], tag_arr[idx]);
-//     for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1)
-//         $fwrite(file, "\t0x%08h", data_cache[idx][widx]);
-//     for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin 
-//         WORD_OFF = widx;
-//         $fwrite(file, "\t0x%08h", {tag_arr[i], index_bits_iterator,{WORD_OFF_BITS{1'b0}},WORD_OFF});
-//     end
-//     $fwrite(file, "\n");
-//     end
-//   end
-//   endfunction
-// `endif 
+    $fwrite(file, "\n Index, V, D, tag_i \t\t");
+    for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin
+        $fwrite(file, "Word%1d \t \t", widx);
+      end
+      for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin
+        $fwrite(file, "PA%1d \t \t", widx);
+      end
+    $fwrite(file,"\n");
+    for (idx = 0; idx < ENTRIES; idx = idx + 1) begin  
+      index_bits_iterator = idx;
+       $fwrite(file, "%3d,    %1b, %1b, 0x%x", idx, valid_bit[idx], dirty_bit[idx], tag_arr[idx]);
+    for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1)
+        $fwrite(file, "\t0x%08h", data_cache[idx][widx]);
+    for (widx = 0; widx < WORDS_PER_LINE; widx = widx + 1) begin 
+        WORD_OFF = widx;
+        $fwrite(file, "\t0x%08h", {tag_arr[i], index_bits_iterator,{WORD_OFF_BITS{1'b0}},WORD_OFF});
+    end
+    $fwrite(file, "\n");
+    end
+  end
+  endfunction
+`endif 
 
 endmodule

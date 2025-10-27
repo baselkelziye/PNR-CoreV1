@@ -115,13 +115,8 @@ always @(*) begin
                         state_next = WRITE_BACK;
                         start_ram_wr_next = 1'b1;
                     end else begin //If dirty is not set, Write to cache
-                        dcache_cntrl_valid_bit = 1'b1;
-                        dcache_cntrl_dirty_bit = 1'b1;
-                        dcache_cntrl_tag       = tag_i;
-                        // dcache_cntrl_update_entry = 1'b1;
-                        update_entry_cpu          = 1'b1;
-                        cache_access_stall_next = 1'b0;
-                        state_next             = IDLE;
+                        start_ram_rd_next = 1'b1;
+                        state_next = ALLOCATE;
                 end
                 end else begin //Load Miss, Go to Allocate
                     if(indexed_dirty_bit_i) begin //Here we have Dirty Bit, We need to Write to RAM before Allocating

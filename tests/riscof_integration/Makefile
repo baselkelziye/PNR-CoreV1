@@ -1,6 +1,6 @@
 # ---- Tool & config ----
 VERILATOR        ?= verilator
-CORE_VERBOSITY   ?= 500
+CORE_VERBOSITY   ?= 400
 TOP_MODULE       ?= core
 
 # Define source directory variable
@@ -43,4 +43,4 @@ riscof: build-riscof
 
 # ---- Clean ----
 clean:
-	rm -rf $(OBJDIR_BASIC) $(OBJDIR_RISCOF) core.vcd memory_dump.txt register_dump.txt DUT.signature
+	rm -rf $(OBJDIR_BASIC) $(OBJDIR_RISCOF) core.vcd memory_dump.txt register_dump.txt DUT.signature trace_core.log memory_dump.log

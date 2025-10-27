@@ -58,7 +58,7 @@ wire [15:0] read_half;
 wire [ADDRESS_WIDTH-1:0] read_word;
 
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
-assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:3],{WORD_OFF_BITS{1'b0}}};
+assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
 assign {read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]} = dcache_array_dline_wr[word_off];
 
 assign read_byte = read_word_darray[byte_off]; // Read 1 Byte
@@ -156,7 +156,7 @@ function void data_mem_subsystem_trace_log(int file);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, word_addr_dcache: %b",$time,word_addr_dcache);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
-    // l1_dcache_array_u.l1_dcache_array_trace_log(file);
+    l1_dcache_array_u.l1_dcache_array_trace_log(file);
     DATA_RAM_u.DATA_RAM_trace_log(file);
     $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);
     $fwrite(file,"\nTime: %1t , byte_off: %b,  read_byte: %h, read_half: %h, read_word: %h, dcache_array_dline_wr[word_off]: %h", $time,byte_off,read_byte,read_half,read_word, dcache_array_dline_wr[word_off]);
