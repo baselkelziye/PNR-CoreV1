@@ -139,8 +139,8 @@ ALU ALU_u(
 
 MDU MDU_u(
   .MDU_op_i(funct3_ex_i),
-  .MDU_op1_i(alu1_input),
-  .MDU_op2_i(alu2_input),
+  .MDU_op1_i(rs1_data_ex_i),
+  .MDU_op2_i(rs2_data_ex_i),
   .MDU_result_o(mdu_result)
 );
 
@@ -182,6 +182,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
         alu_op_trace(file);
+        mdu_op_trace(file);
         branch_op_trace(file);
     end
   endfunction
@@ -189,6 +190,10 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
   function void alu_op_trace(int file);
   $fwrite(file, "\nTime: %1t ALU, alu1_input: 0x%8h, alu2_input: 0x%8h, alu_op_ex_i: %0b,  alu_result: 0x%8h",$time,alu1_input,alu2_input,alu_op_ex_i,alu_result);
   // ALU_PATH.alu_trace_log(file);
+  endfunction
+
+  function void mdu_op_trace(int file);
+  $fwrite(file, "\nTime: %1t MDU, mdu1_input: 0x%8h, mdu2_input: 0x%8h, mdu_op_i: %b, mdu_result: 0x%8h", $time,alu1_input,alu2_input,funct3_ex_i,mdu_result);
   endfunction
 
   function void branch_op_trace(int file);

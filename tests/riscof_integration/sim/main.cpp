@@ -148,14 +148,14 @@ void write_back_cache_to_mem(Vcore* top) {
                     uint32_t mem_offset = current_word_addr - MEM_BASE;
 
                     // 🚫 Skip any writes at or beyond (sig_end - 4)
-                    if (sig_end != 0 && (current_word_addr >= (sig_end - 4) || current_word_addr == sig_start)) {
-                        log << "    SKIP: Word " << j
-                            << " | Addr: 0x" << std::hex << std::setw(8) << current_word_addr
-                            << " protected (sig_start=0x" << sig_start << " or >= sig_end-4=0x" << (sig_end - 4)
-                            << ") | Value: 0x" << std::setw(8) << word
-                            << " | NOT WRITTEN\n" << std::dec;
-                        continue;
-                    }
+                    // if (sig_end != 0 && (current_word_addr >= (sig_end - 4) || current_word_addr == sig_start)) {
+                    //     log << "    SKIP: Word " << j
+                    //         << " | Addr: 0x" << std::hex << std::setw(8) << current_word_addr
+                    //         << " protected (sig_start=0x" << sig_start << " or >= sig_end-4=0x" << (sig_end - 4)
+                    //         << ") | Value: 0x" << std::setw(8) << word
+                    //         << " | NOT WRITTEN\n" << std::dec;
+                    //     continue;
+                    // }
 
                     // Normal write-back logging
                     log << "    Word " << std::setw(2) << j

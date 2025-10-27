@@ -281,7 +281,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
     $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
-    // register_file_u.dump_register_file(file);
+    register_file_u.dump_register_file(file);
   endfunction
 `endif
 
