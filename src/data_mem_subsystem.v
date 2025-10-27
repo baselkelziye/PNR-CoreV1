@@ -58,7 +58,7 @@ wire [15:0] read_half;
 wire [ADDRESS_WIDTH-1:0] read_word;
 
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
-assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:3],{WORD_OFF_BITS{1'b0}}};
+assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
 assign {read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]} = dcache_array_dline_wr[word_off];
 
 assign read_byte = read_word_darray[byte_off]; // Read 1 Byte
@@ -69,7 +69,7 @@ assign read_data_o = (funct3_i == `LB_FUNCT3)  ? {{24{read_byte[7]}},read_byte} 
                      (funct3_i == `LH_FUNCT3)  ? {{16{read_half[15]}}, read_half}  :
                      (funct3_i == `LW_FUNCT3)  ? read_word                         :
                      (funct3_i == `LBU_FUNCT3) ? {24'b0, read_byte}                :
-                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_word_darray[15:0]}   :
+                     (funct3_i == `LHU_FUNCT3) ? {16'b0, read_half[15:0]}   :
                                                                         32'hA1A1A1A1;
 
 l1_dcache_array #(

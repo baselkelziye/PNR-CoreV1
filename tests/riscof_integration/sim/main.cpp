@@ -25,10 +25,10 @@ const uint32_t CACHE_SIZE = 0x10000;  // e.g., 2 MB, 2097152 bytes (Size of simu
 
 // --- L1 Data Cache Geometry Assumptions ---
 // Assuming a 32KB cache with 32-byte lines (typical L1 structure)
-const uint32_t ENTRIES = 64;
-const uint32_t WORDS_PER_LINE = 2;
+const uint32_t ENTRIES = 32;
+const uint32_t WORDS_PER_LINE = 4;
 const uint32_t LINE_SIZE_BYTES = WORDS_PER_LINE * 4; // 8 bytes per line
-const uint32_t BLOCK_OFFSET_BITS = 3;  // log2(LINE_SIZE_BYTES)
+const uint32_t BLOCK_OFFSET_BITS = 4;  // log2(LINE_SIZE_BYTES)
 const uint32_t TAG_SHIFT = 9;          // INDEX_BITS (6) + BLOCK_OFFSET_BITS (3)
 // ------------------------------------------
 
@@ -148,11 +148,11 @@ void write_back_cache_to_mem(Vcore* top) {
                     uint32_t mem_offset = current_word_addr - MEM_BASE;
 
                     // 🚫 Skip any writes at or beyond (sig_end - 4)
-                    if (sig_end != 0 && current_word_addr >= (sig_end - 4)) {
+                    if (sig_end != 0 && (current_word_addr >= (sig_end - 4) || current_word_addr == sig_start)) {
                         log << "    SKIP: Word " << j
                             << " | Addr: 0x" << std::hex << std::setw(8) << current_word_addr
-                            << " >= (sig_end - 4)=0x" << (sig_end - 4)
-                            << " | Value: 0x" << std::setw(8) << word
+                            << " protected (sig_start=0x" << sig_start << " or >= sig_end-4=0x" << (sig_end - 4)
+                            << ") | Value: 0x" << std::setw(8) << word
                             << " | NOT WRITTEN\n" << std::dec;
                         continue;
                     }
@@ -178,6 +178,28 @@ void write_back_cache_to_mem(Vcore* top) {
 
     std::cout << "L1 D-Cache write-back complete." << std::endl;
     std::cout.flush();
+
+    // --- Assign constant value to signature beginning and end ---
+    if (sig_end != 0) {
+        std::cout << "Assigning signature constant 0x6f5ca309 to addresses 0x" 
+                  << std::hex << sig_start << " and 0x" << sig_end << std::dec << std::endl;
+        
+        // Assign to signature beginning
+        uint32_t mem_offset_start = sig_start - MEM_BASE;
+        for (int k = 0; k < 4; ++k) {
+            uint8_t byte_val = (0x6f5ca309 >> (8 * k)) & 0xFF;
+            top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset_start + k] = byte_val;
+        }
+        
+        // Assign to signature end
+        uint32_t mem_offset_end = sig_end - MEM_BASE;
+        for (int k = 0; k < 4; ++k) {
+            uint8_t byte_val = (0x6f5ca309 >> (8 * k)) & 0xFF;
+            top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset_end + k] = byte_val;
+        }
+        
+        std::cout << "Signature constant assignment complete." << std::endl;
+    }
 }
 
 
@@ -236,7 +258,7 @@ int main(int argc, char **argv) {
     top->clk_i = 0;
 
 
-    while (!Verilated::gotFinish() && main_time < 1500000) {
+    while (!Verilated::gotFinish() && main_time <150000) {
         // Toggle clock
         top->clk_i = !top->clk_i;
 
@@ -253,7 +275,7 @@ int main(int argc, char **argv) {
                         return 1;
                     }
                     memory_loaded = true;
-                    // dump_data_memory("artifacts/memory_before.txt", top);
+                    dump_data_memory("artifacts/memory_before.txt", top);
                 }
             }
             

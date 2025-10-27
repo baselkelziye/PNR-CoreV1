@@ -46,6 +46,7 @@ module l1_dcache_array
 
 
 // Storage arrays
+(* verilator public_flat_rw *)
 reg                       valid_bit [0:ENTRIES-1];
 reg                       dirty_bit [0:ENTRIES-1];
 reg [TAG_SIZE-1:0]        tag_arr   [0:ENTRIES-1];

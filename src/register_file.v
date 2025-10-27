@@ -28,12 +28,12 @@ reg [31:0] registers[0:31];
   */
   assign rs1_data_o =
   (rs1_label_i == 5'b00000) ? 32'b0 :
-  ((rs1_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
+  // ((rs1_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
   registers[rs1_label_i];
 
 assign rs2_data_o =
   (rs2_label_i == 5'b00000) ? 32'b0 :
-  ((rs2_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
+  // ((rs2_label_i == rd_label_i) && reg_write_en_i) ? wr_data_i :
   registers[rs2_label_i];
 
 `ifdef CORE_VERBOSITY

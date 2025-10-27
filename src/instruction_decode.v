@@ -58,8 +58,16 @@ module instruction_decode(
 	output reg branch_is_taken_prediction_id_o,
 
 	//Inputs From Execution Stage
-	input wire is_load_instruction_ex_i,
+	input wire is_load_instr_ex_i,
+  input wire reg_write_en_ex_i,
 	input wire [4:0] rd_label_ex_i,
+  input wire [31:0] rd_value_ex_i,
+
+  //Inputs From Memory Stage
+  input wire reg_write_en_mem_i,
+  input wire [4:0] rd_label_mem_i,
+  input wire [31:0] rd_value_mem_i,
+  input wire is_load_instr_mem_i,
 	
 	//Inputs From Writeback stage
 	input wire reg_write_en_wb_i,
@@ -98,6 +106,10 @@ wire [3:0] alu_op;
 wire	unconditional_branch; 
 wire id_stage_stall;
 wire id_flush;
+
+//Forwaring Signals
+wire [1:0] forwardA, forwardB;
+wire [31:0] rs1_forwarded_value, rs2_forwarded_value;
     
 //Extraction of Instruction fields
 assign rd_label  = fetched_instruction_id_i[11:7 ];
@@ -124,7 +136,44 @@ register_file register_file_u
     .rs1_data_o(rs1_value		     ),
     .rs2_data_o(rs2_value			 )
 );
-        
+
+forwarding_unit forwarding_unit_u(
+  
+  .rd_label_mem_wb_o(rd_label_wb_i), // Rd Label From Write Back
+  .reg_wb_en_mem_wb_o(reg_write_en_wb_i), // Rd Reg En from Write Back
+
+  .rd_label_id_ex_o(rd_label_ex_i), // Rd Label from EX Stage
+  .reg_wb_en_id_ex_o (reg_write_en_ex_i), // Reg En From EX Stage
+
+  .rd_label_ex_mem_o(rd_label_mem_i), // Rd Label from MEM Stage
+  .reg_wb_en_ex_mem_o(reg_write_en_mem_i), // Reg En from MEM Stage
+
+  .rs1_label_id_i(rs1_label),
+  .rs2_label_id_i(rs2_label),  
+  .forwardA_o(forwardA),
+  .forwardB_o(forwardB)
+);
+
+mux_4x1 #(
+  .DATA_WIDTH(32)
+) rs1_latest_value_selector (
+    .in0_i(rs1_value      ),
+    .in1_i(rd_value_ex_i  ),
+    .in2_i(rd_value_mem_i ),
+    .in3_i(rd_value_wb_i  ),
+    .sel_i(forwardA       ),
+    .out_o(rs1_forwarded_value));
+
+mux_4x1 #(
+    .DATA_WIDTH(32)
+) rs2_latest_value_selector(
+    .in0_i(rs2_value          ),
+    .in1_i(rd_value_ex_i      ),
+    .in2_i(rd_value_mem_i     ),
+    .in3_i(rd_value_wb_i      ),
+    .sel_i(forwardB           ),
+    .out_o(rs2_forwarded_value)
+);
         
   imm_gen imm_gen_u(
     .instr_i(fetched_instruction_id_i),
@@ -132,9 +181,11 @@ register_file register_file_u
     .imm_o(imm_value				  ));
     
   hazard_detection_unit hazard_detection_unit_u(
-	.is_load_instruction_ex_i(is_load_instruction_ex_i),  
+	.is_load_instruction_ex_i(is_load_instr_ex_i      ),
+  .is_load_instruction_mem_i(is_load_instr_mem_i    ),
 	.is_store_instruction_id_i(is_store_instr		      ), 
 	.rd_label_ex_i(rd_label_ex_i					            ),
+  .rd_label_mem_i(rd_label_mem_i),
 	.rs1_label_id_i(rs1_label					            	  ),
 	.rs2_label_id_i(rs2_label					            	  ), 
 	.stall_o(load_stall							              	  ),
@@ -177,44 +228,44 @@ begin
         rd_label_id_o 			         <= 5'b0  ;
         rs1_label_id_o 		          	 <= 5'b0  ;
         rs2_label_id_o 		          	 <= 5'b0  ;	
-        funct3_id_o 				     <= 3'b0  ;	
+        funct3_id_o                      <= 3'b0  ;
         unconditional_branch_id_o        <= 1'b0  ;
-        btb_predicted_pc_id_o 		     <= 32'h0 ;
-        branch_is_taken_prediction_id_o  <= 1'b0  ;   
-        fetched_instruction_id_o         <= 32'h13;   
+        btb_predicted_pc_id_o            <= 32'h0 ;
+        branch_is_taken_prediction_id_o  <= 1'b0  ;
+        fetched_instruction_id_o         <= 32'h13;
     end 
     else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
-        reg_write_en_id_o 		           <= 1'b0 ;
-        is_store_instr_id_o 	           <= 1'b0 ;
-        is_branch_instr_id_o 			       <= 1'b0 ;
-        is_load_instr_id_o			         <= 1'b0 ;
-        unconditional_branch_id_o 	     <= 1'b0 ;
-        btb_predicted_pc_id_o 	         <= 32'h0;
-        branch_is_taken_prediction_id_o  <= 1'b0 ;  
-        fetched_instruction_id_o         <= 32'h13;     
+        reg_write_en_id_o                <= 1'b0 ;
+        is_store_instr_id_o              <= 1'b0 ;
+        is_branch_instr_id_o             <= 1'b0 ;
+        is_load_instr_id_o               <= 1'b0 ;
+        unconditional_branch_id_o        <= 1'b0 ;
+        btb_predicted_pc_id_o            <= 32'h0;
+        branch_is_taken_prediction_id_o  <= 1'b0 ;
+        fetched_instruction_id_o         <= 32'h13;
     end
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
-        rs1_data_id_o  			            <= rs1_value			                ;
-        rs2_data_id_o  			            <= rs2_value			  		          ;
-        imm_value_id_o 			            <= imm_value			  		          ;
-        load_store_forward_sel_id_o     <= load_store_forward_sel		      ;
-        reg_write_en_id_o 			        <= reg_write_en   		  		      ;
-        rs1_pc_sel_id_o 			          <= rs1_pc_sel	   		  		        ;
-        rs2_imm_sel_id_o 		            <= rs2_imm_sel	   		  		      ;
-        is_branch_instr_id_o		        <= is_branch_instr		  		      ;
-        is_store_instr_id_o 		        <= is_store_instr 		  		      ;
-        is_load_instr_id_o 		          <= is_load_instr  		  		      ;
-        wb_sel_id_o 			              <= wb_sel	 			  		            ;
-        alu_op_id_o 		                <= alu_op	 			  		            ;
-        pc_id_o               		      <= pc_id_i  			  		          ;
-        rd_label_id_o 				          <= rd_label 			  		          ;
-        rs1_label_id_o				          <= rs1_label			  		          ;
-        rs2_label_id_o				          <= rs2_label			  		          ;
-        funct3_id_o   				          <= funct3   			  		          ;
-        unconditional_branch_id_o       <= unconditional_branch  		      ;
-        btb_predicted_pc_id_o 		      <= btb_predicted_pc_id_i		      ;
+        rs1_data_id_o  			            <= rs1_forwarded_value            ;
+        rs2_data_id_o  			            <= rs2_forwarded_value            ;
+        imm_value_id_o 			            <= imm_value                      ;
+        load_store_forward_sel_id_o     <= load_store_forward_sel         ;
+        reg_write_en_id_o 			        <= reg_write_en                   ;
+        rs1_pc_sel_id_o 			          <= rs1_pc_sel                     ;
+        rs2_imm_sel_id_o 		            <= rs2_imm_sel                    ;
+        is_branch_instr_id_o		        <= is_branch_instr                ;
+        is_store_instr_id_o 		        <= is_store_instr                 ;
+        is_load_instr_id_o 		          <= is_load_instr                  ;
+        wb_sel_id_o 			              <= wb_sel                         ;
+        alu_op_id_o 		                <= alu_op                         ;
+        pc_id_o               		      <= pc_id_i                        ;
+        rd_label_id_o 				          <= rd_label                       ;
+        rs1_label_id_o				          <= rs1_label                      ;
+        rs2_label_id_o				          <= rs2_label                      ;
+        funct3_id_o   				          <= funct3                         ;
+        unconditional_branch_id_o       <= unconditional_branch           ;
+        btb_predicted_pc_id_o 		      <= btb_predicted_pc_id_i          ;
         branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
         fetched_instruction_id_o        <= fetched_instruction_id_i       ;
 	end 
