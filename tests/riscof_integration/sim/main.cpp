@@ -21,7 +21,7 @@ double sc_time_stamp() {
 
 
 const uint32_t MEM_BASE = 0x80000000;
-const uint32_t CACHE_SIZE = 0x200000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
+const uint32_t CACHE_SIZE = 0x10000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
 
 // --- L1 Data Cache Geometry Assumptions ---
 // Assuming a 32KB cache with 32-byte lines (typical L1 structure)
