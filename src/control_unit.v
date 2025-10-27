@@ -35,7 +35,8 @@ module control_unit(
     output       is_load_instr_o        , // Load komutu mu degil mi 
     output       is_store_instr_o       , // Store komutu mu degil mi
     output [3:0] alu_op_o               , // ALU islem turunu belirleyen sinyal
-    output       unconditional_branch_o   // kosulsuz branch komutu mu degil mi
+    output       unconditional_branch_o , // kosulsuz branch komutu mu degil mi
+    output       ex_unit_sel_o
     );
 
 `include "encodings.vh"
@@ -79,6 +80,11 @@ localparam [7:0] ILLEGAL = 8'b0_XX_X_X_XXX;
 
 reg is_load_instr, is_store_instr, is_branch_instr, unconditional_branch;
 reg [3:0] alu_op;
+
+//Select where the EX result is produced (ALU, MDU)
+//0 => ALU
+//1 => MDU
+reg ex_unit_select;
 //control_singals = reg_write_en, wb_sel[1:0], rs1_pc_sel, rs2_imm_sel, imm_type[2:0]
 
 
@@ -91,6 +97,7 @@ begin
   is_branch_instr      = 1'b0   ;
   alu_op               = 4'b0000;
   unconditional_branch = 1'b0   ;
+  ex_unit_select       = 1'b0   ;
   case(opcode_i)
     `LOAD_OPCODE   : 
     begin
@@ -127,6 +134,10 @@ begin
               `SRA_FUNCT3: alu_op = `SRA_ALU_OP;
               default   : alu_op = `DEFAULT_ALU_OP;
             endcase 
+          end
+        7'b0000001: //MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU
+          begin
+            ex_unit_select = 1'b1;
           end
         default   : alu_op = `DEFAULT_ALU_OP;
       endcase
@@ -184,7 +195,7 @@ assign is_load_instr_o = is_load_instr;
 assign is_store_instr_o = is_store_instr;
 assign alu_op_o = alu_op;
 assign unconditional_branch_o = unconditional_branch;
-
+assign ex_unit_sel_o  = ex_unit_select;
 
 
 endmodule

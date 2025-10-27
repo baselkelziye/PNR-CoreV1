@@ -25,7 +25,7 @@
 
 hart_ids: [0]
 hart0:
-  ISA: RV32IC
+  ISA: RV32IMC
   User_Spec_Version: '2.3'
   hw_data_misaligned_support: False
   pmp_granularity : 4

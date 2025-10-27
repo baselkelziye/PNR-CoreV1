@@ -38,9 +38,10 @@ module instruction_execution(
   input [31:0] btb_predicted_pc_ex_i,
   input branch_is_taken_prediction_ex_i,
   input [31:0] fetched_instruction_ex_i,
+  input ex_unit_sel_ex_i,
 
   //Inputs to Decode Stage
-  output wire [31:0] alu_result_comb_o,
+  output wire [31:0] ex_stage_result_o,
 
   //Outputs to Memory Stage
   output reg [31:0] alu_result_ex_o,
@@ -87,6 +88,8 @@ module instruction_execution(
   wire [31:0] alu_result;
   wire [31:0] alu1_input, alu2_input;
 
+  //MDU Signals
+  wire [31:0] mdu_result;
   wire ex_stage_stall;
   assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
 
@@ -134,7 +137,14 @@ ALU ALU_u(
     .result_o(alu_result)
 );
 
-assign alu_result_comb_o = alu_result;
+MDU MDU_u(
+  .MDU_op_i(funct3_ex_i),
+  .MDU_op1_i(alu1_input),
+  .MDU_op2_i(alu2_input),
+  .MDU_result_o(mdu_result)
+);
+
+assign ex_stage_result_o = (ex_unit_sel_ex_i == 1'b1) ? mdu_result : alu_result;
 
 always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
@@ -150,7 +160,7 @@ always @(posedge clk_i, posedge rst_i) begin
       latest_rs2_value_ex_o    <= 32'h0;
       fetched_instruction_ex_o <= 32'h13;
   end else if (!ex_stage_stall) begin
-      alu_result_ex_o <= alu_result;
+      alu_result_ex_o <= ex_stage_result_o;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
       reg_write_en_ex_o <= reg_write_en_ex_i;
       is_load_instr_ex_o <= is_load_instr_ex_i;
