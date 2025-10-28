@@ -89,6 +89,35 @@ async def load_instruction_cache(dut, file_path):
                 dut.if_u.instr_cache_u.instructions[instruction_index].value = byte_value
                 instruction_index += 1
 
+async def load_data_cache(dut, file_path, start_addr=0):
+    """
+    Load data memory contents from a .mem/.hex file into the DUT's data RAM.
+    The memory is byte-addressable.
+    
+    Args:
+        dut: The DUT handle (simulation top-level object).
+        file_path (str): Path to the memory initialization file.
+        start_addr (int): Starting byte address in the RAM where data should be written.
+    """
+    data_mem = get_data_cache(dut)
+
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+        data_index = start_addr  # Start writing from given address offset
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue  # Skip empty lines
+
+            # Split line into individual bytes
+            byte_strings = line.split()
+
+            for byte_str in byte_strings:
+                byte_value = int(byte_str, 16)  # Convert hex string to integer
+                data_mem[data_index].value = byte_value
+                data_index += 1
+
 
 def get_tag_array(dut):
     valid_bit_arr = dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.valid_bit
@@ -218,6 +247,28 @@ async def loop_test(dut):
         expected_value = int(expected_register_values[idx],16)
         # logger.info(f"Register {reg}: {dut_value:#010x}")
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
+
+@cocotb.test()
+async def buffer_sum_test(dut):
+    performance_filepath = "../performance_test/"
+    machine_code_filename = "machine_codes/buffer_sum.hex"
+    data_mem_filename = "memory_files/buffer_sum.mem"
+    MEM_OFFSET = 256
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+    await load_data_cache(dut, performance_filepath +data_mem_filename, MEM_OFFSET )
+    num_cycles = 2000
+    await ClockCycles(dut.clk_i, num_cycles, rising=False)
+    registers = await get_register_file(dut)
+    expected_register_values = ["0x00002040"]
+    registers_id = [5]
+    for idx, reg in enumerate(registers_id):
+        dut_value = registers[reg].value
+        expected_value = int(expected_register_values[idx],16)
+        # logger.info(f"Register {reg}: {dut_value:#010x}")
+        assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
+    
 
 # @cocotb.test()
 # async def peripheral_test(dut):

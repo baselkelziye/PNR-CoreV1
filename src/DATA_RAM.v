@@ -36,6 +36,11 @@ localparam [2:0] IDLE       = 3'b000,
 
 (* verilator public_flat_rw *)
 reg [7:0] RAM[0:MEM_SIZE-1] ;
+localparam int BUFFER_SUM_START_ADDR = 256;
+initial begin
+    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", RAM,BUFFER_SUM_START_ADDR);
+
+end
 
 reg ram_wr_done_reg, ram_wr_done_next;
 reg ram_rd_done_reg, ram_rd_done_next;
@@ -194,7 +199,7 @@ endfunction
 function void memory_dump(int mem_dump_file, int cycle);
     int i;
     $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
-    for (i = 0; i < 100; i = i + 1) begin
+    for (i = 0; i < 1000; i = i + 1) begin
         // Print each memory location as "address: value"
         $fwrite(mem_dump_file, "0x%h: 0x%h\n", i, RAM[i]);
     end

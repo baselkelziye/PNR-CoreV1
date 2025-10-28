@@ -290,6 +290,7 @@ instruction_memory_stage mem_u
       cycle_reg <= cycle_next;
     end
   end
+  
   assign cycle_next = cycle_reg + 12'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
@@ -298,9 +299,13 @@ instruction_memory_stage mem_u
     if_u.if_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
-    mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    if(cycle_reg == 1 ) begin
+      mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    end
+    // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
 end
+  
 `endif
 
 endmodule
