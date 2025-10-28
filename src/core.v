@@ -46,6 +46,7 @@ wire [2:0] funct3_id_o;
 wire unconditional_branch_id_o;
 wire [31:0] btb_predicted_pc_id_o;
 wire branch_is_taken_prediction_id_o;
+wire ex_unit_sel_id_o;
 //--------------------------------------------
 
 
@@ -139,6 +140,7 @@ instruction_decode id_u
   .wb_sel_id_o(wb_sel_id_o                                        ),
   .alu_op_id_o(alu_op_id_o                                        ),
   .unconditional_branch_id_o(unconditional_branch_id_o            ),
+  .ex_unit_sel_o(ex_unit_sel_id_o                                 ),
   //Program Counter
   .pc_id_o(pc_id_o                                                ),
   .fetched_instruction_id_o(fetched_instruction_id_o              ),             
@@ -196,8 +198,9 @@ instruction_execution ex_u
   .btb_predicted_pc_ex_i(btb_predicted_pc_id_o                    ),
   .branch_is_taken_prediction_ex_i(branch_is_taken_prediction_id_o),
   .fetched_instruction_ex_i(fetched_instruction_id_o              ),
+  .ex_unit_sel_ex_i(ex_unit_sel_id_o                              ),
   //Outputs to Decode Stage
-  .alu_result_comb_o(rd_value_ex_o),
+  .ex_stage_result_o(rd_value_ex_o),
   //Outputs to Memory Stage
   .alu_result_ex_o(alu_result_ex_o                                ),
   .load_store_forward_sel_ex_o(load_store_forward_sel_ex_o        ),

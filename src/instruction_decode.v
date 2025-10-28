@@ -45,6 +45,7 @@ module instruction_decode(
 	output reg [1:0] wb_sel_id_o,
 	output reg [3:0] alu_op_id_o,
 	output reg unconditional_branch_id_o,
+  output reg ex_unit_sel_o,
 
 	//Program Counter
 	output reg [31:0] pc_id_o,
@@ -106,6 +107,7 @@ wire [3:0] alu_op;
 wire	unconditional_branch; 
 wire id_stage_stall;
 wire id_flush;
+wire ex_unit_sel;
 
 //Forwaring Signals
 wire [1:0] forwardA, forwardB;
@@ -205,7 +207,8 @@ mux_4x1 #(
   .is_load_instr_o(is_load_instr				      ),
   .is_store_instr_o(is_store_instr		      	),
   .alu_op_o(alu_op						      	        ),
-	.unconditional_branch_o(unconditional_branch));
+	.unconditional_branch_o(unconditional_branch),
+  .ex_unit_sel_o(ex_unit_sel));
    
    
 always @(posedge clk_i, posedge rst_i)
@@ -233,6 +236,7 @@ begin
         btb_predicted_pc_id_o            <= 32'h0 ;
         branch_is_taken_prediction_id_o  <= 1'b0  ;
         fetched_instruction_id_o         <= 32'h13;
+        ex_unit_sel_o                    <= 1'b0;
     end 
     else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
@@ -268,6 +272,7 @@ begin
         btb_predicted_pc_id_o 		      <= btb_predicted_pc_id_i          ;
         branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
         fetched_instruction_id_o        <= fetched_instruction_id_i       ;
+        ex_unit_sel_o                   <= ex_unit_sel                    ;
 	end 
   end
 
@@ -276,7 +281,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
     $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
-    // register_file_u.dump_register_file(file);
+    register_file_u.dump_register_file(file);
   endfunction
 `endif
 

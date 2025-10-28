@@ -38,9 +38,10 @@ module instruction_execution(
   input [31:0] btb_predicted_pc_ex_i,
   input branch_is_taken_prediction_ex_i,
   input [31:0] fetched_instruction_ex_i,
+  input ex_unit_sel_ex_i,
 
   //Inputs to Decode Stage
-  output wire [31:0] alu_result_comb_o,
+  output wire [31:0] ex_stage_result_o,
 
   //Outputs to Memory Stage
   output reg [31:0] alu_result_ex_o,
@@ -87,6 +88,8 @@ module instruction_execution(
   wire [31:0] alu_result;
   wire [31:0] alu1_input, alu2_input;
 
+  //MDU Signals
+  wire [31:0] mdu_result;
   wire ex_stage_stall;
   assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
 
@@ -134,7 +137,14 @@ ALU ALU_u(
     .result_o(alu_result)
 );
 
-assign alu_result_comb_o = alu_result;
+MDU MDU_u(
+  .MDU_op_i(funct3_ex_i),
+  .MDU_op1_i(rs1_data_ex_i),
+  .MDU_op2_i(rs2_data_ex_i),
+  .MDU_result_o(mdu_result)
+);
+
+assign ex_stage_result_o = (ex_unit_sel_ex_i == 1'b1) ? mdu_result : alu_result;
 
 always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
@@ -150,7 +160,7 @@ always @(posedge clk_i, posedge rst_i) begin
       latest_rs2_value_ex_o    <= 32'h0;
       fetched_instruction_ex_o <= 32'h13;
   end else if (!ex_stage_stall) begin
-      alu_result_ex_o <= alu_result;
+      alu_result_ex_o <= ex_stage_result_o;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
       reg_write_en_ex_o <= reg_write_en_ex_i;
       is_load_instr_ex_o <= is_load_instr_ex_i;
@@ -172,6 +182,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
         alu_op_trace(file);
+        mdu_op_trace(file);
         branch_op_trace(file);
     end
   endfunction
@@ -179,6 +190,10 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
   function void alu_op_trace(int file);
   $fwrite(file, "\nTime: %1t ALU, alu1_input: 0x%8h, alu2_input: 0x%8h, alu_op_ex_i: %0b,  alu_result: 0x%8h",$time,alu1_input,alu2_input,alu_op_ex_i,alu_result);
   // ALU_PATH.alu_trace_log(file);
+  endfunction
+
+  function void mdu_op_trace(int file);
+  $fwrite(file, "\nTime: %1t MDU, mdu1_input: 0x%8h, mdu2_input: 0x%8h, mdu_op_i: %b, mdu_result: 0x%8h", $time,alu1_input,alu2_input,funct3_ex_i,mdu_result);
   endfunction
 
   function void branch_op_trace(int file);
