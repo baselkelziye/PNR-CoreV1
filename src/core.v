@@ -299,9 +299,10 @@ instruction_memory_stage mem_u
     if_u.if_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
-    if(cycle_reg == 1 ) begin
-      mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
-    end
+    mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    // if(cycle_reg == 1800 ) begin
+    //   mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    // end
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
 end

@@ -268,7 +268,25 @@ async def buffer_sum_test(dut):
         expected_value = int(expected_register_values[idx],16)
         # logger.info(f"Register {reg}: {dut_value:#010x}")
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
-    
+
+@cocotb.test()
+async def mem_copy_test(dut):
+    performance_filepath = "../performance_test/"
+    machine_code_filename = "machine_codes/mem_copy.hex"
+    A_ARR_ADDR = 256
+    B_ARR_ADDR = 1024
+    BUFFER_SIZE = 128
+    CONST_VALUE = 5
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+    num_cycles = 4000
+    await ClockCycles(dut.clk_i, num_cycles, rising=False)
+    await write_cache_to_memory(dut)
+    data_memory =  get_data_cache(dut)
+    for i in range (0,BUFFER_SIZE*4,4):
+        assert data_memory[A_ARR_ADDR+i].value == CONST_VALUE, f"Data Memory Mismatch at ARR A"
+        assert data_memory[B_ARR_ADDR+i].value == CONST_VALUE, f"Data Memory Mismatch at ARR B"
 
 # @cocotb.test()
 # async def peripheral_test(dut):
