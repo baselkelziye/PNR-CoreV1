@@ -280,8 +280,8 @@ instruction_memory_stage mem_u
   `define ID_PATH id_u
   `define EX_PATH ex_u
   `define MEM_PATH mem_u
-  reg  [11:0] cycle_reg;
-  wire [11:0] cycle_next;
+  reg  [31:0] cycle_reg;
+  wire [31:0] cycle_next;
 
   always @(posedge clk_i) begin
     if(rst_i) begin
@@ -291,7 +291,7 @@ instruction_memory_stage mem_u
     end
   end
   
-  assign cycle_next = cycle_reg + 12'b1;
+  assign cycle_next = cycle_reg + 32'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
@@ -300,9 +300,6 @@ instruction_memory_stage mem_u
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
-    // if(cycle_reg == 1800 ) begin
-    //   mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
-    // end
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
 end

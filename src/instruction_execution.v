@@ -181,9 +181,9 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
-        alu_op_trace(file);
-        mdu_op_trace(file);
-        branch_op_trace(file);
+        // alu_op_trace(file);
+        // mdu_op_trace(file);
+        // branch_op_trace(file);
     end
   endfunction
 
