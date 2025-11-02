@@ -1,6 +1,6 @@
 # ---- Tool & config ----
 VERILATOR      ?= verilator
-CORE_VERBOSITY ?= 500
+CORE_VERBOSITY ?= 600
 TOP_MODULE     ?= core
 
 # Define source directory variable

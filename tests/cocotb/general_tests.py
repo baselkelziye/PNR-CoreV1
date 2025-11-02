@@ -288,6 +288,68 @@ async def mem_copy_test(dut):
         assert data_memory[A_ARR_ADDR+i].value == CONST_VALUE, f"Data Memory Mismatch at ARR A"
         assert data_memory[B_ARR_ADDR+i].value == CONST_VALUE, f"Data Memory Mismatch at ARR B"
 
+@cocotb.test()
+async def matrix_mul_small(dut):
+    performance_filepath = "../performance_test/"
+    machine_code_filename = "machine_codes/matrix_mul_small.hex"
+    data_mem_filenameA = "memory_files/small_a.mem"
+    data_mem_filenameB = "memory_files/small_b.mem"
+    data_mem_filenameC = "memory_files/small_c.mem"  # Add this line
+    RESULT_MATRIX_BASE_ADDR = 0x2000
+    A_MATRIX_BASE_ADDR = 0x0
+    B_MATRIX_BASE_ADDR = 0x1000
+    MATRIX_SIZE = 3
+
+    
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+    await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
+    await load_data_cache(dut, performance_filepath + data_mem_filenameB, B_MATRIX_BASE_ADDR)
+    num_cycles = 1200
+    await ClockCycles(dut.clk_i, num_cycles, rising=False)
+    await write_cache_to_memory(dut)
+    data_memory = get_data_cache(dut)
+
+    with open(performance_filepath + data_mem_filenameC, 'r') as f:
+        content = f.read()
+    
+    # Parse the hex values from the text
+    expected_values = []
+    lines = content.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Split by spaces and parse each 2-character hex string
+        tokens = line.split()
+        for token in tokens:
+            # Each token is like "05", "0B", "11" etc.
+            # Convert from hex string to integer
+            value = int(token, 16)
+            expected_values.append(value)
+    
+    # Debug: Print what we parsed
+    print(f"Parsed {len(expected_values)} expected values:")
+    for i, val in enumerate(expected_values):
+        print(f"  C[{i//MATRIX_SIZE}][{i%MATRIX_SIZE}]: 0x{val:02x}")
+    
+    # Verify each element
+    for i in range(MATRIX_SIZE * MATRIX_SIZE):
+        memory_int = data_memory[RESULT_MATRIX_BASE_ADDR + i].value.integer
+        expected_value = expected_values[i]
+        
+        assert memory_int == expected_value, (
+            f"Matrix C[{i//MATRIX_SIZE}][{i%MATRIX_SIZE}] mismatch: "
+            f"Expected 0x{expected_value:02x}, Got 0x{memory_int:02x}"
+        )
+    
+    dut._log.info("Matrix multiplication test passed! All results match.")
+
+
+
 # @cocotb.test()
 # async def peripheral_test(dut):
 #     filename = "peripheral.hex"

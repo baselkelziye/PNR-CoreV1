@@ -203,10 +203,10 @@ always @(posedge clk_i, posedge rst_i)
       mem_op_trace(file);
     end
     if(`CORE_VERBOSITY >= 400)begin
-      // data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
+      data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     end
     `ifdef MEM_DUMP
-    if(cycle == 35000000 || cycle == 1) begin
+    if(cycle == 1500 || cycle == 1) begin
       data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  
     end
     `endif
