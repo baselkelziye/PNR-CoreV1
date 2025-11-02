@@ -54,6 +54,7 @@ module instruction_memory_stage
   //Wishbone + Peripherals
   output wire peripheral_stall_o,
 
+  output reg [31:0] fetched_instruction_mem_o,
   output mem_stage_stall_o
 );
 
@@ -181,6 +182,7 @@ always @(posedge clk_i, posedge rst_i)
       wb_sel_mem_o       <= 2'b0 ;
       is_load_mem_o      <= 1'b0 ;
       rd_value_mem_ro    <= 32'b0;
+      fetched_instruction_mem_o <= 32'h13;
     end
   else //if(!mem_stage_stall)
     begin
@@ -190,6 +192,7 @@ always @(posedge clk_i, posedge rst_i)
       wb_sel_mem_o       <= wb_sel_mem_i      ;
       is_load_mem_o      <= is_load_mem_i     ;
       rd_value_mem_ro    <= rd_value_mem_wo   ;
+      fetched_instruction_mem_o <= fetched_instruction_mem_i;
     end
   end
 
@@ -206,7 +209,9 @@ always @(posedge clk_i, posedge rst_i)
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     end
     `ifdef MEM_DUMP
-    data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);
+    if(cycle == 1500 || cycle == 1) begin
+      data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  
+    end
     `endif
   endfunction
 

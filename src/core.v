@@ -88,6 +88,7 @@ wire mem_stage_stall;
 wire [31:0] rd_value_wb_mem_o;
 wire reg_write_en_wb_o;
 wire [31:0] alu_result_wb_o, load_data_wb_o, pc_wb_o;
+wire [31:0] fetched_instruction_wb;
 
 instruction_fetch if_u
 (
@@ -259,7 +260,8 @@ instruction_memory_stage mem_u
   .load_value_wb_i(load_value_mem_o                        ),
   //Wisbone + Peripherals
   .peripheral_stall_o(peripheral_stall_mem_o               ),
-  .mem_stage_stall_o(mem_stage_stall)
+  .mem_stage_stall_o(mem_stage_stall),
+  .fetched_instruction_mem_o(fetched_instruction_wb)
 );
 
 `ifdef COCOTB_SIM
@@ -280,8 +282,11 @@ instruction_memory_stage mem_u
   `define ID_PATH id_u
   `define EX_PATH ex_u
   `define MEM_PATH mem_u
-  reg  [11:0] cycle_reg;
-  wire [11:0] cycle_next;
+  reg  [31:0] cycle_reg;
+  wire [31:0] cycle_next;
+
+  reg [31:0] executed_instructions_reg;
+  wire [31:0] executed_instructions_next;
 
   always @(posedge clk_i) begin
     if(rst_i) begin
@@ -290,7 +295,18 @@ instruction_memory_stage mem_u
       cycle_reg <= cycle_next;
     end
   end
-  assign cycle_next = cycle_reg + 12'b1;
+
+  always @(posedge clk_i) begin
+    if(rst_i) begin
+      executed_instructions_reg <= 0;
+    end else if(fetched_instruction_wb != 32'h13) begin
+      executed_instructions_reg <= executed_instructions_next;
+    end
+  end
+  localparam PROGRAM_END = 32'h0000006f ;
+  // assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
+  assign cycle_next =  cycle_reg + 32'b1;
+  assign executed_instructions_next = executed_instructions_reg + 32'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
@@ -299,8 +315,10 @@ instruction_memory_stage mem_u
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
 end
+  
 `endif
 
 endmodule

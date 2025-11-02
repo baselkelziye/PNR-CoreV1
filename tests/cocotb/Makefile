@@ -10,10 +10,10 @@ TOPLEVEL = core
 MODULE = general_tests
 
 # Hard code core_verbosity - use +define+ for Verilog
-CORE_VERBOSITY=600
+CORE_VERBOSITY=0
 
 VERILATOR_FLAGS := --timescale 1ns/1ps -I$(HDL_DIR) \
-                   --Wno-fatal --public -DCORE_VERBOSITY=$(CORE_VERBOSITY) -DMEM_DUMP \
+                   --Wno-fatal --public -DCORE_VERBOSITY=$(CORE_VERBOSITY) \
                    -fno-dedup -Wno-WIDTH 
 
 # Base compile args

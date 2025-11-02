@@ -1,0 +1,8 @@
+Test: basel_bubblesort, Cycles = 1258, Issued Instructions = 661, CPI = 0.5254372019077902
+Test: branch_flush_test, Cycles = 70, Issued Instructions = 34, CPI = 0.4857142857142857
+Test: load_hazard_test, Cycles = 76, Issued Instructions = 32, CPI = 0.42105263157894735
+Test: forwarding_test, Cycles = 71, Issued Instructions = 38, CPI = 0.5352112676056338
+Test: loop_test, Cycles = 292, Issued Instructions = 132, CPI = 0.4520547945205479
+Test: buffer_sum_test, Cycles = 1817, Issued Instructions = 956, CPI = 0.5261419922949917
+Test: mem_copy_test, Cycles = 4021, Issued Instructions = 1651, CPI = 0.4105943795075852
+Test: matrix_mul_small, Cycles = 1181, Issued Instructions = 350, CPI = 0.29635901778154106

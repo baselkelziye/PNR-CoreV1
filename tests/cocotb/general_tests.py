@@ -20,17 +20,8 @@ TAG_SIZE       = ADDRESS_WIDTH - (INDEX_BITS + WORD_OFF_BITS + BYTE_OFF_BITS)
 
 filepath = "machine_codes/"
 period_ns = 4
-datum_cache_size = 0x2000
+datum_cache_size = 0x20000
 instruction_cache_size = 0x2000
-
-def get_int_value(signal):
-    """Return integer value from cocotb signal or BinaryValue safely."""
-    try:
-        # Works for handles and BinaryValue objects
-        return int(signal.value)
-    except AttributeError:
-        return int(signal)
-
 
 async def get_register_file(dut):
     return dut.id_u.register_file_u.registers
@@ -54,6 +45,27 @@ async def reset_data_mem(dut):
     data_mem =  get_data_cache(dut)
     for i in range(datum_cache_size):
         data_mem[i].value = 0x0
+
+async def clear_cache_state(dut):
+    """Explicitly clear cache valid and dirty bits"""
+    valid_bit_arr, dirty_bit_arr, tag_arr, data_cache_arr = get_tag_array(dut)
+    
+    for index in range(ENTRIES):
+        # Clear valid and dirty bits
+        valid_bit_arr[index].value = 0
+        dirty_bit_arr[index].value = 0
+        # Optional: Clear tag array
+        tag_arr[index].value = 0
+        
+        # Clear cache data
+        for widx in range(WORDS_PER_LINE):
+            try:
+                data_cache_arr[index][widx].value = 0
+            except:
+                flat_index = index * WORDS_PER_LINE + widx
+                data_cache_arr[flat_index].value = 0
+    
+    await ClockCycles(dut.clk_i, 2, rising=True)  # Allow cache clear to propagate
     
 async def reset(dut):
     """Complete reset of the DUT including hardware reset pulse"""
@@ -88,6 +100,35 @@ async def load_instruction_cache(dut, file_path):
                 byte_value = int(byte_str, 16)
                 dut.if_u.instr_cache_u.instructions[instruction_index].value = byte_value
                 instruction_index += 1
+
+async def load_data_cache(dut, file_path, start_addr=0):
+    """
+    Load data memory contents from a .mem/.hex file into the DUT's data RAM.
+    The memory is byte-addressable.
+    
+    Args:
+        dut: The DUT handle (simulation top-level object).
+        file_path (str): Path to the memory initialization file.
+        start_addr (int): Starting byte address in the RAM where data should be written.
+    """
+    data_mem = get_data_cache(dut)
+
+    with open(file_path, "r") as file:
+        lines = file.readlines()
+        data_index = start_addr  # Start writing from given address offset
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue  # Skip empty lines
+
+            # Split line into individual bytes
+            byte_strings = line.split()
+
+            for byte_str in byte_strings:
+                byte_value = int(byte_str, 16)  # Convert hex string to integer
+                data_mem[data_index].value = byte_value
+                data_index += 1
 
 
 def get_tag_array(dut):
@@ -140,6 +181,49 @@ async def write_cache_to_memory(dut):
                 # Allow time for write to propagate
                 await Timer(1, units='ns')
 
+async def full_system_reset(dut):
+    """Complete system reset including cache and all state"""
+    await FallingEdge(dut.clk_i)
+    
+    # Pulse hardware reset
+    dut.rst_i.value = 1
+    await ClockCycles(dut.clk_i, 5, rising=True)  # Extended reset period
+    dut.rst_i.value = 0
+    await FallingEdge(dut.clk_i)
+    
+    # Reset all memory structures
+    await reset_register_file(dut)
+    await reset_instruction_cache(dut)
+    await reset_data_mem(dut)
+    
+    # Additional: Clear cache state explicitly
+    await clear_cache_state(dut)
+
+async def clear_cache_state(dut):
+    """Explicitly clear cache valid and dirty bits"""
+    valid_bit_arr, dirty_bit_arr, tag_arr, data_cache_arr = get_tag_array(dut)
+    
+    for index in range(ENTRIES):
+        # Clear valid and dirty bits
+        valid_bit_arr[index].value = 0
+        dirty_bit_arr[index].value = 0
+        # Optional: Clear tag array
+        tag_arr[index].value = 0
+        
+        # Clear cache data
+        for widx in range(WORDS_PER_LINE):
+            try:
+                data_cache_arr[index][widx].value = 0
+            except:
+                flat_index = index * WORDS_PER_LINE + widx
+                data_cache_arr[flat_index].value = 0
+    
+    await ClockCycles(dut.clk_i, 2, rising=True)  # Allow cache clear to propagate
+def get_CPI(dut):
+    cycles = dut.cycle_reg.value.integer
+    finished_instructions = dut.executed_instructions_reg.value.integer
+    dut._log.info(f"Test: {cocotb.regression_manager._test.name}, Cycles = {cycles}, Issued Instructions = {finished_instructions}, CPI = {finished_instructions/cycles}")
+    # dut._log.info(f"Cycles = {cycles}, Issued Instructions = {finished_instructions}")
 @cocotb.test()
 async def basel_bubblesort(dut):
     filename = "basel_bubblesort.hex"
@@ -153,7 +237,7 @@ async def basel_bubblesort(dut):
     expected_data_values = ["0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08", "0x09", "0x0b"]
     for i in range(10):
         assert data_memory[256 + i].value == int(expected_data_values[i],16), f"Data memory value mismatch at index {i}. Expected: {int(expected_data_values[i],16)}, Got: {data_memory[256 + i]}"
-
+    get_CPI(dut)
 
 @cocotb.test()
 async def branch_flush_test(dut):
@@ -167,7 +251,7 @@ async def branch_flush_test(dut):
     expected_register_values = ["0x10000", "0x20000", "0x0", "0xbbbbb000", "0x0"]
     for i in range(5):
         assert registers[i+1].value == int(expected_register_values[i],16), f"Register value mismatch at Register: {i+1}. Expected: {int(expected_register_values[i],16)}, Got: {registers[i+1]}"
-
+    get_CPI(dut)
 
 @cocotb.test()
 async def load_hazard_test(dut):
@@ -184,7 +268,7 @@ async def load_hazard_test(dut):
         dut_value = registers[reg].value
         expected_value = int(expected_register_values[idx],16)
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {dut_value}"
-
+    get_CPI(dut)
 
 @cocotb.test()
 async def forwarding_test(dut):
@@ -201,6 +285,7 @@ async def forwarding_test(dut):
         dut_value = registers[reg].value
         expected_value = int(expected_register_values[idx],16)
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {dut_value}"
+    get_CPI(dut)
 
 @cocotb.test()
 async def loop_test(dut):
@@ -218,6 +303,157 @@ async def loop_test(dut):
         expected_value = int(expected_register_values[idx],16)
         # logger.info(f"Register {reg}: {dut_value:#010x}")
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
+    get_CPI(dut)
+
+@cocotb.test()
+async def buffer_sum_test(dut):
+    performance_filepath = "../performance_test/"
+    machine_code_filename = "machine_codes/buffer_sum.hex"
+    data_mem_filename = "memory_files/buffer_sum.mem"
+    MEM_OFFSET = 256
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+    await load_data_cache(dut, performance_filepath +data_mem_filename, MEM_OFFSET )
+    num_cycles = 2000
+    await ClockCycles(dut.clk_i, num_cycles, rising=False)
+    registers = await get_register_file(dut)
+    expected_register_values = ["0x00002040"]
+    registers_id = [5]
+    for idx, reg in enumerate(registers_id):
+        dut_value = registers[reg].value
+        expected_value = int(expected_register_values[idx],16)
+        # logger.info(f"Register {reg}: {dut_value:#010x}")
+        assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
+    get_CPI(dut)
+@cocotb.test()
+async def mem_copy_test(dut):
+    performance_filepath = "../performance_test/"
+    machine_code_filename = "machine_codes/mem_copy.hex"
+    A_ARR_ADDR = 256
+    B_ARR_ADDR = 1024
+    BUFFER_SIZE = 128
+    CONST_VALUE = 5
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+    num_cycles = 4000
+    await ClockCycles(dut.clk_i, num_cycles, rising=False)
+    await write_cache_to_memory(dut)
+    data_memory =  get_data_cache(dut)
+    for i in range (0,BUFFER_SIZE*4,4):
+        assert data_memory[A_ARR_ADDR+i].value == CONST_VALUE, f"Data Memory Mismatch at ARR A"
+        assert data_memory[B_ARR_ADDR+i].value == CONST_VALUE, f"Data Memory Mismatch at ARR B"
+    get_CPI(dut)
+
+@cocotb.test()
+async def matrix_mul_small(dut):
+    performance_filepath = "../performance_test/"
+    machine_code_filename = "machine_codes/matrix_mul_small.hex"
+    data_mem_filenameA = "memory_files/small_a.mem"
+    data_mem_filenameB = "memory_files/small_b.mem"
+    data_mem_filenameC = "memory_files/small_c.mem"  # Add this line
+    RESULT_MATRIX_BASE_ADDR = 0x2000
+    A_MATRIX_BASE_ADDR = 0x0
+    B_MATRIX_BASE_ADDR = 0x1000
+    MATRIX_SIZE = 3
+
+    
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+    await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
+    await load_data_cache(dut, performance_filepath + data_mem_filenameB, B_MATRIX_BASE_ADDR)
+    num_cycles = 1200
+    await ClockCycles(dut.clk_i, num_cycles, rising=False)
+    await write_cache_to_memory(dut)
+    data_memory = get_data_cache(dut)
+
+    with open(performance_filepath + data_mem_filenameC, 'r') as f:
+        content = f.read()
+    
+    # Parse the hex values from the text
+    expected_values = []
+    lines = content.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Split by spaces and parse each 2-character hex string
+        tokens = line.split()
+        for token in tokens:
+            # Each token is like "05", "0B", "11" etc.
+            # Convert from hex string to integer
+            value = int(token, 16)
+            expected_values.append(value)
+    
+    # Verify each element
+    for i in range(MATRIX_SIZE * MATRIX_SIZE):
+        memory_int = data_memory[RESULT_MATRIX_BASE_ADDR + i].value.integer
+        expected_value = expected_values[i]
+        
+        assert memory_int == expected_value, (
+            f"Matrix C[{i//MATRIX_SIZE}][{i%MATRIX_SIZE}] mismatch: "
+            f"Expected 0x{expected_value:02x}, Got 0x{memory_int:02x}"
+        )
+    get_CPI(dut)
+
+# @cocotb.test()
+# async def matrix_mul_large(dut):
+#     performance_filepath = "../performance_test/"
+#     machine_code_filename = "machine_codes/matrix_mul_large.hex"
+#     data_mem_filenameA = "memory_files/large_a.mem"
+#     data_mem_filenameB = "memory_files/large_b.mem"
+#     data_mem_filenameC = "memory_files/large_c.mem"  # Add this line
+#     RESULT_MATRIX_BASE_ADDR = 0x2000
+#     A_MATRIX_BASE_ADDR = 0x0
+#     B_MATRIX_BASE_ADDR = 0x1000
+#     MATRIX_SIZE = 128
+
+    
+#     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+#     await reset(dut)
+#     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
+#     await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
+#     await load_data_cache(dut, performance_filepath + data_mem_filenameB, B_MATRIX_BASE_ADDR)
+#     num_cycles = 1000000
+#     await ClockCycles(dut.clk_i, num_cycles, rising=False)
+#     await write_cache_to_memory(dut)
+#     data_memory = get_data_cache(dut)
+
+#     with open(performance_filepath + data_mem_filenameC, 'r') as f:
+#         content = f.read()
+    
+#     # Parse the hex values from the text
+#     expected_values = []
+#     lines = content.strip().split('\n')
+    
+#     for line in lines:
+#         line = line.strip()
+#         if not line:
+#             continue
+            
+#         # Split by spaces and parse each 2-character hex string
+#         tokens = line.split()
+#         for token in tokens:
+#             # Each token is like "05", "0B", "11" etc.
+#             # Convert from hex string to integer
+#             value = int(token, 16)
+#             expected_values.append(value)
+    
+#     # Verify each element
+#     for i in range(MATRIX_SIZE * MATRIX_SIZE):
+#         memory_int = data_memory[RESULT_MATRIX_BASE_ADDR + i].value.integer
+#         expected_value = expected_values[i]
+        
+#         assert memory_int == expected_value, (
+#             f"Matrix C[{i//MATRIX_SIZE}][{i%MATRIX_SIZE}] mismatch: "
+#             f"Expected 0x{expected_value:02x}, Got 0x{memory_int:02x}"
+#         )
+#     get_CPI(dut)
+
 
 # @cocotb.test()
 # async def peripheral_test(dut):

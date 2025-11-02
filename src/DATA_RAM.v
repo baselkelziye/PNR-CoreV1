@@ -37,6 +37,18 @@ localparam [2:0] IDLE       = 3'b000,
 (* verilator public_flat_rw *)
 reg [7:0] RAM[0:MEM_SIZE-1] ;
 
+// initial begin
+//localparam int BUFFER_SUM_START_ADDR = 256;
+//     $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", RAM,BUFFER_SUM_START_ADDR);
+// end
+
+initial begin
+    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_a.mem", RAM,32'h0000);
+    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_b.mem", RAM,32'h1000);
+end
+
+
+
 reg ram_wr_done_reg, ram_wr_done_next;
 reg ram_rd_done_reg, ram_rd_done_next;
 reg [WORDS_PER_LINE-1:0] word_write_counter_reg, word_write_counter_next;
@@ -194,11 +206,11 @@ endfunction
 function void memory_dump(int mem_dump_file, int cycle);
     int i;
     $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
-    for (i = 0; i < 100; i = i + 1) begin
+    $fwrite(mem_dump_file, "  Address \t \t   Word \t \t   Byte0 \t Byte1 \t Byte2 \t Byte3\n");
+    for (i = 32'h0; i < 32'h3000; i = i + 4) begin
         // Print each memory location as "address: value"
-        $fwrite(mem_dump_file, "0x%h: 0x%h\n", i, RAM[i]);
+        $fwrite(mem_dump_file, "0x%h \t \t  0x%h \t \t %h \t   %h \t   %h \t   %h \n", i, {RAM[i+3], RAM[i+2], RAM[i+1], RAM[i]}, RAM[i], RAM[i+1], RAM[i+2], RAM[i+3]);
     end
-    $fwrite(mem_dump_file, "0x%h: 0x%h\n", 32'h6600,RAM[16'h6600]);
 endfunction
 
 `endif
