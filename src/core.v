@@ -311,9 +311,9 @@ instruction_memory_stage mem_u
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
     $fwrite(trace_file, "Cycle: %d", cycle_reg);
-    // if_u.if_trace_log(trace_file);
-    // id_u.id_trace_log(trace_file);
-    // ex_u.ex_trace_log(trace_file);
+    if_u.if_trace_log(trace_file);
+    id_u.id_trace_log(trace_file);
+    ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
