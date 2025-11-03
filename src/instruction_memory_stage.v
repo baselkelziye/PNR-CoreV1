@@ -91,18 +91,6 @@ module instruction_memory_stage
   //If read from peripheral assign wishbone value
   assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
 
-  // datum_cache datum_cache_u
-  // (
-  //     .clk_i(clk_i                       ),
-  //     .rst_i(rst_i                       ),
-  //     .address_i(alu_result_mem_i        ),
-  //     .write_data_i(forwarded_store_value),
-  //     .is_load_instr(is_load_mem_i       ),
-  //     .is_store_instr(is_store_mem_i     ),
-  //     .funct3_i(funct3_mem_i             ),
-  //     .read_data_o(data_read_from_mem    )
-  // );
-
   data_mem_subsystem data_mem_subsystem_u
   (
       .clk_i(clk_i                       ),

@@ -50,7 +50,7 @@ module instruction_fetch(
   reg [31:0] pc_next;
   wire [31:0] fetched_instruction, btb_predicted_pc;
   reg  [31:0] pc_reg;
-  wire BTB_hit, branch_is_taken_prediction;
+  wire branch_is_taken_prediction;
   localparam [31:0] INSTR_NOP = 32'h00000013;
   
   wire if_stage_stall;
@@ -71,7 +71,7 @@ module instruction_fetch(
 			pc_next = branching_address_i;
 		 else
       begin
-			  if(branch_is_taken_prediction && BTB_hit)
+			  if(branch_is_taken_prediction)
 			    pc_next = btb_predicted_pc;
 			  else
 			    pc_next = pc_reg + 32'd4;
@@ -84,28 +84,19 @@ module instruction_fetch(
     .pc_i(pc_reg),
     .instr_o(fetched_instruction));
 
-    
-  branch_target_buffer #(.N(10))
-  BTB(
-    .clk_i(clk_i),
-    .rst_i(rst_i),
-    .pc_i(pc_reg),
-    .pc_ex_i(pc_ex_i),
-    .btb_address_value_i(branching_address_i),// Branching Adress from ALU
-    .update_btb_address_i(is_branch_instr_ex_i & branching_i), //Its Branch in EX, and we are branching update BTB
-    .btb_fetched_addres_o(btb_predicted_pc),
-    .BTB_hit_o(BTB_hit));
-
-  branch_bits_buffer #(.N(10))
-  bimodal_predictor_u(
-    .clk_i(clk_i),
-    .rst_i(rst_i),
-    .pc_i(pc_reg), // we need to increment the PC in the EX STAGE
-    .pc_ex_i(pc_ex_i),
-    .increment_counter(increment_counter_i),
-    .decrement_counter(decrement_counter_i),
-    .branch_is_taken(branch_is_taken_prediction));
-
+  branch_predictor #(.N(10))
+    branch_predictor_u (
+      .clk_i(clk_i),
+      .rst_i(rst_i),
+      .pc_i(pc_reg),
+      .pc_ex_i(pc_ex_i),
+      .btb_address_value_i(branching_address_i),
+      .update_btb_address_i(is_branch_instr_ex_i & branching_i),
+      .btb_fetched_address_o(btb_predicted_pc),
+      .increment_counter(increment_counter_i),
+      .decrement_counter(decrement_counter_i),
+      .branch_is_taken(branch_is_taken_prediction)
+    );
 
   always @(posedge clk_i, posedge rst_i)
   begin
