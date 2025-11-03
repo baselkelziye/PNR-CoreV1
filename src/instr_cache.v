@@ -22,10 +22,10 @@ assign instr_o = {
 
 initial begin
 
-//    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", instructions);
+   $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/cache_test.hex", instructions);
     // $readmemh("artifacts/program_test.hex", instructions);
     // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul.hex", instructions);
-    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_large.hex", instructions);
+    // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_large.hex", instructions);
 
 end
 

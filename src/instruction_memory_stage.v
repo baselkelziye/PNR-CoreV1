@@ -108,7 +108,7 @@ module instruction_memory_stage
       .clk_i(clk_i                       ),
       .rst_i(rst_i                       ),
       .address_i(alu_result_mem_i        ),
-      .write_data_i(forwarded_store_value),
+      .write_data_i(latest_rs2_value_mem_i),
       .is_load_instr(is_load_mem_i       ),
       .is_store_instr(is_store_mem_i     ),
       .funct3_i(funct3_mem_i             ),
