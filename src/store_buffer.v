@@ -70,7 +70,7 @@ always @(*) begin
     sb_cache_wr_next = sb_cache_wr_reg;
     case (sb_state_reg)
         SB_IDLE: begin
-            if(sb_full & is_store_instr_i) begin // If SB is full, And we Have a Store
+            if(~sb_empty) begin // If SB is full, And we Have a Store
                 sb_state_next = SB_DRAIN;
                 sb_cache_wr_next = 1'b1;
                 sb_drain_next    = 1'b1;
@@ -81,7 +81,6 @@ always @(*) begin
             if(~sb_cache_wr_reg & sb_drain_reg & cache_access_is_done_i) begin
                 sb_drain_next = 1'b0;
                 sb_state_next = SB_IDLE;
-
             end            
         end
         default: begin
@@ -114,7 +113,7 @@ fifo #(
 );
 
 //if SB is draining, or full Stall.
-assign sb_stall_o = sb_full | sb_drain_reg;
+assign sb_stall_o = sb_full | sb_drain_next;
 
 assign sb_entry_rd_o = sb_entry_rd;
 assign drain_sb_o    = sb_drain_reg;

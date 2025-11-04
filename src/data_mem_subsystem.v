@@ -38,6 +38,7 @@ wire [WORD_OFF_BITS-1:0]  word_off  ;
 wire [INDEX_BITS-1:0]     index_bits;
 wire [TAG_SIZE-1:0]       tag       ;
 wire [DATA_WIDTH-1:0]     tag_arr_data;
+wire [2:0]                tag_arr_funct3;
 
 wire [BYTE_OFF_BITS-1:0] sb_byte_off;
 wire [WORD_OFF_BITS-1:0] sb_word_off;
@@ -92,11 +93,12 @@ assign sb_entry_rd_addr   = sb_entry_rd[ADDRESS_WIDTH+DATA_WIDTH+2:DATA_WIDTH+3]
 assign sb_entry_rd_valid  = sb_entry_rd[SB_ENTRY_SIZE-1];
 
 
-assign byte_off     = sb_drain ? sb_entry_rd_addr[`BYTE_OFF]   : address_i[`BYTE_OFF];
-assign word_off     = sb_drain ? sb_entry_rd_addr[`WORD_OFF]   : address_i[`WORD_OFF];
-assign index_bits   = sb_drain ? sb_entry_rd_addr[`INDEX_BITS] : address_i[`INDEX_BITS];
-assign tag          = sb_drain ? sb_entry_rd_addr[`TAG]        : address_i[`TAG];
-assign tag_arr_data = sb_drain ? sb_entry_rd_data              : write_data_i;
+assign byte_off       = sb_drain ? sb_entry_rd_addr[`BYTE_OFF]   : address_i[`BYTE_OFF];
+assign word_off       = sb_drain ? sb_entry_rd_addr[`WORD_OFF]   : address_i[`WORD_OFF];
+assign index_bits     = sb_drain ? sb_entry_rd_addr[`INDEX_BITS] : address_i[`INDEX_BITS];
+assign tag            = sb_drain ? sb_entry_rd_addr[`TAG]        : address_i[`TAG];
+assign tag_arr_data   = sb_drain ? sb_entry_rd_data              : write_data_i;
+assign tag_arr_funct3 = sb_drain ? sb_entry_rd_funct3            : funct3_i;
 assign data_mem_subsystem_stall_o = dcache_stall | sb_is_full;
 
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
@@ -124,7 +126,7 @@ l1_dcache_array #(
     .clk_i              (   clk_i                           ),
     .rst_i              (   rst_i                           ),
     .write_data_i       (   tag_arr_data                    ),
-    .funct3_i           (   funct3_i                        ),
+    .funct3_i           (   tag_arr_funct3                  ),
     .index_bits_i       (   index_bits                      ),
     .byte_off_i         (   byte_off                        ),
     .word_off_i         (   word_off                        ),
@@ -205,7 +207,7 @@ store_buffer_u(
     .clk_i                  (   clk_i                       ),
     .rst_i                  (   rst_i                       ),
     .is_store_instr_i       (   is_store_instr              ),
-    .write_data_i           (   tag_arr_data                ),
+    .write_data_i           (   write_data_i                ),
     .wr_addr_i              (   address_i                   ),
     .funct3_i               (   funct3_i                    ),
     //Inputs From Cache Controller

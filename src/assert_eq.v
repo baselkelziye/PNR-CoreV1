@@ -1,4 +1,4 @@
-module assert(input clk, input test);
+module assert_eq(input clk, input test);
     always @(posedge clk)
     begin
         if (test !== 1)
