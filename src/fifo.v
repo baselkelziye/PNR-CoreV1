@@ -1,25 +1,3 @@
-`timescale 1ns / 1ps
-//////////////////////////////////////////////////////////////////////////////////
-// Company: 
-// Engineer: 
-// 
-// Create Date: 10/10/2024 05:18:44 AM
-// Design Name: 
-// Module Name: fifo
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
-// Description: 
-// 
-// Dependencies: 
-// 
-// Revision:
-// Revision 0.01 - File Created
-// Additional Comments:
-// 
-//////////////////////////////////////////////////////////////////////////////////
-
-
 module fifo
 #(parameter B=8,
             W=4)(
@@ -37,15 +15,19 @@ reg [W-1:0] w_ptr_reg, w_ptr_next, w_ptr_succ;
 reg [W-1:0] r_ptr_reg, r_ptr_next, r_ptr_succ;
 reg full_reg, empty_reg, full_next, empty_next;
 wire wr_en;
+wire rd_en;  // Added read enable signal
 
 
 always @(posedge clk) begin
     if(wr_en)
         array_reg[w_ptr_reg] <= w_data;
+    if(rd_en)  // Clear valid bit on read
+        array_reg[r_ptr_reg] <= {1'b0, array_reg[r_ptr_reg][B-2:0]};
 end
 
 assign r_data = array_reg[r_ptr_reg];
 assign wr_en = wr & ~full_reg;
+assign rd_en = rd & ~empty_reg;  // Read enable signal
 
 always @(posedge clk, posedge reset) begin
     if(reset) begin

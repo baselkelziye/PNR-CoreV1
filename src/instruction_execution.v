@@ -105,21 +105,21 @@ module instruction_execution(
   assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
   assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
-branch_jump branch_jump_u(
-    .in1_i(rs1_data_ex_i),
-    .in2_i(rs2_data_ex_i),
-    .funct3_i(funct3_ex_i),
-    .branch_valid_o(branch_jump_unit_o)
-);
+  branch_jump branch_jump_u(
+      .in1_i            (   rs1_data_ex_i       ),
+      .in2_i            (   rs2_data_ex_i       ),
+      .funct3_i         (   funct3_ex_i         ),
+      .branch_valid_o   (   branch_jump_unit_o  )
+  );
 
-mux_2x1 #(
-    .DATA_WIDTH(32)
-) alu1_selector(
-    .in0_i(rs1_data_ex_i),
-    .in1_i(pc_ex_i),
-    .sel_i(rs1_pc_sel_ex_i),
-    .out_o(alu1_input)
-);
+  mux_2x1 #(
+      .DATA_WIDTH(32))
+  alu1_selector(
+      .in0_i   (   rs1_data_ex_i    ),
+      .in1_i   (   pc_ex_i          ),
+      .sel_i   (   rs1_pc_sel_ex_i  ),
+      .out_o   (   alu1_input       )
+  );
 
 mux_2x1 #(
     .DATA_WIDTH(32)

@@ -22,10 +22,15 @@ module l1_dcache_controller
     input                  indexed_valid_bit_i,
     input [WORDS_PER_LINE-1:0] [DATA_WIDTH-1:0] indexed_data_raw_i,
 
+    //Inputs From Store Buffer
+    input                  sb_drain_i,
+    input                  sb_cache_wr_i,
+
     output                 dcache_stall_o,
     output                 dcache_cntrl_valid_bit_o,
     output                 dcache_cntrl_dirty_bit_o,
     output [TAG_SIZE-1:0]  dcache_cntrl_tag_o,
+    output                 dcache_cntrl_access_done_o,
     // output               dcache_cntrl_update_entry_o,
     output               dcache_cntrl_update_entry_cpu_o, // Write to data cache line from CPU
     output               dcache_cntrl_update_entry_mem_o, // Write to data cache line from MEM
@@ -89,7 +94,11 @@ always @(*) begin
     start_ram_wr_next = start_ram_wr_reg;
     case (state_reg)
         IDLE: begin // If we have valid cache access, Stall processor
-            if(valid_cache_access) begin
+            if(sb_drain_i & sb_cache_wr_i) begin // Sb Drains Are More priotrized than Load
+                state_next = COMPARE_TAG;
+                cache_access_stall_next = 1'b1;
+            end
+            else if(is_load_instr_i) begin // On Store we Write to SB Directly
                 state_next = COMPARE_TAG;
                 cache_access_stall_next = 1'b1;
             end
@@ -97,7 +106,7 @@ always @(*) begin
         COMPARE_TAG: begin
             cache_hit = (tag_i == indexed_tag_i) & indexed_valid_bit_i; //If indexed valid bit = 1 and we have tag match
             if(cache_hit) begin
-                if(is_store_instr_i) begin // If we have hit and write, we just overwrite.
+                if(sb_drain_i) begin // If we have hit and write, we just overwrite.
                     dcache_cntrl_valid_bit = 1'b1;
                     dcache_cntrl_dirty_bit = 1'b1;
                     dcache_cntrl_tag       = tag_i;
@@ -110,7 +119,7 @@ always @(*) begin
                     state_next             = IDLE;
                 end
             end else begin // Cache Miss.
-                if(is_store_instr_i) begin //Store miss, If dirty=1, Write back to not lose the data
+                if(sb_drain_i) begin //Store miss, If dirty=1, Write back to not lose the data
                     if(indexed_dirty_bit_i) begin
                         state_next = WRITE_BACK;
                         start_ram_wr_next = 1'b1;
@@ -143,7 +152,6 @@ always @(*) begin
                 dcache_cntrl_dirty_bit    = 1'b0;// Fresh Data
                 dcache_cntrl_tag          = tag_i;
                 update_entry_mem          = 1'b1;
-                // dcache_cntrl_update_entry = 1'b1;
                 state_next                = COMPARE_TAG; //After we Allocate, Go and try to find.
             end 
         end
@@ -167,6 +175,17 @@ assign dcache_cntrl_update_entry_cpu_o = update_entry_cpu;
 assign dcache_cntrl_update_entry_mem_o = update_entry_mem;
 assign start_ram_write_o = start_ram_wr_reg;
 assign start_ram_read_o  = start_ram_rd_reg;
+//If we go From Stall to Not Stall it means We are Done
+//Becareful i might want to Latch this Signal!!!
+reg dcache_access_done_reg;
+always @(posedge clk_i, posedge rst_i) begin
+    if(rst_i) begin
+        dcache_access_done_reg <= 1'b0;
+    end else begin
+        dcache_access_done_reg <= cache_access_stall_reg & ~cache_access_stall_next;
+    end
+end
+assign  dcache_cntrl_access_done_o = cache_access_stall_reg & ~cache_access_stall_next;
 
 `ifdef CORE_VERBOSITY
 

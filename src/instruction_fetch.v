@@ -80,22 +80,22 @@ module instruction_fetch(
 //    assign pc_next = (branch_is_taken_prediction) ? btb_predicted_pc : pc_reg + 32'd4;
 
   instr_cache instr_cache_u(
-    // .rst_i(rst_i),
-    .pc_i(pc_reg),
-    .instr_o(fetched_instruction));
+    .pc_i     (   pc_reg             ),
+    .instr_o  (   fetched_instruction)
+  );
 
   branch_predictor #(.N(10))
-    branch_predictor_u (
-      .clk_i(clk_i),
-      .rst_i(rst_i),
-      .pc_i(pc_reg),
-      .pc_ex_i(pc_ex_i),
-      .btb_address_value_i(branching_address_i),
-      .update_btb_address_i(is_branch_instr_ex_i & branching_i),
-      .btb_fetched_address_o(btb_predicted_pc),
-      .increment_counter(increment_counter_i),
-      .decrement_counter(decrement_counter_i),
-      .branch_is_taken(branch_is_taken_prediction)
+  branch_predictor_u (
+    .clk_i                (   clk_i                               ),
+    .rst_i                (   rst_i                               ),
+    .pc_i                 (   pc_reg                              ),
+    .pc_ex_i              (   pc_ex_i                             ),
+    .btb_address_value_i  (   branching_address_i                 ),
+    .update_btb_address_i (   is_branch_instr_ex_i & branching_i  ),
+    .btb_fetched_address_o(   btb_predicted_pc                    ),
+    .increment_counter    (   increment_counter_i                 ),
+    .decrement_counter    (   decrement_counter_i                 ),
+    .branch_is_taken      (   branch_is_taken_prediction          )
     );
 
   always @(posedge clk_i, posedge rst_i)
@@ -118,7 +118,7 @@ module instruction_fetch(
     else if(!if_stage_stall)
       begin
         fetched_instruction_if_o        <= (fetched_instruction == 32'h00130001 | fetched_instruction == 32'h00130000 | fetched_instruction == 32'h00010000 | fetched_instruction == 32'h0) ? 32'h13 : fetched_instruction;
-        pc_incremented_if_o 	          <=  pc_reg;
+        pc_incremented_if_o             <=  pc_reg;
         branch_is_taken_prediction_if_o <= branch_is_taken_prediction;
         btb_predicted_pc_if_o           <= btb_predicted_pc;
       end //If There is stall, Latch the last values (No Change)
