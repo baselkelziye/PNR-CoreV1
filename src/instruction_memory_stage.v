@@ -37,6 +37,7 @@ module instruction_memory_stage
   input [31:0] fetched_instruction_mem_i,
   //Value to Store in mem
   input [31:0] latest_rs2_value_mem_i,
+  input [7:0] sb_id_mem_i,
 
   //Outputs to WriteBack Stage
   output reg [31:0] load_value_mem_o,
@@ -100,6 +101,7 @@ module instruction_memory_stage
       .is_load_instr              (   is_load_mem_i           ),
       .is_store_instr             (   is_store_mem_i          ),
       .funct3_i                   (   funct3_mem_i            ),
+      .sb_id_i                    (   sb_id_mem_i             ),
       .data_mem_subsystem_stall_o (   data_subsystem_stall    ),
       .read_data_o                (   data_read_from_mem      )
   );

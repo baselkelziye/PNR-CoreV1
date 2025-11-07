@@ -25,6 +25,7 @@ module l1_dcache_controller
     //Inputs From Store Buffer
     input                  sb_drain_i,
     input                  sb_cache_wr_i,
+    input                  sb_load_hit_i,
 
     output                 dcache_stall_o,
     output                 dcache_cntrl_valid_bit_o,
@@ -98,7 +99,7 @@ always @(*) begin
                 state_next = COMPARE_TAG;
                 cache_access_stall_next = 1'b1;
             end
-            else if(is_load_instr_i) begin // On Store we Write to SB Directly
+            else if(is_load_instr_i & ~sb_load_hit_i) begin //If Its Load, And we Don't Have hit in SB, Go Load From Cache
                 state_next = COMPARE_TAG;
                 cache_access_stall_next = 1'b1;
             end

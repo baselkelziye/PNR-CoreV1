@@ -9,3 +9,4 @@ sw x11, 32(x0)
 sw x12, 64(x0)
 sw x13, 128(x0)
 sw x14, 256(x0)
+lw x15, 128(x0) #Load Data From SB, Bypass test

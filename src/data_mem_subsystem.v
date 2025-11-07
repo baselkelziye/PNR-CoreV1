@@ -17,6 +17,7 @@ module data_mem_subsystem #(
     input              is_load_instr,
     input              is_store_instr,
     input      [2:0 ]  funct3_i,
+    input      [7:0 ]  sb_id_i,
     output             data_mem_subsystem_stall_o,
     output     [31:0]  read_data_o
 );
@@ -30,7 +31,8 @@ localparam TAG_SIZE      = ADDRESS_WIDTH - (INDEX_BITS + WORD_OFF_BITS + BYTE_OF
 //Number of Bits To Save STORE type (funct3 bits)
 localparam  VALID_BYTES = 3;
 localparam  SB_DEPTH = 2 ;// 2^2
-localparam  SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1; //+1 is VALID BIT
+localparam SB_ID_SIZE = 8;
+localparam  SB_ENTRY_SIZE =SB_ID_SIZE+ ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1; //+1 is VALID BIT
 
 // Address decode
 wire [BYTE_OFF_BITS-1:0]  byte_off  ;
@@ -80,7 +82,8 @@ wire sb_entry_rd_valid;
 
 //SB -> Dcache Controller
 wire sb_drain_sb_cache;
-wire sb_cache_wr;
+wire sb_cache_wr,sb_load_hit;
+wire [DATA_WIDTH-1:0] sb_forwarded_value;
 // Dcache Controller -> SB
 wire dcache_cntrl_access_done;
 
@@ -103,11 +106,12 @@ assign data_mem_subsystem_stall_o = dcache_stall | sb_is_full;
 
 assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
 assign ram_rd_addr = {address_i[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
-assign {read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]} = dcache_array_dline_wr[word_off];
+//If we Have Value From SB forward Directly
+assign {read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]} = (sb_load_hit) ? sb_forwarded_value : dcache_array_dline_wr[word_off];
 
 assign read_byte = read_word_darray[byte_off]; // Read 1 Byte
 assign read_half = {read_word_darray[{byte_off[1],1'b1}] , read_word_darray[{byte_off[1],1'b0}]};
-assign read_word = dcache_array_dline_wr[word_off];
+assign read_word = {read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]};
 
 assign read_data_o = (funct3_i == `LB_FUNCT3)  ? {{24{read_byte[7]}},read_byte}    :
                      (funct3_i == `LH_FUNCT3)  ? {{16{read_half[15]}}, read_half}  :
@@ -160,6 +164,8 @@ l1_dcache_controller l1_dcache_controller_u
     //Store Buffer Signals
     .sb_drain_i                      (   sb_drain                       ),
     .sb_cache_wr_i                   (   sb_cache_wr                    ),
+    .sb_load_hit_i                   (   sb_load_hit                    ),
+
     .dcache_stall_o                  (   dcache_stall                   ),
     .dcache_cntrl_valid_bit_o        (   dcache_cntrl_valid_bit_o       ),
     .dcache_cntrl_dirty_bit_o        (   dcache_cntrl_dirty_bit_o       ),
@@ -201,12 +207,14 @@ store_buffer #(
     .DATA_WIDTH(DATA_WIDTH),
     .VALID_BYTES(VALID_BYTES),
     .SB_DEPTH(SB_DEPTH),
+    .SB_ID_SIZE(SB_ID_SIZE),
     .SB_ENTRY_SIZE(SB_ENTRY_SIZE)
 )
 store_buffer_u(
     .clk_i                  (   clk_i                       ),
     .rst_i                  (   rst_i                       ),
     .is_store_instr_i       (   is_store_instr              ),
+    .is_load_instr_i        (   is_load_instr               ),
     .write_data_i           (   write_data_i                ),
     .wr_addr_i              (   address_i                   ),
     .funct3_i               (   funct3_i                    ),
@@ -215,7 +223,11 @@ store_buffer_u(
     .sb_entry_rd_o          (   sb_entry_rd                 ),
     .sb_stall_o             (   sb_is_full                  ),
     .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
-    .sb_cache_wr_o          (   sb_cache_wr                 )
+    .sb_cache_wr_o          (   sb_cache_wr                 ),
+    .sb_id_i                (   sb_id_i                     ),
+    //SB Forwarding
+    .sb_load_hit_o         (   sb_load_hit                 ),
+    .sb_forwarded_value_o  (   sb_forwarded_value          )
     );
 
 `ifdef CORE_VERBOSITY

@@ -58,6 +58,9 @@ module instruction_decode(
 	output reg [31:0] btb_predicted_pc_id_o,
 	output reg branch_is_taken_prediction_id_o,
 
+  //Outputs to ROB and SB
+  output reg [7:0] sb_id_o,
+
 	//Inputs From Execution Stage
 	input wire is_load_instr_ex_i,
   input wire reg_write_en_ex_i,
@@ -83,6 +86,7 @@ module instruction_decode(
   input wire mem_stage_stall_i
 );
     
+localparam SB_ID_SIZE = 8;
 //Definitions for Instruction Extraction
 wire [4:0] rd_label, rs1_label, rs2_label;
 wire [2:0] funct3;
@@ -112,6 +116,10 @@ wire ex_unit_sel;
 //Forwaring Signals
 wire [1:0] forwardA, forwardB;
 wire [31:0] rs1_forwarded_value, rs2_forwarded_value;
+
+//Store ID
+wire [SB_ID_SIZE-1:0] sb_id_next;
+reg [SB_ID_SIZE-1:0] sb_id_reg;
     
 //Extraction of Instruction fields
 assign rd_label  = fetched_instruction_id_i[11:7 ];
@@ -128,15 +136,15 @@ assign id_flush        = load_stall | branching_id_i;
 
 register_file register_file_u
 (
-    .clk_i(clk_i				     ),
-    .rst_i(rst_i					 ),
-    .rd_label_i(rd_label_wb_i		 ),
-    .rs1_label_i(rs1_label		     ),
-    .rs2_label_i(rs2_label		     ),
-    .reg_write_en_i(reg_write_en_wb_i), //To be filed from WB Stage
-    .wr_data_i(rd_value_wb_i		 ),
-    .rs1_data_o(rs1_value		     ),
-    .rs2_data_o(rs2_value			 )
+    .clk_i          (   clk_i             ),
+    .rst_i          (   rst_i             ),
+    .rd_label_i     (   rd_label_wb_i     ),
+    .rs1_label_i    (   rs1_label         ),
+    .rs2_label_i    (   rs2_label         ),
+    .reg_write_en_i (   reg_write_en_wb_i ), //To be filed from WB Stage
+    .wr_data_i      (   rd_value_wb_i     ),
+    .rs1_data_o     (   rs1_value         ),
+    .rs2_data_o     (   rs2_value         )
 );
 
 forwarding_unit forwarding_unit_u(
@@ -210,6 +218,16 @@ mux_4x1 #(
 	.unconditional_branch_o(unconditional_branch),
   .ex_unit_sel_o(ex_unit_sel));
    
+always @(posedge clk_i, posedge rst_i) begin
+  if(rst_i) begin
+    sb_id_reg <= '0;
+  end else if (!id_stage_stall) begin
+    sb_id_reg <= sb_id_next;
+  end
+end
+
+assign sb_id_next = (is_store_instr) ? sb_id_reg + 8'b1 : sb_id_reg;
+
    
 always @(posedge clk_i, posedge rst_i)
 begin
@@ -237,6 +255,7 @@ begin
         branch_is_taken_prediction_id_o  <= 1'b0  ;
         fetched_instruction_id_o         <= 32'h13;
         ex_unit_sel_o                    <= 1'b0;
+        sb_id_reg                        <= '0;
     end 
     else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
@@ -273,6 +292,7 @@ begin
         branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
         fetched_instruction_id_o        <= fetched_instruction_id_i       ;
         ex_unit_sel_o                   <= ex_unit_sel                    ;
+        sb_id_o                      <= sb_id_reg                      ;
 	end 
   end
 

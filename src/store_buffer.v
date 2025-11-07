@@ -4,7 +4,8 @@ module store_buffer
     parameter DATA_WIDTH = 32,
     parameter VALID_BYTES = 3,
     parameter  SB_DEPTH = 2,
-    parameter  SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + VALID_BIT,
+    parameter SB_ID_SIZE = 8,
+    parameter  SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1 + SB_ID_SIZE,
     localparam VALID_BIT = 1
 )
 (
@@ -12,16 +13,20 @@ module store_buffer
     input rst_i,
 
     input is_store_instr_i,
+    input is_load_instr_i,
     input [31:0] wr_addr_i,
     input [31:0] write_data_i,
     input [2:0] funct3_i,
     input cache_access_is_done_i,
+    input [SB_ID_SIZE-1:0] sb_id_i,
 
-    output [SB_ENTRY_SIZE-1:0] sb_entry_rd_o,
-    output sb_stall_o,
-    output drain_sb_o,
+    output [SB_ENTRY_SIZE-1:0]  sb_entry_rd_o,
+    output                      sb_stall_o,
+    output                      drain_sb_o,
     //Start a write from SB to Cache
-    output sb_cache_wr_o 
+    output                      sb_cache_wr_o,
+    output                      sb_load_hit_o,
+    output [DATA_WIDTH-1:0]     sb_forwarded_value_o
 
 );
 
@@ -70,7 +75,7 @@ always @(*) begin
     sb_cache_wr_next = sb_cache_wr_reg;
     case (sb_state_reg)
         SB_IDLE: begin
-            if(~sb_empty) begin // If SB is full, And we Have a Store
+            if(/*sb_full & is_store_instr_i*/ ~sb_empty) begin // If SB is full, And we Have a Store
                 sb_state_next = SB_DRAIN;
                 sb_cache_wr_next = 1'b1;
                 sb_drain_next    = 1'b1;
@@ -90,7 +95,7 @@ always @(*) begin
     endcase
 end
 
-assign sb_entry_wr = {1'b1, wr_addr_i, write_data_i,funct3_i};
+assign sb_entry_wr = {sb_id_i,1'b1, wr_addr_i, write_data_i,funct3_i};
 
 //We write To SB if we are not Draining and its Store Instruction.
 assign sb_wr_en = is_store_instr_i & ~sb_drain_reg;
@@ -98,18 +103,26 @@ assign sb_wr_en = is_store_instr_i & ~sb_drain_reg;
 //If we Have a Drain Command, And we Finish our Cache Access. We Delete From FIFO
 assign sb_rd_en = sb_drain_reg & cache_access_is_done_i;
 
+wire sb_addr_hit;
 fifo #(
     .B(SB_ENTRY_SIZE),
-    .W(SB_DEPTH)
+    .W(SB_DEPTH),
+    .ADDRESS_WIDTH(ADDRESS_WIDTH),
+    .DATA_WIDTH(DATA_WIDTH),
+    .VALID_BYTES(VALID_BYTES)
 ) sb_fifo_u (
-    .clk            (   clk_i               ),
-    .reset          (   rst_i               ),
-    .rd             (   sb_rd_en            ),
-    .wr             (   sb_wr_en            ),
-    .w_data         (   sb_entry_wr         ),
-    .empty          (   sb_empty            ),
-    .full           (   sb_full             ),
-    .r_data         (   sb_entry_rd         )
+    .clk            (   clk_i                   ),
+    .reset          (   rst_i                   ),
+    .rd             (   sb_rd_en                ),
+    .wr             (   sb_wr_en                ),
+    .w_data         (   sb_entry_wr             ),
+    .load_address_i (   wr_addr_i               ),
+    // .sb_id_i        (   sb_id_i                 ),
+    .sb_hit         (   sb_addr_hit           ),
+    .sb_hit_data    (   sb_forwarded_value_o    ),
+    .empty          (   sb_empty                ),
+    .full           (   sb_full                 ),
+    .r_data         (   sb_entry_rd             )
 );
 
 //if SB is draining, or full Stall.
@@ -118,7 +131,7 @@ assign sb_stall_o = sb_full | sb_drain_next;
 assign sb_entry_rd_o = sb_entry_rd;
 assign drain_sb_o    = sb_drain_reg;
 assign sb_cache_wr_o = sb_cache_wr_reg;
-
+assign sb_load_hit_o = sb_addr_hit &  is_load_instr_i;
 `ifdef CORE_VERBOSITY
 
 reg [127:0] sb_state_reg_str, sb_state_next_str;
@@ -140,12 +153,11 @@ always @(*) begin
     endcase 
 end
 function store_buffer_trace_log(int file);
-integer i;
-$fwrite(file, "\nTime: %1t, Store Buffer, sb_drain_reg: %b, sb_drain_next: %b, sb_empty: %b, sb_full: %b, sb_wr_en: %b, cache_access_is_done_i: %b, ", $time, sb_drain_reg,sb_drain_next,sb_empty,sb_full,sb_wr_en,cache_access_is_done_i);
-$fwrite(file, "\nTime: %1t, Store Buffer, sb_state_reg: %0s, sb_state_next: %0s, write_data_i: %h, wr_addr_i: %h\n", $time,sb_state_reg_str,sb_state_next_str, write_data_i,wr_addr_i);
-for(i = 0; i <  (2**SB_DEPTH); i = i+1) begin
-    $fwrite(file, "SB[%1d]: valid_bit: %b, address: 0x%h, data: 0x%h valid_bytes: %b\n", i, sb_fifo_u.array_reg[i][SB_ENTRY_SIZE-1],sb_fifo_u.array_reg[i][ADDRESS_WIDTH+VALID_BYTES+DATA_WIDTH-1:VALID_BYTES+DATA_WIDTH],sb_fifo_u.array_reg[i][VALID_BYTES+DATA_WIDTH-1:VALID_BYTES], sb_fifo_u.array_reg[i][VALID_BYTES-1:0]);
-end
+
+$fwrite(file, "\nTime: %1t, Store Buffer, sb_drain_reg: %b, sb_drain_next: %b, sb_empty: %b, sb_full: %b, sb_wr_en: %b, cache_access_is_done_i: %b, sb_load_hit_o: %b", $time, sb_drain_reg,sb_drain_next,sb_empty,sb_full,sb_wr_en,cache_access_is_done_i,sb_load_hit_o);
+$fwrite(file, "\nTime: %1t, Store Buffer, sb_state_reg: %0s, sb_state_next: %0s, write_data_i: 0x%h, wr_addr_i: 0x%h", $time,sb_state_reg_str,sb_state_next_str, write_data_i,wr_addr_i);
+$fwrite(file, "\nTime: %1t, Store Buffer, sb_load_hit_o: %b, sb_forwarded_value_o: 0x%h, ",$time,sb_load_hit_o,sb_forwarded_value_o);
+sb_fifo_u.fifo_trace_log(file);
 endfunction
 `endif
 

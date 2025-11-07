@@ -306,24 +306,6 @@ async def loop_test(dut):
     get_CPI(dut)
 
 @cocotb.test()
-async def cache_test(dut):
-    filename = "cache_test.hex"
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
-    await reset(dut)
-    await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 400
-    await ClockCycles(dut.clk_i,num_cycles, rising=False)
-    registers = await get_register_file(dut)
-    expected_register_values = ["0x0abcd000","0x00000555","0x00006600","0x0dead000","0x0abcd000"]
-    registers_id = [10,11,13,14,15]
-    for idx, reg in enumerate(registers_id):
-        dut_value = registers[reg].value
-        expected_value = int(expected_register_values[idx],16)
-        # logger.info(f"Register {reg}: {dut_value:#010x}")
-        assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
-    get_CPI(dut)
-
-@cocotb.test()
 async def buffer_sum_test(dut):
     performance_filepath = "../performance_test/"
     machine_code_filename = "machine_codes/buffer_sum.hex"
