@@ -17,4 +17,4 @@ lw x16, 0(x0) #X16  Should be  0x99999000
 addi x17,x0,0x777
 sw x16, 32(x0)
 sb x17, 32(x0)
-lw x18, 32(x0) #lw should be 99999777
+lw x18, 32(x0) #lw should be 99999077

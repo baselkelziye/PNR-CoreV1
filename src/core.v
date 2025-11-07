@@ -311,8 +311,8 @@ instruction_memory_stage mem_u
     end
   end
   localparam PROGRAM_END = 32'h0000006f ;
-  // assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
-  assign cycle_next =  cycle_reg + 32'b1;
+  assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
+  // assign cycle_next =  cycle_reg + 32'b1;
   assign executed_instructions_next = executed_instructions_reg + 32'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
