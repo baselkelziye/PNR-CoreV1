@@ -39,7 +39,7 @@ module instruction_execution(
   input branch_is_taken_prediction_ex_i,
   input [31:0] fetched_instruction_ex_i,
   input ex_unit_sel_ex_i,
-
+  input [7:0] sb_id_ex_i,
   //Inputs to Decode Stage
   output wire [31:0] ex_stage_result_o,
 
@@ -55,6 +55,7 @@ module instruction_execution(
   output reg [2:0] funct3_ex_o,
   output reg [31:0] latest_rs2_value_ex_o,
   output reg [31:0] fetched_instruction_ex_o,
+  output reg [7:0] sb_id_ex_o,
 
 
   //Inputs From Memory Stage
@@ -105,21 +106,21 @@ module instruction_execution(
   assign increment_counter_ex_o = (is_branch_instr_ex_i & branch_is_taken);
   assign decrement_counter_ex_o = (is_branch_instr_ex_i & ~branch_is_taken);
 
-branch_jump branch_jump_u(
-    .in1_i(rs1_data_ex_i),
-    .in2_i(rs2_data_ex_i),
-    .funct3_i(funct3_ex_i),
-    .branch_valid_o(branch_jump_unit_o)
-);
+  branch_jump branch_jump_u(
+      .in1_i            (   rs1_data_ex_i       ),
+      .in2_i            (   rs2_data_ex_i       ),
+      .funct3_i         (   funct3_ex_i         ),
+      .branch_valid_o   (   branch_jump_unit_o  )
+  );
 
-mux_2x1 #(
-    .DATA_WIDTH(32)
-) alu1_selector(
-    .in0_i(rs1_data_ex_i),
-    .in1_i(pc_ex_i),
-    .sel_i(rs1_pc_sel_ex_i),
-    .out_o(alu1_input)
-);
+  mux_2x1 #(
+      .DATA_WIDTH(32))
+  alu1_selector(
+      .in0_i   (   rs1_data_ex_i    ),
+      .in1_i   (   pc_ex_i          ),
+      .sel_i   (   rs1_pc_sel_ex_i  ),
+      .out_o   (   alu1_input       )
+  );
 
 mux_2x1 #(
     .DATA_WIDTH(32)
@@ -159,6 +160,7 @@ always @(posedge clk_i, posedge rst_i) begin
       is_store_instr_ex_o      <= 1'b0;
       latest_rs2_value_ex_o    <= 32'h0;
       fetched_instruction_ex_o <= 32'h13;
+      sb_id_ex_o               <= 8'b0;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o <= ex_stage_result_o;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
@@ -171,6 +173,7 @@ always @(posedge clk_i, posedge rst_i) begin
       is_store_instr_ex_o <= is_store_instr_ex_i;
       latest_rs2_value_ex_o <= rs2_data_ex_i;
       fetched_instruction_ex_o <= fetched_instruction_ex_i;
+      sb_id_ex_o        <= sb_id_ex_i;
   end
 end
 

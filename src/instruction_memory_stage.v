@@ -37,6 +37,7 @@ module instruction_memory_stage
   input [31:0] fetched_instruction_mem_i,
   //Value to Store in mem
   input [31:0] latest_rs2_value_mem_i,
+  input [7:0] sb_id_mem_i,
 
   //Outputs to WriteBack Stage
   output reg [31:0] load_value_mem_o,
@@ -62,16 +63,16 @@ module instruction_memory_stage
   //Since memory writes take more than 1 clock cycles,
   //When we stall at MEM stage, WB continue to execute, hence when we are going to write our value to cache array we will not be able to 
   // have the correct value from WB, hence we need to latch it!
-  reg [31:0] forwarded_store_value;
-  always @(posedge clk_i) begin
-    if(rst_i) begin
-      forwarded_store_value <= '0;
-    end else if(load_store_forward_sel_mem_i) begin
-      forwarded_store_value <= load_value_wb_i;
-    end else begin
-      forwarded_store_value <= latest_rs2_value_mem_i;
-    end
-  end
+  // reg [31:0] forwarded_store_value;
+  // always @(posedge clk_i) begin
+  //   if(rst_i) begin
+  //     forwarded_store_value <= '0;
+  //   end else if(load_store_forward_sel_mem_i) begin
+  //     forwarded_store_value <= load_value_wb_i;
+  //   end else begin
+  //     forwarded_store_value <= latest_rs2_value_mem_i;
+  //   end
+  // end
 
   //Wishbone Master Signals.
   wire o_wbm_cyc, o_wbm_stb, o_wbm_we;
@@ -85,7 +86,7 @@ module instruction_memory_stage
   wire [31:0] loaded_data, data_read_from_mem;
 
   //dcache signals
-  wire dcache_stall;
+  wire data_subsystem_stall;
   wire mem_stage_stall;
 
   //If read from peripheral assign wishbone value
@@ -93,26 +94,27 @@ module instruction_memory_stage
 
   data_mem_subsystem data_mem_subsystem_u
   (
-      .clk_i(clk_i                       ),
-      .rst_i(rst_i                       ),
-      .address_i(alu_result_mem_i        ),
-      .write_data_i(forwarded_store_value),
-      .is_load_instr(is_load_mem_i       ),
-      .is_store_instr(is_store_mem_i     ),
-      .funct3_i(funct3_mem_i             ),
-      .dcache_stall_o(dcache_stall       ),
-      .read_data_o(data_read_from_mem    )
+      .clk_i                      (   clk_i                   ),
+      .rst_i                      (   rst_i                   ),
+      .address_i                  (   alu_result_mem_i        ),
+      .write_data_i               (   latest_rs2_value_mem_i  ),
+      .is_load_instr              (   is_load_mem_i           ),
+      .is_store_instr             (   is_store_mem_i          ),
+      .funct3_i                   (   funct3_mem_i            ),
+      .sb_id_i                    (   sb_id_mem_i             ),
+      .data_mem_subsystem_stall_o (   data_subsystem_stall    ),
+      .read_data_o                (   data_read_from_mem      )
   );
 
   mux_4x1 #(.DATA_WIDTH(32))
   rd_value_selector_u
   (
-    .in0_i(alu_result_mem_i),
-    .in1_i(loaded_data     ),
-    .in2_i(pc_mem_i + 32'd4        ), // in JAL, JALR. Save next instruction
-    .in3_i(32'hA9A9A9A9    ),
-    .sel_i(wb_sel_mem_i    ),
-    .out_o(rd_value_mem_wo )
+    .in0_i  (   alu_result_mem_i  ),
+    .in1_i  (   loaded_data       ),
+    .in2_i  (   pc_mem_i + 32'd4  ), // in JAL, JALR. Save next instruction
+    .in3_i  (   32'hA9A9A9A9      ),
+    .sel_i  (   wb_sel_mem_i      ),
+    .out_o  (   rd_value_mem_wo   )
   );
 
   // //Wishbon Master Signals Generation
@@ -142,7 +144,7 @@ module instruction_memory_stage
       2- Stall if we have peripheral access and we don't have ack
   */
   assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
-  assign mem_stage_stall = dcache_stall;
+  assign mem_stage_stall = data_subsystem_stall;
   assign mem_stage_stall_o = mem_stage_stall;
 
 
@@ -204,7 +206,7 @@ always @(posedge clk_i, posedge rst_i)
   endfunction
 
   function void mem_op_trace(int file);
-    $fwrite(file,"\nTime: %1t, address_i: 0x%8h, write_data_i: 0x%8h, is_load_instr: %b, is_store_instr: %b, funct3_i: %b, read_data_o: 0x%8h",$time,alu_result_mem_i,forwarded_store_value,is_load_mem_i,is_store_mem_i,funct3_mem_i,data_read_from_mem);
+    $fwrite(file,"\nTime: %1t, address_i: 0x%8h, write_data_i: 0x%8h, is_load_instr: %b, is_store_instr: %b, funct3_i: %b, read_data_o: 0x%8h",$time,alu_result_mem_i,latest_rs2_value_mem_i,is_load_mem_i,is_store_mem_i,funct3_mem_i,data_read_from_mem);
   endfunction
 `endif
 

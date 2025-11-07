@@ -400,6 +400,23 @@ async def matrix_mul_small(dut):
         )
     get_CPI(dut)
 
+@cocotb.test()
+async def store_buffer_test(dut):
+    filename = "store_buffer.hex"
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut)
+    await load_instruction_cache(dut, filepath + filename)
+    num_cycles = 400
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
+    registers = await get_register_file(dut)
+    expected_register_values = ["0x44444000", "0x99999000", "0x99999077"]
+    registers_id = [15,16,18]
+    for idx, reg in enumerate(registers_id):
+        dut_value = registers[reg].value
+        expected_value = int(expected_register_values[idx],16)
+        # logger.info(f"Register {reg}: {dut_value:#010x}")
+        assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
+    get_CPI(dut)
 # @cocotb.test()
 # async def matrix_mul_large(dut):
 #     performance_filepath = "../performance_test/"

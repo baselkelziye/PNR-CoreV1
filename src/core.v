@@ -47,6 +47,7 @@ wire unconditional_branch_id_o;
 wire [31:0] btb_predicted_pc_id_o;
 wire branch_is_taken_prediction_id_o;
 wire ex_unit_sel_id_o;
+wire [7:0] sb_id_o;
 //--------------------------------------------
 
 
@@ -66,6 +67,7 @@ wire [31:0] branch_address_ex_o;
 wire increment_counter_ex_o, decrement_counter_ex_o;
 wire [31:0] fetched_instruction_ex_o;
 wire [31:0] rd_value_ex_o;
+wire [7:0] sb_id_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -151,6 +153,8 @@ instruction_decode id_u
   .branch_is_taken_prediction_id_i(branch_is_taken_prediction_if_o),
   .btb_predicted_pc_id_o(btb_predicted_pc_id_o                    ),
   .branch_is_taken_prediction_id_o(branch_is_taken_prediction_id_o),
+  //Outputs to ROB and SB
+  .sb_id_o(sb_id_o),
   //Inputs from Exeuction Stage
   .is_load_instr_ex_i(is_load_instr_id_o                          ),
   .reg_write_en_ex_i(reg_write_en_id_o),
@@ -200,6 +204,7 @@ instruction_execution ex_u
   .branch_is_taken_prediction_ex_i(branch_is_taken_prediction_id_o),
   .fetched_instruction_ex_i(fetched_instruction_id_o              ),
   .ex_unit_sel_ex_i(ex_unit_sel_id_o                              ),
+  .sb_id_ex_i(sb_id_o),
   //Outputs to Decode Stage
   .ex_stage_result_o(rd_value_ex_o),
   //Outputs to Memory Stage
@@ -214,6 +219,7 @@ instruction_execution ex_u
   .funct3_ex_o(funct3_ex_o                                        ),
   .latest_rs2_value_ex_o(latest_rs2_value_ex_o                    ),
   .fetched_instruction_ex_o(fetched_instruction_ex_o              ),
+  .sb_id_ex_o(sb_id_ex_o),
   //Inputs From Memory Stage
   .reg_write_en_mem_i(reg_write_en_ex_o                           ),
   .rd_label_mem_i(rd_label_ex_o                                   ),
@@ -248,6 +254,7 @@ instruction_memory_stage mem_u
   .is_load_mem_i(is_load_instr_ex_o                        ),
   .latest_rs2_value_mem_i(latest_rs2_value_ex_o            ),
   .fetched_instruction_mem_i(fetched_instruction_ex_o      ),
+  .sb_id_mem_i(sb_id_ex_o),
   //Outputs To WriteBack Stage
   .load_value_mem_o(load_value_mem_o                       ),
   .rd_label_mem_o(rd_label_mem_o                           ),
@@ -304,8 +311,8 @@ instruction_memory_stage mem_u
     end
   end
   localparam PROGRAM_END = 32'h0000006f ;
-  // assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
-  assign cycle_next =  cycle_reg + 32'b1;
+  assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
+  // assign cycle_next =  cycle_reg + 32'b1;
   assign executed_instructions_next = executed_instructions_reg + 32'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
