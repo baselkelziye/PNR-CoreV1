@@ -42,7 +42,7 @@ Valid Bit - Address - Data - Valid Byte
 [1]       -    32   -  32   - 3 
 */
 
-
+`include "encodings.vh"
 localparam [1:0] SB_IDLE  = 2'b00,
                  SB_DRAIN = 2'b01,
                  SB_FULL  = 2'b10;
@@ -95,7 +95,43 @@ always @(*) begin
     endcase
 end
 
-assign sb_entry_wr = {sb_id_i,1'b1, wr_addr_i, write_data_i,funct3_i};
+wire [1:0] byte_off = wr_addr_i[1:0];
+
+reg [31:0] updated_sb_wr_data;
+wire sb_addr_hit;
+
+always @* begin
+    if(sb_addr_hit & is_store_instr_i) begin //If we have hit in Store
+        updated_sb_wr_data = sb_forwarded_value_o;
+    case (funct3_i)
+        `SB_FUNCT3: begin
+            case (byte_off)
+                2'b00: updated_sb_wr_data[7:0  ] = write_data_i[7:0]; 
+                2'b01: updated_sb_wr_data[15:8 ] = write_data_i[7:0];
+                2'b10: updated_sb_wr_data[23:16] = write_data_i[7:0];
+                2'b11: updated_sb_wr_data[31:24] = write_data_i[7:0];
+                default: updated_sb_wr_data = write_data_i;
+            endcase
+        end 
+        `SH_FUNCT3: begin
+            if(byte_off[1] == 1'b0) begin
+                updated_sb_wr_data[15:0] = write_data_i[15:0];
+            end else begin
+                updated_sb_wr_data[31:16] = write_data_i[15:0];
+            end
+        end
+        `SW_FUNCT3: begin
+            updated_sb_wr_data = write_data_i;
+        end
+        default: updated_sb_wr_data = write_data_i;
+    endcase   
+    end else begin
+        updated_sb_wr_data = write_data_i;
+    end
+end
+
+
+assign sb_entry_wr = {sb_id_i,1'b1, wr_addr_i, updated_sb_wr_data,funct3_i};
 
 //We write To SB if we are not Draining and its Store Instruction.
 assign sb_wr_en = is_store_instr_i & ~sb_drain_reg;
@@ -103,7 +139,6 @@ assign sb_wr_en = is_store_instr_i & ~sb_drain_reg;
 //If we Have a Drain Command, And we Finish our Cache Access. We Delete From FIFO
 assign sb_rd_en = sb_drain_reg & cache_access_is_done_i;
 
-wire sb_addr_hit;
 fifo #(
     .B(SB_ENTRY_SIZE),
     .W(SB_DEPTH),
@@ -155,7 +190,7 @@ end
 function store_buffer_trace_log(int file);
 
 $fwrite(file, "\nTime: %1t, Store Buffer, sb_drain_reg: %b, sb_drain_next: %b, sb_empty: %b, sb_full: %b, sb_wr_en: %b, cache_access_is_done_i: %b, sb_load_hit_o: %b", $time, sb_drain_reg,sb_drain_next,sb_empty,sb_full,sb_wr_en,cache_access_is_done_i,sb_load_hit_o);
-$fwrite(file, "\nTime: %1t, Store Buffer, sb_state_reg: %0s, sb_state_next: %0s, write_data_i: 0x%h, wr_addr_i: 0x%h", $time,sb_state_reg_str,sb_state_next_str, write_data_i,wr_addr_i);
+$fwrite(file, "\nTime: %1t, Store Buffer, sb_state_reg: %0s, sb_state_next: %0s, updated_sb_wr_data: 0x%h, wr_addr_i: 0x%h", $time,sb_state_reg_str,sb_state_next_str, updated_sb_wr_data,wr_addr_i);
 $fwrite(file, "\nTime: %1t, Store Buffer, sb_load_hit_o: %b, sb_forwarded_value_o: 0x%h, ",$time,sb_load_hit_o,sb_forwarded_value_o);
 sb_fifo_u.fifo_trace_log(file);
 endfunction
