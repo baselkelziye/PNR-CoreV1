@@ -33,6 +33,7 @@ module instruction_fetch(
   input wire branching_i, //When we branch we need to NOP the instructions in the PIPELINE
   input wire [31:0] branching_address_i,
   input wire [31:0] pc_ex_i, //This is the PC for the branch instruction in EX Stage
+  input wire mdu_stall_ex_i,
 
 
   //Inputs For Branch Prediction.
@@ -55,7 +56,7 @@ module instruction_fetch(
   
   wire if_stage_stall;
   
-  assign if_stage_stall = load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i;
+  assign if_stage_stall = load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i;
   
   always @(posedge clk_i, posedge rst_i)
   begin

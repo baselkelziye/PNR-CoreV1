@@ -364,7 +364,7 @@ async def matrix_mul_small(dut):
     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
     await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
     await load_data_cache(dut, performance_filepath + data_mem_filenameB, B_MATRIX_BASE_ADDR)
-    num_cycles = 1200
+    num_cycles = 3000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await write_cache_to_memory(dut)
     data_memory = get_data_cache(dut)
