@@ -417,16 +417,18 @@ async def store_buffer_test(dut):
         # logger.info(f"Register {reg}: {dut_value:#010x}")
         assert dut_value == expected_value, f"Register value mismatch at Register: {reg}. Expected: {expected_value}, Got: {int(dut_value):#010x}"
     get_CPI(dut)
+
+#Works but takes forever
 # @cocotb.test()
 # async def matrix_mul_large(dut):
 #     performance_filepath = "../performance_test/"
 #     machine_code_filename = "machine_codes/matrix_mul_large.hex"
-#     data_mem_filenameA = "memory_files/large_a.mem"
-#     data_mem_filenameB = "memory_files/large_b.mem"
-#     data_mem_filenameC = "memory_files/large_c.mem"  # Add this line
-#     RESULT_MATRIX_BASE_ADDR = 0x2000
+#     data_mem_filenameA = "memory_files/large_a.txt"
+#     data_mem_filenameB = "memory_files/large_b.txt"
+#     data_mem_filenameC = "memory_files/large_c.txt"  # Add this line
+#     RESULT_MATRIX_BASE_ADDR = 0xa000
 #     A_MATRIX_BASE_ADDR = 0x0
-#     B_MATRIX_BASE_ADDR = 0x1000
+#     B_MATRIX_BASE_ADDR = 0x5000
 #     MATRIX_SIZE = 128
 
     
@@ -435,7 +437,7 @@ async def store_buffer_test(dut):
 #     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
 #     await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
 #     await load_data_cache(dut, performance_filepath + data_mem_filenameB, B_MATRIX_BASE_ADDR)
-#     num_cycles = 1000000
+#     num_cycles = 50000000
 #     await ClockCycles(dut.clk_i, num_cycles, rising=False)
 #     await write_cache_to_memory(dut)
 #     data_memory = get_data_cache(dut)
