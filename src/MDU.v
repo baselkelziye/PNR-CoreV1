@@ -1,8 +1,14 @@
 module MDU(
+    input clk_i,
+    input rst_i,
+    input start_mdu_i,
+    input mem_stall_i,
     input  [2:0]  MDU_op_i,
     input  [31:0] MDU_op1_i,
     input  [31:0] MDU_op2_i,
-    output [31:0] MDU_result_o
+    output [31:0] MDU_result_o,
+    output mdu_busy_o,
+    output mdu_done_o
 );
 
     reg [31:0] result_r;
@@ -10,6 +16,59 @@ module MDU(
     reg [31:0] rem_res;
     reg [63:0] product;
 
+    /*
+    Now we can accept only 1 Operation,
+    Later I need to see how to Trigger MDU and 1 instruction later
+    Operate on ALU, And how to handle consecutive Muls
+    */
+
+    /*
+    An intresting Case to hae is to have a Cache Stall that exceeds 5 Cycles
+    to see if we are able to capture the Result of mul and wait
+    */
+    reg mdu_busy, mdu_done;
+    reg [2:0] mul_counter_reg;
+    wire [2:0] mul_counter_next;
+
+    always @(*) begin
+        if(rst_i) begin
+            mdu_busy = 1'b0;
+        end else begin
+            if(start_mdu_i & !mdu_done) begin
+                mdu_busy = 1'b1;
+            end else begin
+                mdu_busy = 1'b0;
+            end
+        end
+    end
+
+    always @(posedge clk_i, posedge rst_i) begin
+        if(rst_i) begin
+            mdu_done <= 1'b0;
+        end else if(mul_counter_reg == 3'b101 & ~mem_stall_i) begin
+            mdu_done <= 1'b1;
+        end else begin
+            mdu_done <= 1'b0;
+        end
+    end
+
+    always @(posedge clk_i, posedge rst_i) begin
+        if(rst_i | mdu_done) begin
+            mul_counter_reg <= 3'b0;
+        end else if(start_mdu_i) begin
+            if(mul_counter_reg == 3'b101 & ~mem_stall_i) begin //If we are Done but we have a stall from cache, We need to wait
+                mul_counter_reg <= mul_counter_reg;
+            end else begin
+                mul_counter_reg <= mul_counter_reg + 3'b1;
+            end
+        end
+    end
+    // assign mul_counter_next = (mdu_done) ? 3'b0 : 
+    //                           (start_mdu_i) ? mul_counter_reg + 3'b1:  mul_counter_reg;
+
+    assign mdu_busy_o = mdu_busy;
+    assign mdu_done_o = mdu_done;
+    
     // ---------------- Local Parameters ----------------
     localparam [2:0]
         MUL_FUNCT3    = 3'b000,

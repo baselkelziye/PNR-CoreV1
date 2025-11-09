@@ -42,6 +42,7 @@ module instruction_execution(
   input [7:0] sb_id_ex_i,
   //Inputs to Decode Stage
   output wire [31:0] ex_stage_result_o,
+  output wire mdu_stall_ex_o,
 
   //Outputs to Memory Stage
   output reg [31:0] alu_result_ex_o,
@@ -91,9 +92,11 @@ module instruction_execution(
 
   //MDU Signals
   wire [31:0] mdu_result;
-  wire ex_stage_stall;
-  assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
+  wire ex_stage_stall, ex_stage_flush;
+  wire mdu_busy, mdu_done;
 
+  assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
+  assign ex_stage_flush = mdu_busy;
   // assign branching
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
   assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
@@ -139,14 +142,20 @@ ALU ALU_u(
 );
 
 MDU MDU_u(
-  .MDU_op_i(funct3_ex_i),
-  .MDU_op1_i(rs1_data_ex_i),
-  .MDU_op2_i(rs2_data_ex_i),
-  .MDU_result_o(mdu_result)
+  .clk_i        ( clk_i             ),
+  .rst_i        ( rst_i             ),
+  .start_mdu_i  ( ex_unit_sel_ex_i  ), //This indicates a M extension OP
+  .mem_stall_i  ( mem_stage_stall_i ),
+  .MDU_op_i     ( funct3_ex_i       ),
+  .MDU_op1_i    ( rs1_data_ex_i     ),
+  .MDU_op2_i    ( rs2_data_ex_i     ),
+  .MDU_result_o ( mdu_result        ),
+  .mdu_busy_o   ( mdu_busy          ),
+  .mdu_done_o   ( mdu_done          )
 );
 
 assign ex_stage_result_o = (ex_unit_sel_ex_i == 1'b1) ? mdu_result : alu_result;
-
+assign mdu_stall_ex_o = mdu_busy;
 always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
       alu_result_ex_o <= 32'h0;
@@ -161,6 +170,12 @@ always @(posedge clk_i, posedge rst_i) begin
       latest_rs2_value_ex_o    <= 32'h0;
       fetched_instruction_ex_o <= 32'h13;
       sb_id_ex_o               <= 8'b0;
+  end else if(ex_stage_flush & !ex_stage_stall) begin 
+      reg_write_en_ex_o <= 1'b0;
+      fetched_instruction_ex_o <= 32'h13;
+      sb_id_ex_o               <= 8'b0;
+      is_load_instr_ex_o <= 1'b0;
+      is_store_instr_ex_o      <= 1'b0;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o <= ex_stage_result_o;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;

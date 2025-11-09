@@ -22,7 +22,7 @@ assign instr_o = {
 
 initial begin
 
-//    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/store_buffer.hex", instructions);
+//    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/mul_test.hex", instructions);
     $readmemh("artifacts/program_test.hex", instructions);
     // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul.hex", instructions);
     // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_large.hex", instructions);

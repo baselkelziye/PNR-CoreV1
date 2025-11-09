@@ -66,6 +66,7 @@ module instruction_decode(
   input wire reg_write_en_ex_i,
 	input wire [4:0] rd_label_ex_i,
   input wire [31:0] rd_value_ex_i,
+  input wire mdu_stall_ex_i,
 
   //Inputs From Memory Stage
   input wire reg_write_en_mem_i,
@@ -131,7 +132,7 @@ assign opcode    = fetched_instruction_id_i[6:0  ];
     
     
 assign load_stall_id_o = load_stall;
-assign id_stage_stall  =  peripheral_stall_id_i | mem_stage_stall_i;
+assign id_stage_stall  =  peripheral_stall_id_i | mem_stage_stall_i | mdu_stall_ex_i;
 assign id_flush        = load_stall | branching_id_i;
 
 register_file register_file_u

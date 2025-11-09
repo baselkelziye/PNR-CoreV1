@@ -68,6 +68,7 @@ wire increment_counter_ex_o, decrement_counter_ex_o;
 wire [31:0] fetched_instruction_ex_o;
 wire [31:0] rd_value_ex_o;
 wire [7:0] sb_id_ex_o;
+wire mdu_stall_ex;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -108,6 +109,7 @@ instruction_fetch if_u
   .decrement_counter_i(decrement_counter_ex_o                     ),
   .increment_counter_i(increment_counter_ex_o                     ),
   .pc_ex_i(pc_id_o                                                ),
+  .mdu_stall_ex_i(mdu_stall_ex),
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o(btb_predicted_pc_if_o                    ),
   .branch_is_taken_prediction_if_o(branch_is_taken_prediction_if_o),
@@ -160,7 +162,7 @@ instruction_decode id_u
   .reg_write_en_ex_i(reg_write_en_id_o),
   .rd_label_ex_i(rd_label_id_o                                    ),
   .rd_value_ex_i(rd_value_ex_o),
-
+  .mdu_stall_ex_i(mdu_stall_ex),
   //Inputs From Memory Stages
   .reg_write_en_mem_i(reg_write_en_ex_o),
   .rd_label_mem_i(rd_label_ex_o),
@@ -207,6 +209,7 @@ instruction_execution ex_u
   .sb_id_ex_i(sb_id_o),
   //Outputs to Decode Stage
   .ex_stage_result_o(rd_value_ex_o),
+  .mdu_stall_ex_o(mdu_stall_ex),
   //Outputs to Memory Stage
   .alu_result_ex_o(alu_result_ex_o                                ),
   .load_store_forward_sel_ex_o(load_store_forward_sel_ex_o        ),
