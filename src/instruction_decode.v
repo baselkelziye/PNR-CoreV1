@@ -26,45 +26,45 @@ module instruction_decode(
   //Inputs from Instruction Fetch Stage
     input [31:0] fetched_instruction_id_i,
     input [31:0] pc_id_i,
-	input [31:0] btb_predicted_pc_id_i,
-	input 		 branch_is_taken_prediction_id_i,
+  input [31:0] btb_predicted_pc_id_i,
+  input 		 branch_is_taken_prediction_id_i,
     
   //Register Related Signals
     output reg [31:0] rs1_data_id_o, rs2_data_id_o,
-	output reg [4:0] rd_label_id_o, rs1_label_id_o, rs2_label_id_o,
+  output reg [4:0] rd_label_id_o, rs1_label_id_o, rs2_label_id_o,
 
-	//Immediate Value
-	output reg [31:0] imm_value_id_o,
-	
-	//Hazard Detection Unit 
-	output reg  load_store_forward_sel_id_o,
-	output wire load_stall_id_o,
-	//Control Unit
-	output reg reg_write_en_id_o, rs1_pc_sel_id_o, rs2_imm_sel_id_o,
-	output reg is_branch_instr_id_o, is_store_instr_id_o, is_load_instr_id_o,
-	output reg [1:0] wb_sel_id_o,
-	output reg [3:0] alu_op_id_o,
-	output reg unconditional_branch_id_o,
+  //Immediate Value
+  output reg [31:0] imm_value_id_o,
+  
+  //Hazard Detection Unit 
+  output reg  load_store_forward_sel_id_o,
+  output wire load_stall_id_o,
+  //Control Unit
+  output reg reg_write_en_id_o, rs1_pc_sel_id_o, rs2_imm_sel_id_o,
+  output reg is_branch_instr_id_o, is_store_instr_id_o, is_load_instr_id_o,
+  output reg [1:0] wb_sel_id_o,
+  output reg [3:0] alu_op_id_o,
+  output reg unconditional_branch_id_o,
   output reg ex_unit_sel_o,
 
-	//Program Counter
-	output reg [31:0] pc_id_o,
+  //Program Counter
+  output reg [31:0] pc_id_o,
   output reg [31:0] fetched_instruction_id_o,
-	
-	//Instruction Extraction
-	output reg [2:0] funct3_id_o,
+  
+  //Instruction Extraction
+  output reg [2:0] funct3_id_o,
 
-	//Branch Prediction Outputs
-	output reg [31:0] btb_predicted_pc_id_o,
-	output reg branch_is_taken_prediction_id_o,
+  //Branch Prediction Outputs
+  output reg [31:0] btb_predicted_pc_id_o,
+  output reg branch_is_taken_prediction_id_o,
 
   //Outputs to ROB and SB
   output reg [7:0] sb_id_o,
 
-	//Inputs From Execution Stage
-	input wire is_load_instr_ex_i,
+  //Inputs From Execution Stage
+  input wire is_load_instr_ex_i,
   input wire reg_write_en_ex_i,
-	input wire [4:0] rd_label_ex_i,
+  input wire [4:0] rd_label_ex_i,
   input wire [31:0] rd_value_ex_i,
   input wire mdu_stall_ex_i,
 
@@ -73,17 +73,17 @@ module instruction_decode(
   input wire [4:0] rd_label_mem_i,
   input wire [31:0] rd_value_mem_i,
   input wire is_load_instr_mem_i,
-	
-	//Inputs From Writeback stage
-	input wire reg_write_en_wb_i,
-	input wire [4:0] rd_label_wb_i,
-	input wire [31:0] rd_value_wb_i,
-	
-	//Pipeline Control Signals
-	input wire branching_id_i,
+  
+  //Inputs From Writeback stage
+  input wire reg_write_en_wb_i,
+  input wire [4:0] rd_label_wb_i,
+  input wire [31:0] rd_value_wb_i,
+  
+  //Pipeline Control Signals
+  input wire branching_id_i,
 
-	//Inputs for Wishbone
-	input wire peripheral_stall_id_i,
+  //Inputs for Wishbone
+  input wire peripheral_stall_id_i,
   input wire mem_stage_stall_i
 );
     
@@ -149,75 +149,75 @@ register_file register_file_u
 );
 
 forwarding_unit forwarding_unit_u(
-  
-  .rd_label_mem_wb_o(rd_label_wb_i), // Rd Label From Write Back
-  .reg_wb_en_mem_wb_o(reg_write_en_wb_i), // Rd Reg En from Write Back
-
-  .rd_label_id_ex_o(rd_label_ex_i), // Rd Label from EX Stage
-  .reg_wb_en_id_ex_o (reg_write_en_ex_i), // Reg En From EX Stage
-
-  .rd_label_ex_mem_o(rd_label_mem_i), // Rd Label from MEM Stage
-  .reg_wb_en_ex_mem_o(reg_write_en_mem_i), // Reg En from MEM Stage
-
-  .rs1_label_id_i(rs1_label),
-  .rs2_label_id_i(rs2_label),  
-  .forwardA_o(forwardA),
-  .forwardB_o(forwardB)
+  .rd_label_mem_wb_o (   rd_label_wb_i        ), // Rd Label From Write Back
+  .reg_wb_en_mem_wb_o(   reg_write_en_wb_i    ), // Rd Reg En from Write Back
+  .rd_label_id_ex_o  (   rd_label_ex_i        ), // Rd Label from EX Stage
+  .reg_wb_en_id_ex_o (   reg_write_en_ex_i    ), // Reg En From EX Stage
+  .rd_label_ex_mem_o (   rd_label_mem_i       ), // Rd Label from MEM Stage
+  .reg_wb_en_ex_mem_o(   reg_write_en_mem_i   ), // Reg En from MEM Stage
+  .rs1_label_id_i    (   rs1_label            ),
+  .rs2_label_id_i    (   rs2_label            ),  
+  .forwardA_o        (   forwardA             ),
+  .forwardB_o        (   forwardB             )
 );
 
 mux_4x1 #(
   .DATA_WIDTH(32)
 ) rs1_latest_value_selector (
-    .in0_i(rs1_value      ),
-    .in1_i(rd_value_ex_i  ),
-    .in2_i(rd_value_mem_i ),
-    .in3_i(rd_value_wb_i  ),
-    .sel_i(forwardA       ),
-    .out_o(rs1_forwarded_value));
+    .in0_i  (   rs1_value             ),
+    .in1_i  (   rd_value_ex_i         ),
+    .in2_i  (   rd_value_mem_i        ),
+    .in3_i  (   rd_value_wb_i         ),
+    .sel_i  (   forwardA              ),
+    .out_o  (   rs1_forwarded_value   )
+);
 
 mux_4x1 #(
     .DATA_WIDTH(32)
 ) rs2_latest_value_selector(
-    .in0_i(rs2_value          ),
-    .in1_i(rd_value_ex_i      ),
-    .in2_i(rd_value_mem_i     ),
-    .in3_i(rd_value_wb_i      ),
-    .sel_i(forwardB           ),
-    .out_o(rs2_forwarded_value)
+    .in0_i  (   rs2_value             ),
+    .in1_i  (   rd_value_ex_i         ),
+    .in2_i  (   rd_value_mem_i        ),
+    .in3_i  (   rd_value_wb_i         ),
+    .sel_i  (   forwardB              ),
+    .out_o  (   rs2_forwarded_value   )
 );
         
   imm_gen imm_gen_u(
-    .instr_i(fetched_instruction_id_i),
-    .imm_src(imm_type				  ), 
-    .imm_o(imm_value				  ));
+    .instr_i  (   fetched_instruction_id_i),
+    .imm_src  (   imm_type                ),
+    .imm_o    (   imm_value               )
+);
     
   hazard_detection_unit hazard_detection_unit_u(
-	.is_load_instruction_ex_i(is_load_instr_ex_i      ),
-  .is_load_instruction_mem_i(is_load_instr_mem_i    ),
-	.is_store_instruction_id_i(is_store_instr		      ), 
-	.rd_label_ex_i(rd_label_ex_i					            ),
-  .rd_label_mem_i(rd_label_mem_i),
-	.rs1_label_id_i(rs1_label					            	  ),
-	.rs2_label_id_i(rs2_label					            	  ), 
-	.stall_o(load_stall							              	  ),
-	.load_store_forward_sel_o(load_store_forward_sel  ));
+  .is_load_instruction_ex_i   (   is_load_instr_ex_i      ),
+  .is_load_instruction_mem_i  (   is_load_instr_mem_i     ),
+  .is_store_instruction_id_i  (   is_store_instr          ),
+  .rd_label_ex_i              (   rd_label_ex_i           ),
+  .rd_label_mem_i             (   rd_label_mem_i          ),
+  .rs1_label_id_i             (   rs1_label               ),
+  .rs2_label_id_i             (   rs2_label               ), 
+  .stall_o                    (   load_stall              ),
+  .load_store_forward_sel_o   (   load_store_forward_sel  )
+);
 
 
-	control_unit control_unit_u(
-	.opcode_i(opcode[6:2]						            ), //dismiss lower 2 bits
-  .funct3_i(funct3							              ),
-  .funct7_i(funct7							              ),
-  .reg_write_en_o(reg_write_en				        ),
-  .wb_sel_o(wb_sel							              ),
-  .rs1_pc_sel_o(rs1_pc_sel					          ),
-  .rs2_imm_sel_o(rs2_imm_sel					        ),
-  .imm_type_o(imm_type						            ),
-  .is_branch_instr_o(is_branch_instr			    ),
-  .is_load_instr_o(is_load_instr				      ),
-  .is_store_instr_o(is_store_instr		      	),
-  .alu_op_o(alu_op						      	        ),
-	.unconditional_branch_o(unconditional_branch),
-  .ex_unit_sel_o(ex_unit_sel));
+  control_unit control_unit_u(
+  .opcode_i               (   opcode[6:2]           ), //dismiss lower 2 bits
+  .funct3_i               (   funct3                ),
+  .funct7_i               (   funct7                ),
+  .reg_write_en_o         (   reg_write_en          ),
+  .wb_sel_o               (   wb_sel                ),
+  .rs1_pc_sel_o           (   rs1_pc_sel            ),
+  .rs2_imm_sel_o          (   rs2_imm_sel           ),
+  .imm_type_o             (   imm_type              ),
+  .is_branch_instr_o      (   is_branch_instr       ),
+  .is_load_instr_o        (   is_load_instr         ),
+  .is_store_instr_o       (   is_store_instr        ),
+  .alu_op_o               (   alu_op                ),
+  .unconditional_branch_o (   unconditional_branch  ),
+  .ex_unit_sel_o          (   ex_unit_sel           )
+);
    
 always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
@@ -238,18 +238,18 @@ begin
         rs2_data_id_o  		          	 <= 32'h0 ;
         imm_value_id_o         		  	 <= 32'h0 ;
         load_store_forward_sel_id_o      <= 1'b0  ;
-        reg_write_en_id_o 	       		 <= 1'b0  ;
-        rs1_pc_sel_id_o 	          	 <= 1'b0  ;
-        rs2_imm_sel_id_o 	             <= 1'b0  ;
-        is_branch_instr_id_o 	         <= 1'b0  ;
-        is_store_instr_id_o 	         <= 1'b0  ;
-        is_load_instr_id_o           	 <= 1'b0  ;
-        wb_sel_id_o 				     <= 2'b00 ;
-        alu_op_id_o 				     <= 4'b0  ;
-        pc_id_o 			             <= 32'h80000000;
-        rd_label_id_o 			         <= 5'b0  ;
-        rs1_label_id_o 		          	 <= 5'b0  ;
-        rs2_label_id_o 		          	 <= 5'b0  ;	
+        reg_write_en_id_o 	       		   <= 1'b0  ;
+        rs1_pc_sel_id_o 	               <= 1'b0  ;
+        rs2_imm_sel_id_o 	               <= 1'b0  ;
+        is_branch_instr_id_o 	           <= 1'b0  ;
+        is_store_instr_id_o 	           <= 1'b0  ;
+        is_load_instr_id_o           	   <= 1'b0  ;
+        wb_sel_id_o                      <= 2'b00 ;
+        alu_op_id_o                      <= 4'b0  ;
+        pc_id_o                          <= 32'h80000000;
+        rd_label_id_o                    <= 5'b0  ;
+        rs1_label_id_o                   <= 5'b0  ;
+        rs2_label_id_o                   <= 5'b0  ;	
         funct3_id_o                      <= 3'b0  ;
         unconditional_branch_id_o        <= 1'b0  ;
         btb_predicted_pc_id_o            <= 32'h0 ;
@@ -271,30 +271,30 @@ begin
     end
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
-        rs1_data_id_o  			            <= rs1_forwarded_value            ;
-        rs2_data_id_o  			            <= rs2_forwarded_value            ;
-        imm_value_id_o 			            <= imm_value                      ;
+        rs1_data_id_o                   <= rs1_forwarded_value            ;
+        rs2_data_id_o                   <= rs2_forwarded_value            ;
+        imm_value_id_o                  <= imm_value                      ;
         load_store_forward_sel_id_o     <= load_store_forward_sel         ;
-        reg_write_en_id_o 			        <= reg_write_en                   ;
-        rs1_pc_sel_id_o 			          <= rs1_pc_sel                     ;
-        rs2_imm_sel_id_o 		            <= rs2_imm_sel                    ;
-        is_branch_instr_id_o		        <= is_branch_instr                ;
-        is_store_instr_id_o 		        <= is_store_instr                 ;
-        is_load_instr_id_o 		          <= is_load_instr                  ;
-        wb_sel_id_o 			              <= wb_sel                         ;
-        alu_op_id_o 		                <= alu_op                         ;
-        pc_id_o               		      <= pc_id_i                        ;
-        rd_label_id_o 				          <= rd_label                       ;
-        rs1_label_id_o				          <= rs1_label                      ;
-        rs2_label_id_o				          <= rs2_label                      ;
-        funct3_id_o   				          <= funct3                         ;
+        reg_write_en_id_o               <= reg_write_en                   ;
+        rs1_pc_sel_id_o                 <= rs1_pc_sel                     ;
+        rs2_imm_sel_id_o 	              <= rs2_imm_sel                    ;
+        is_branch_instr_id_o            <= is_branch_instr                ;
+        is_store_instr_id_o             <= is_store_instr                 ;
+        is_load_instr_id_o              <= is_load_instr                  ;
+        wb_sel_id_o                     <= wb_sel                         ;
+        alu_op_id_o                     <= alu_op                         ;
+        pc_id_o                         <= pc_id_i                        ;
+        rd_label_id_o                   <= rd_label                       ;
+        rs1_label_id_o                  <= rs1_label                      ;
+        rs2_label_id_o                  <= rs2_label                      ;
+        funct3_id_o                     <= funct3                         ;
         unconditional_branch_id_o       <= unconditional_branch           ;
         btb_predicted_pc_id_o 		      <= btb_predicted_pc_id_i          ;
         branch_is_taken_prediction_id_o <= branch_is_taken_prediction_id_i;
         fetched_instruction_id_o        <= fetched_instruction_id_i       ;
         ex_unit_sel_o                   <= ex_unit_sel                    ;
-        sb_id_o                      <= sb_id_reg                      ;
-	end 
+        sb_id_o                         <= sb_id_reg                      ;
+  end 
   end
 
 wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_id_i, pc_id_i);
