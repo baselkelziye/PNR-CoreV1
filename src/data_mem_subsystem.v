@@ -203,12 +203,12 @@ DATA_RAM_u(
 );
 
 store_buffer #(
-    .ADDRESS_WIDTH(ADDRESS_WIDTH),
-    .DATA_WIDTH(DATA_WIDTH),
-    .VALID_BYTES(VALID_BYTES),
-    .SB_DEPTH(SB_DEPTH),
-    .SB_ID_SIZE(SB_ID_SIZE),
-    .SB_ENTRY_SIZE(SB_ENTRY_SIZE)
+    .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
+    .DATA_WIDTH     (   DATA_WIDTH      ),
+    .VALID_BYTES    (   VALID_BYTES     ),
+    .SB_DEPTH       (   SB_DEPTH        ),
+    .SB_ID_SIZE     (   SB_ID_SIZE      ),
+    .SB_ENTRY_SIZE  (   SB_ENTRY_SIZE   )
 )
 store_buffer_u(
     .clk_i                  (   clk_i                       ),

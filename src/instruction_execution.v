@@ -128,17 +128,17 @@ module instruction_execution(
 mux_2x1 #(
     .DATA_WIDTH(32)
 ) alu2_selector(
-    .in0_i(rs2_data_ex_i),
-    .in1_i(imm_value_ex_i),
-    .sel_i(rs2_imm_sel_ex_i),
-    .out_o(alu2_input)
+    .in0_i  (   rs2_data_ex_i       ),
+    .in1_i  (   imm_value_ex_i      ),
+    .sel_i  (   rs2_imm_sel_ex_i    ),
+    .out_o  (   alu2_input          )
 );
 
 ALU ALU_u(
-    .alu1_i(alu1_input),
-    .alu2_i(alu2_input),
-    .alu_op_i(alu_op_ex_i),
-    .result_o(alu_result)
+    .alu1_i     (   alu1_input    ),
+    .alu2_i     (   alu2_input    ),
+    .alu_op_i   (   alu_op_ex_i   ),
+    .result_o   (   alu_result    )
 );
 
 MDU MDU_u(
@@ -158,37 +158,37 @@ assign ex_stage_result_o = (ex_unit_sel_ex_i == 1'b1) ? mdu_result : alu_result;
 assign mdu_stall_ex_o = mdu_busy;
 always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
-      alu_result_ex_o <= 32'h0;
-      load_store_forward_sel_ex_o <= 1'b0;
-      reg_write_en_ex_o <= 1'b0;
-      is_load_instr_ex_o <= 1'b0;
-      rd_label_ex_o <= 5'b0;
-      wb_sel_ex_o <= 3'b0;
-      pc_ex_o 	<= 32'b0;
-      funct3_ex_o              <= 3'b0;
-      is_store_instr_ex_o      <= 1'b0;
-      latest_rs2_value_ex_o    <= 32'h0;
-      fetched_instruction_ex_o <= 32'h13;
-      sb_id_ex_o               <= 8'b0;
+      alu_result_ex_o             <= 32'h0 ;
+      load_store_forward_sel_ex_o <= 1'b0  ;
+      reg_write_en_ex_o           <= 1'b0  ;
+      is_load_instr_ex_o          <= 1'b0  ;
+      rd_label_ex_o               <= 5'b0  ;
+      wb_sel_ex_o                 <= 3'b0  ;
+      pc_ex_o                     <= 32'b0 ;
+      funct3_ex_o                 <= 3'b0  ;
+      is_store_instr_ex_o         <= 1'b0  ;
+      latest_rs2_value_ex_o       <= 32'h0 ;
+      fetched_instruction_ex_o    <= 32'h13;
+      sb_id_ex_o                  <= 8'b0  ;
   end else if(ex_stage_flush & !ex_stage_stall) begin 
-      reg_write_en_ex_o <= 1'b0;
-      fetched_instruction_ex_o <= 32'h13;
-      sb_id_ex_o               <= 8'b0;
-      is_load_instr_ex_o <= 1'b0;
-      is_store_instr_ex_o      <= 1'b0;
+      reg_write_en_ex_o           <= 1'b0   ;
+      fetched_instruction_ex_o    <= 32'h13 ;
+      sb_id_ex_o                  <= 8'b0   ;
+      is_load_instr_ex_o          <= 1'b0   ;
+      is_store_instr_ex_o         <= 1'b0   ;
   end else if (!ex_stage_stall) begin
-      alu_result_ex_o <= ex_stage_result_o;
+      alu_result_ex_o             <= ex_stage_result_o          ;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
-      reg_write_en_ex_o <= reg_write_en_ex_i;
-      is_load_instr_ex_o <= is_load_instr_ex_i;
-      rd_label_ex_o <= rd_label_ex_i;
-      wb_sel_ex_o <= wb_sel_ex_i;
-      pc_ex_o     <= pc_ex_i;
-      funct3_ex_o <= funct3_ex_i;
-      is_store_instr_ex_o <= is_store_instr_ex_i;
-      latest_rs2_value_ex_o <= rs2_data_ex_i;
-      fetched_instruction_ex_o <= fetched_instruction_ex_i;
-      sb_id_ex_o        <= sb_id_ex_i;
+      reg_write_en_ex_o           <= reg_write_en_ex_i          ;
+      is_load_instr_ex_o          <= is_load_instr_ex_i         ;
+      rd_label_ex_o               <= rd_label_ex_i              ;
+      wb_sel_ex_o                 <= wb_sel_ex_i                ;
+      pc_ex_o                     <= pc_ex_i                    ;
+      funct3_ex_o                 <= funct3_ex_i                ;
+      is_store_instr_ex_o         <= is_store_instr_ex_i        ;
+      latest_rs2_value_ex_o       <= rs2_data_ex_i              ;
+      fetched_instruction_ex_o    <= fetched_instruction_ex_i   ;
+      sb_id_ex_o                  <= sb_id_ex_i                 ;
   end
 end
 
