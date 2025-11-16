@@ -5,20 +5,18 @@ The wishbone slave is tested on the simulation, TX FIFO is filled on Store instr
 The Hardware shall be tested on the FPGA
 */
 
-/*TODO: 
-1- Trunc opcode from the immgen input
-3- What Happens if load then branch comes, and that branch is depending on the load value?
-6- unconditional branches meeds to be tested
+
+/*
+Assertions to be Added:
+
+1- Branch Predictor Should Never Predict Taken if the Instruction is not a Branch (Add mini-decoder)
+2- In WB Stage, An Exception Shouldn't fire if the Instruction is CSRRW (SPEC Take value from TRAP or Decode???)
 */
 
 /*
-Bug Detection Codes:
-A9A9A9A9 = RD MUX Selection In Mem Stage
-A2A2A2A2 = Rs2 Mux Selector in EX Stage
-A1A1A1A1 = Rs1 Mux Selector in EX Stage
-B1B1B1B1 = Defulat Load Value in datum_cache
-*/
+Exception Shall Clear All stalls
 
+*/
 
 module core(
     input clk_i, rst_i
@@ -37,7 +35,8 @@ wire [31:0] rs1_data_id_o, rs2_data_id_o;
 wire [4:0] rd_label_id_o, rs1_label_id_o, rs2_label_id_o;
 wire [31:0] imm_value_id_o;
 wire load_stall_id_o, load_store_forward_sel_id_o;
-wire reg_write_en_id_o, rs1_pc_sel_id_o, rs2_imm_sel_id_o;
+wire reg_write_en_id_o;
+wire [1:0] rs1_pc_imm_sel_id_o, rs2_imm_csr_sel_id_o;
 wire is_branch_instr_id_o, is_store_instr_id_o, is_load_instr_id_o;
 wire [1:0] wb_sel_id_o;
 wire [3:0] alu_op_id_o;
@@ -48,6 +47,13 @@ wire [31:0] btb_predicted_pc_id_o;
 wire branch_is_taken_prediction_id_o;
 wire ex_unit_sel_id_o;
 wire [7:0] sb_id_o;
+wire [11:0] csr_addr_id_o;
+//CSR Signals
+wire csr_wr_en_id_o;
+wire csr_wr_en_mem_o;
+wire [31:0] csr_rd_value_id_o;
+wire ebreak_trap_id_o, ecall_trap_id_o;
+wire [31:0] s_tvec_id_o;
 //--------------------------------------------
 
 
@@ -69,6 +75,11 @@ wire [31:0] fetched_instruction_ex_o;
 wire [31:0] rd_value_ex_o;
 wire [7:0] sb_id_ex_o;
 wire mdu_stall_ex;
+wire [31:0] imm_value_ex_o, rs1_value_ex_o;
+wire csr_wr_en_ex_o;
+wire [11:0] csr_addr_ex_o;
+wire [31:0] csr_rd_value_ex_o;
+wire ecall_trap_ex_o, ebreak_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -81,6 +92,9 @@ wire [1:0] wb_sel_mem_o;
 wire is_load_mem_o;
 wire [31:0] rd_value_mem_wo;
 wire [31:0] rd_value_mem_ro;
+wire [11:0] csr_addr_mem_o;
+wire [31:0] csr_rd_value_mem_o;
+wire ecall_trap_mem_o, ebreak_trap_mem_o;
 
 //Wishbone + Peripherals
 wire peripheral_stall_mem_o;
@@ -92,6 +106,12 @@ wire [31:0] rd_value_wb_mem_o;
 wire reg_write_en_wb_o;
 wire [31:0] alu_result_wb_o, load_data_wb_o, pc_wb_o;
 wire [31:0] fetched_instruction_wb;
+// wire [31:0] pc_mem_o;
+reg exception_raised;
+reg [31:0] scause;
+reg [31:0] stval;
+
+
 
 instruction_fetch if_u
 (
@@ -110,6 +130,9 @@ instruction_fetch if_u
   .increment_counter_i            (   increment_counter_ex_o            ),
   .pc_ex_i                        (   pc_id_o                           ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
+  //Trap Signals
+  .stvec_csr_i                    (   s_tvec_id_o                       ),
+  .trap_en_if_i                   (   exception_raised                  ),
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o          (   btb_predicted_pc_if_o             ),
   .branch_is_taken_prediction_if_o(   branch_is_taken_prediction_if_o   ),
@@ -137,8 +160,8 @@ instruction_decode id_u
   .load_store_forward_sel_id_o    (   load_store_forward_sel_id_o       ),
   //Control Unit
   .reg_write_en_id_o              (   reg_write_en_id_o                 ),
-  .rs1_pc_sel_id_o                (   rs1_pc_sel_id_o                   ),
-  .rs2_imm_sel_id_o               (   rs2_imm_sel_id_o                  ),
+  .rs1_pc_imm_sel_id_o            (   rs1_pc_imm_sel_id_o               ),
+  .rs2_imm_csr_sel_id_o           (   rs2_imm_csr_sel_id_o              ),
   .is_branch_instr_id_o           (   is_branch_instr_id_o              ),
   .is_store_instr_id_o            (   is_store_instr_id_o               ),
   .is_load_instr_id_o             (   is_load_instr_id_o                ),
@@ -146,6 +169,7 @@ instruction_decode id_u
   .alu_op_id_o                    (   alu_op_id_o                       ),
   .unconditional_branch_id_o      (   unconditional_branch_id_o         ),
   .ex_unit_sel_o                  (   ex_unit_sel_id_o                  ),
+  .trap_en_id_i                   (   exception_raised                  ),
   //Program Counter
   .pc_id_o                        (   pc_id_o                           ),
   .fetched_instruction_id_o       (   fetched_instruction_id_o          ),
@@ -172,6 +196,19 @@ instruction_decode id_u
   .reg_write_en_wb_i              (   reg_write_en_mem_o                ),
   .rd_label_wb_i                  (   rd_label_mem_o                    ),
   .rd_value_wb_i                  (   rd_value_mem_ro                   ),
+  //Inputs To CSR/Trap Logic
+  .csr_wr_en_wb_i                 (   csr_wr_en_mem_o                   ),
+  .csr_wr_addr_wb_i               (   csr_addr_mem_o                    ),
+  .csr_rd_value_wb_i              (   csr_rd_value_mem_o                ),
+  .csr_wr_en_o                    (   csr_wr_en_id_o                    ),
+  .csr_addr_id_o                  (   csr_addr_id_o                     ),
+  .csr_rd_value_id_o              (   csr_rd_value_id_o                 ),
+  .ecall_trap_id_o                (   ecall_trap_id_o                   ),
+  .ebreak_trap_id_o               (   ebreak_trap_id_o                  ),
+  .s_trap_cause_wb_i              (   scause                            ),
+  .s_trap_pc_wb_i                 (   pc_mem_o                          ),
+  .s_trap_tval_wb_i               (   stval                             ),
+  .s_tvec_id_o                    (   s_tvec_id_o                       ),
   //Pipeline Control Signals
   .branching_id_i                 (   branching_ex_o                    ),
   .peripheral_stall_id_i          (   peripheral_stall_mem_o            ),
@@ -192,8 +229,8 @@ instruction_execution ex_u
   .load_stall_ex_i                (   load_stall_id_o                   ),
   .load_store_forward_sel_ex_i    (   load_store_forward_sel_id_o       ),
   .reg_write_en_ex_i              (   reg_write_en_id_o                 ),
-  .rs1_pc_sel_ex_i                (   rs1_pc_sel_id_o                   ),
-  .rs2_imm_sel_ex_i               (   rs2_imm_sel_id_o                  ),
+  .rs1_pc_imm_sel_ex_i            (   rs1_pc_imm_sel_id_o               ),
+  .rs2_imm_csr_sel_ex_i           (   rs2_imm_csr_sel_id_o              ),
   .is_branch_instr_ex_i           (   is_branch_instr_id_o              ),
   .is_store_instr_ex_i            (   is_store_instr_id_o               ),
   .is_load_instr_ex_i             (   is_load_instr_id_o                ),
@@ -206,6 +243,7 @@ instruction_execution ex_u
   .branch_is_taken_prediction_ex_i(   branch_is_taken_prediction_id_o   ),
   .fetched_instruction_ex_i       (   fetched_instruction_id_o          ),
   .ex_unit_sel_ex_i               (   ex_unit_sel_id_o                  ),
+  
   .sb_id_ex_i                     (   sb_id_o                           ),
   //Outputs to Decode Stage
   .ex_stage_result_o              (   rd_value_ex_o                     ),
@@ -222,7 +260,10 @@ instruction_execution ex_u
   .funct3_ex_o                    (   funct3_ex_o                       ),
   .latest_rs2_value_ex_o          (   latest_rs2_value_ex_o             ),
   .fetched_instruction_ex_o       (   fetched_instruction_ex_o          ),
-  .sb_id_ex_o                     (   sb_id_ex_o),
+  .sb_id_ex_o                     (   sb_id_ex_o                        ),
+  .imm_value_ex_o                 (   imm_value_ex_o                    ),
+  .rs1_value_ex_o                 (   rs1_value_ex_o                    ),
+  .csr_wr_en_ex_o                 (   csr_wr_en_ex_o                    ),
   //Inputs From Memory Stage
   .reg_write_en_mem_i             (   reg_write_en_ex_o                 ),
   .rd_label_mem_i                 (   rd_label_ex_o                     ),
@@ -232,6 +273,17 @@ instruction_execution ex_u
   //Inputs From WriteBack Stage
   .reg_write_en_wb_i              (   reg_write_en_mem_o                ),
   .rd_label_wb_i                  (   rd_label_mem_o                    ),
+  //CSR Signals
+  .csr_wr_en_ex_i                 (   csr_wr_en_id_o                    ),
+  .csr_addr_ex_i                  (   csr_addr_id_o                     ),
+  .csr_addr_ex_o                  (   csr_addr_ex_o                     ),
+  .csr_rd_value_ex_i              (   csr_rd_value_id_o                 ),
+  .csr_rd_value_ex_o              (   csr_rd_value_ex_o                 ),
+  .ecall_trap_ex_i                (   ecall_trap_id_o                   ),
+  .ebreak_trap_ex_i               (   ebreak_trap_id_o                  ),
+  .ecall_trap_ex_o                (   ecall_trap_ex_o                   ),
+  .ebreak_trap_ex_o               (   ebreak_trap_ex_o                  ),
+  .trap_en_ex_i                   (   exception_raised                  ),
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
   .branch_address_ex_o            (   branch_address_ex_o               ),
@@ -252,12 +304,20 @@ instruction_memory_stage mem_u
   .rd_label_mem_i              (   rd_label_ex_o                  ),
   .wb_sel_mem_i                (   wb_sel_ex_o                    ),
   .pc_mem_i                    (   pc_ex_o                        ),
+  .pc_mem_o                    (   pc_mem_o                       ),
   .funct3_mem_i                (   funct3_ex_o                    ),
   .is_store_mem_i              (   is_store_instr_ex_o            ),
   .is_load_mem_i               (   is_load_instr_ex_o             ),
   .latest_rs2_value_mem_i      (   latest_rs2_value_ex_o          ),
   .fetched_instruction_mem_i   (   fetched_instruction_ex_o       ),
   .sb_id_mem_i                 (   sb_id_ex_o                     ),
+  .csr_wr_en_mem_i             (   csr_wr_en_ex_o                 ),
+  //Inputs for CSR
+  .ecall_trap_mem_i           (   ecall_trap_ex_o                  ),
+  .ebreak_trap_mem_i          (   ebreak_trap_ex_o                 ),
+  .ecall_trap_mem_o           (   ecall_trap_mem_o                 ),
+  .ebreak_trap_mem_o          (   ebreak_trap_mem_o                ),
+  .trap_en_mem_i              (   exception_raised                  ),
   //Outputs To WriteBack Stage
   .load_value_mem_o            (   load_value_mem_o               ),
   .rd_label_mem_o              (   rd_label_mem_o                 ),
@@ -268,11 +328,40 @@ instruction_memory_stage mem_u
   .rd_value_mem_wo             (   rd_value_mem_wo                ), //Wire Output  
   //Inputs From Writeback Stage    
   .load_value_wb_i             (   load_value_mem_o               ),
+  //Trap and CSR Outputs
+  .csr_wr_en_mem_o             (   csr_wr_en_mem_o                ),
+  .csr_addr_mem_i              (   csr_addr_ex_o                  ),
+  .csr_addr_mem_o              (   csr_addr_mem_o                 ),
+  .csr_rd_value_mem_i          (   csr_rd_value_ex_o              ),
+  .csr_rd_value_mem_o          (   csr_rd_value_mem_o             ),
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
   .fetched_instruction_mem_o   (   fetched_instruction_wb         )
 );
+
+//Write Back Stage is Implicitly Here
+
+//This block generates *cause, *tval 
+always @* begin
+  exception_raised = 1'b0;
+  scause           = 32'b0;
+  stval            = 32'b0;
+  if(ebreak_trap_mem_o) begin
+    scause = {1'b0, 30'd3}; //Breakpoint Has Trap Code = 3
+    exception_raised = 1'b1;
+    stval            = 32'b0;
+  end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
+    scause = {1'b0,30'd8};
+    exception_raised = 1'b1;
+    stval            = 32'b0;
+  end else begin //Later add
+    exception_raised = 1'b0;
+    scause           = 32'b0;
+    stval            = 32'b0;
+  end
+end
+
 
 `ifdef COCOTB_SIM
     initial begin

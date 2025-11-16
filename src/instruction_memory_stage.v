@@ -39,6 +39,12 @@ module instruction_memory_stage
   input [31:0] latest_rs2_value_mem_i,
   input [7:0] sb_id_mem_i,
 
+  //CSR Unit Inputs
+  input csr_wr_en_mem_i,
+  input ecall_trap_mem_i,
+  input ebreak_trap_mem_i,
+  output reg ecall_trap_mem_o,
+  output reg ebreak_trap_mem_o,
   //Outputs to WriteBack Stage
   output reg [31:0] load_value_mem_o,
   output reg [31:0] rd_value_mem_ro,
@@ -47,10 +53,18 @@ module instruction_memory_stage
   output reg reg_write_en_mem_o,
   output reg [1:0] wb_sel_mem_o,
   output reg is_load_mem_o,
-
+  output reg [31:0] pc_mem_o,
   
   //Inputs From Writeback stage
   input wire [31:0] load_value_wb_i, 
+
+  //Outputs to Trap/CSR
+  output reg csr_wr_en_mem_o,
+  input [11:0] csr_addr_mem_i,
+  output reg [11:0] csr_addr_mem_o,
+  input [31:0] csr_rd_value_mem_i,
+  output reg [31:0] csr_rd_value_mem_o,
+  input trap_en_mem_i,
   
   //Wishbone + Peripherals
   output wire peripheral_stall_o,
@@ -89,6 +103,9 @@ module instruction_memory_stage
   wire data_subsystem_stall;
   wire mem_stage_stall;
 
+  //CSR values
+  wire [31:0] csr_rd_value;
+
   //If read from peripheral assign wishbone value
   assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
 
@@ -106,13 +123,14 @@ module instruction_memory_stage
       .read_data_o                (   data_read_from_mem      )
   );
 
+
   mux_4x1 #(.DATA_WIDTH(32))
   rd_value_selector_u
   (
     .in0_i  (   alu_result_mem_i  ),
     .in1_i  (   loaded_data       ),
     .in2_i  (   pc_mem_i + 32'd4  ), // in JAL, JALR. Save next instruction
-    .in3_i  (   32'hA9A9A9A9      ),
+    .in3_i  (   32'hA9A9A9A9      ), // CSR
     .sel_i  (   wb_sel_mem_i      ),
     .out_o  (   rd_value_mem_wo   )
   );
@@ -144,27 +162,27 @@ module instruction_memory_stage
       2- Stall if we have peripheral access and we don't have ack
   */
   assign peripheral_stall_o = o_wbs_stall | (is_peripheral_access & ~o_wbs_ack);
-  assign mem_stage_stall = data_subsystem_stall;
+  assign mem_stage_stall = data_subsystem_stall & ~trap_en_mem_i;
   assign mem_stage_stall_o = mem_stage_stall;
 
 
-  wbs_uart wbs_uart_u
-  (
-    .i_clk(clk_i            ),
-    .i_rst(rst_i            ),
-    .i_wb_cyc(o_wbm_cyc     ),
-    .i_wb_stb(o_wbm_stb     ),
-    .i_wb_we(o_wbm_we       ),
-    .i_wb_addr(o_wbm_addr   ),
-    .i_wb_data(o_wbm_data   ),
-    .o_wb_stall(o_wbs_stall ),
-    .o_wb_ack(o_wbs_ack     ),
-    .o_wb_data(o_wbs_data   )
-  );
+  // wbs_uart wbs_uart_u
+  // (
+  //   .i_clk(clk_i            ),
+  //   .i_rst(rst_i            ),
+  //   .i_wb_cyc(o_wbm_cyc     ),
+  //   .i_wb_stb(o_wbm_stb     ),
+  //   .i_wb_we(o_wbm_we       ),
+  //   .i_wb_addr(o_wbm_addr   ),
+  //   .i_wb_data(o_wbm_data   ),
+  //   .o_wb_stall(o_wbs_stall ),
+  //   .o_wb_ack(o_wbs_ack     ),
+  //   .o_wb_data(o_wbs_data   )
+  // );
 
 always @(posedge clk_i, posedge rst_i)
   begin
-  if(rst_i | peripheral_stall_o | mem_stage_stall)
+  if(rst_i | peripheral_stall_o | mem_stage_stall | trap_en_mem_i)
     begin //Since Peripheral and Cache Stalls are generated in MEM we need to flush
       load_value_mem_o   <= 32'b0;
       rd_label_mem_o     <= 5'b0 ;
@@ -173,6 +191,12 @@ always @(posedge clk_i, posedge rst_i)
       is_load_mem_o      <= 1'b0 ;
       rd_value_mem_ro    <= 32'b0;
       fetched_instruction_mem_o <= 32'h13;
+      csr_wr_en_mem_o      <= 1'b0;
+      csr_addr_mem_o       <= 12'b0;
+      csr_rd_value_mem_o   <= 32'b0;
+      ebreak_trap_mem_o    <= 1'b0;
+      ecall_trap_mem_o     <= 1'b0;
+      pc_mem_o             <= 32'hDEADC0DE;
     end
   else //if(!mem_stage_stall)
     begin
@@ -183,6 +207,12 @@ always @(posedge clk_i, posedge rst_i)
       is_load_mem_o      <= is_load_mem_i     ;
       rd_value_mem_ro    <= rd_value_mem_wo   ;
       fetched_instruction_mem_o <= fetched_instruction_mem_i;
+      csr_wr_en_mem_o     <= csr_wr_en_mem_i;
+      csr_addr_mem_o      <= csr_addr_mem_i;
+      csr_rd_value_mem_o  <= csr_rd_value_mem_i;
+      ebreak_trap_mem_o    <= ebreak_trap_mem_i;
+      ecall_trap_mem_o     <= ecall_trap_mem_i;
+      pc_mem_o             <= pc_mem_i;
     end
   end
 
@@ -194,6 +224,7 @@ always @(posedge clk_i, posedge rst_i)
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, Instruction(x): 0x%8h", $time, disasm_str,pc_mem_i,fetched_instruction_mem_i);
     if(`CORE_VERBOSITY >= 200)begin
       mem_op_trace(file);
+      // csr_u.csr_trace_log(file);
     end
     if(`CORE_VERBOSITY >= 400)begin
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);

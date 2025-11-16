@@ -28,15 +28,18 @@ module control_unit(
 
     output       reg_write_en_o         , // Register File'e yazma sinyali
     output [1:0] wb_sel_o               , // Yazilacak Veriyi secen mux sinyali
-    output       rs1_pc_sel_o           , // rs1'in PC'den mi yoksa reg_file'dan mi alinacagini belirleyen sinyal
-    output       rs2_imm_sel_o          , // rs2'nin immediate mi yoksa reg'dan mi alinacagini belirleyen sinyal
+    output [1:0] rs1_pc_imm_sel_o           , // rs1'in PC'den mi yoksa reg_file'dan mi alinacagini belirleyen sinyal
+    output [1:0] rs2_imm_csr_sel_o          , // rs2'nin immediate mi yoksa reg'dan mi alinacagini belirleyen sinyal
     output [2:0] imm_type_o             , // Immediate turunu belirleyen sinyal
     output       is_branch_instr_o      , // Branch komutu mu degil mi
     output       is_load_instr_o        , // Load komutu mu degil mi 
     output       is_store_instr_o       , // Store komutu mu degil mi
     output [3:0] alu_op_o               , // ALU islem turunu belirleyen sinyal
     output       unconditional_branch_o , // kosulsuz branch komutu mu degil mi
-    output       ex_unit_sel_o
+    output       ex_unit_sel_o          ,
+    output       ebreak_trap_o,
+    output       ecall_trap_o,
+    output       csr_wr_en_o              //Write To CSR
     );
 
 `include "encodings.vh"
@@ -73,9 +76,24 @@ module control_unit(
         1010 -> LUI
 */
 
+/*
+rs1_pc_imm_sel [1:0]
+00 -> rs1
+01 -> pc
+10 -> imm (for csr)
 
-reg [7:0] control_signals;
-localparam [7:0] ILLEGAL = 8'b0_XX_X_X_XXX;
+*/
+
+/*
+rs2_pc_csr_sel [1:0]
+00 -> rs2
+01 -> imm
+10 -> csr
+*/
+
+
+reg [9:0] control_signals;
+localparam [7:0] ILLEGAL = 10'b0_XX_XX_XX_XXX;
 
 
 reg is_load_instr, is_store_instr, is_branch_instr, unconditional_branch;
@@ -86,8 +104,8 @@ reg [3:0] alu_op;
 //1 => MDU
 reg ex_unit_select;
 //control_singals = reg_write_en, wb_sel[1:0], rs1_pc_sel, rs2_imm_sel, imm_type[2:0]
-
-
+reg csr_wr_en;
+reg ebreak_trap, ecall_trap;
 
 always @(*)
 begin
@@ -98,20 +116,23 @@ begin
   alu_op               = 4'b0000;
   unconditional_branch = 1'b0   ;
   ex_unit_select       = 1'b0   ;
+  csr_wr_en            = 1'b0   ;
+  ebreak_trap          = 1'b0   ;
+  ecall_trap           = 1'b0   ;
   case(opcode_i)
     `LOAD_OPCODE   : 
     begin
-      control_signals = 8'b1_01_0_1_100;
+      control_signals = 10'b1_01_00_01_100;
       is_load_instr = 1'b1;
     end
     `STORE_OPCODE  :
     begin
-      control_signals = 8'b0_XX_0_1_010;
+      control_signals = 10'b0_XX_00_01_010;
       is_store_instr = 1'b1;
     end
     `RTYPE_OPCODE  : 
       begin
-      control_signals = 8'b1_00_0_0_XXX;
+      control_signals = 10'b1_00_00_00_XXX;
       case(funct7_i) //ADD,SLL,SLT,SLTU,XOR,SRL,OR,AND        
         7'b0000000:
           begin
@@ -144,7 +165,7 @@ begin
       end
     `ITYPE_OPCODE  :
     begin
-      control_signals = 8'b1_00_0_1_100;
+      control_signals = 10'b1_00_00_01_100;
       if(funct3_i == 3'b101) 
         case(funct7_i)
             `SRLI_FUNCT7 : alu_op = `SRL_ALU_OP;
@@ -165,37 +186,90 @@ begin
     end
     `BRANCH_OPCODE :
     begin
-                    control_signals = 8'b0_XX_1_1_011;
+                    control_signals = 10'b0_XX_01_01_011;
                     is_branch_instr = 1'b1;
     end
     `JALR_OPCODE   :
     begin
-                    control_signals = 8'b1_10_0_1_100;
+                    control_signals = 10'b1_10_00_01_100;
                     unconditional_branch = 1'b1;
                     alu_op = `JALR_ALU_OP;
     end
     `JAL_OPCODE    : 
     begin     
-                    control_signals = 8'b1_10_1_1_001;
+                    control_signals = 10'b1_10_01_01_001;
                     unconditional_branch = 1'b1;
     end
     `LUI_OPCODE    :
     begin
-                    control_signals = 8'b1_00_0_1_000;
+                    control_signals = 10'b1_00_00_01_000;
                     alu_op          = 4'b1010;
     end
-    `AUIPC_OPCODE  : control_signals = 8'b1_00_1_1_000;
+    `AUIPC_OPCODE  : control_signals = 10'b1_00_01_01_000;
+    `SYSTEM_OPCODE :
+    begin 
+      //We can use Funct3[2] to differentiate between I instructions
+        case (funct3_i) 
+          `ECALL,`EBREAK: begin
+            
+            ebreak_trap = funct7_i[0];
+            ecall_trap  = ~funct7_i[0];
+          end
+          `CSRRW: begin
+            csr_wr_en = 1'b1;
+            control_signals = 10'b1_00_00_10_XXX;
+            alu_op = `ASSIGN_OP;
+          end
+          `CSRRS: begin
+            csr_wr_en = 1'b1;
+            control_signals = 10'b1_00_00_10_XXX;
+            alu_op = `OR_ALU_OP;
+          end
+          `CSRRC: begin
+            csr_wr_en = 1'b1;
+            control_signals = 10'b1_00_00_10_XXX;
+            alu_op = `CLEAR_OP;
+          end
+
+          `CSRRWI: begin
+            csr_wr_en = 1'b1;
+            control_signals = 10'b1_00_10_10_101;
+            alu_op = `ASSIGN_OP;
+          end
+          `CSRRSI: begin
+            csr_wr_en = 1'b1;
+            control_signals = 10'b1_00_10_10_101;
+            alu_op = `OR_ALU_OP;
+          end
+          `CSRRCI: begin
+            csr_wr_en = 1'b1;
+            control_signals = 10'b1_00_10_10_101;
+            alu_op = `CLEAR_OP;
+            end 
+          default: begin
+            csr_wr_en = 1'b0;
+            control_signals = ILLEGAL;
+            end
+          endcase
+    end 
     default       : control_signals = ILLEGAL;
   endcase
 end
 
-assign {reg_write_en_o, wb_sel_o, rs1_pc_sel_o, rs2_imm_sel_o, imm_type_o} = control_signals;
+//CSRRW/I => Mapped to Assignment in ALU, CSRRWI as well (in case of x0 field will be 0 so no need extra logic)
+//CSRRS/I => Mapped to OR in ALU,
+//CSRRC/I => Mapped to Bit Clear in ALU
+
+//CSR instructions Uses the CSR data for RS2, for RS1 it either uses imm or the register, Hence we need to add imm to the mux that selects RS1,PC
+
+assign {reg_write_en_o, wb_sel_o, rs1_pc_imm_sel_o, rs2_imm_csr_sel_o, imm_type_o} = control_signals;
 assign is_branch_instr_o = is_branch_instr;
 assign is_load_instr_o = is_load_instr;
 assign is_store_instr_o = is_store_instr;
 assign alu_op_o = alu_op;
 assign unconditional_branch_o = unconditional_branch;
 assign ex_unit_sel_o  = ex_unit_select;
-
-
+assign csr_wr_en_o = csr_wr_en;
+assign ebreak_trap_o = ebreak_trap;
+assign ecall_trap_o = ecall_trap;
 endmodule

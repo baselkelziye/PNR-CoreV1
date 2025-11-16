@@ -28,7 +28,8 @@ module instruction_execution(
   input [4:0] rd_label_ex_i, rs1_label_ex_i, rs2_label_ex_i,
   input [31:0] imm_value_ex_i,
   input load_stall_ex_i, load_store_forward_sel_ex_i,
-  input reg_write_en_ex_i, rs1_pc_sel_ex_i, rs2_imm_sel_ex_i,
+  input reg_write_en_ex_i,
+  input [1:0] rs1_pc_imm_sel_ex_i, rs2_imm_csr_sel_ex_i,
   input is_branch_instr_ex_i, is_store_instr_ex_i, is_load_instr_ex_i,
   input [1:0] wb_sel_ex_i,
   input [3:0] alu_op_ex_i,
@@ -40,6 +41,20 @@ module instruction_execution(
   input [31:0] fetched_instruction_ex_i,
   input ex_unit_sel_ex_i,
   input [7:0] sb_id_ex_i,
+  //Trap & CSR Signals
+  input csr_wr_en_ex_i,
+  input [11:0] csr_addr_ex_i,
+  input [31:0] csr_rd_value_ex_i,
+  output reg [31:0] csr_rd_value_ex_o,
+  input wire ecall_trap_ex_i,
+  input wire ebreak_trap_ex_i,
+  output reg ecall_trap_ex_o,
+  output reg ebreak_trap_ex_o,
+  output reg csr_wr_en_ex_o,
+  output reg [31:0] imm_value_ex_o,
+  output reg [31:0] rs1_value_ex_o,
+  output reg [11:0] csr_addr_ex_o,
+  input wire trap_en_ex_i,
   //Inputs to Decode Stage
   output wire [31:0] ex_stage_result_o,
   output wire mdu_stall_ex_o,
@@ -57,6 +72,7 @@ module instruction_execution(
   output reg [31:0] latest_rs2_value_ex_o,
   output reg [31:0] fetched_instruction_ex_o,
   output reg [7:0] sb_id_ex_o,
+  //Traps and CSR inputs
 
 
   //Inputs From Memory Stage
@@ -95,8 +111,8 @@ module instruction_execution(
   wire ex_stage_stall, ex_stage_flush;
   wire mdu_busy, mdu_done;
 
-  assign ex_stage_stall = periheral_stall_ex_i | mem_stage_stall_i;
-  assign ex_stage_flush = mdu_busy;
+  assign ex_stage_stall = (periheral_stall_ex_i | mem_stage_stall_i) & ~trap_en_ex_i;
+  assign ex_stage_flush = mdu_busy | trap_en_ex_i;
   // assign branching
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
   assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
@@ -116,22 +132,26 @@ module instruction_execution(
       .branch_valid_o   (   branch_jump_unit_o  )
   );
 
-  mux_2x1 #(
+  mux_4x1 #(
       .DATA_WIDTH(32))
   alu1_selector(
-      .in0_i   (   rs1_data_ex_i    ),
-      .in1_i   (   pc_ex_i          ),
-      .sel_i   (   rs1_pc_sel_ex_i  ),
-      .out_o   (   alu1_input       )
+      .in0_i   (   rs1_data_ex_i        ),
+      .in1_i   (   pc_ex_i              ),
+      .in2_i   (   imm_value_ex_i       ),
+      .in3_i   (   32'hAD0BE            ),
+      .sel_i   (   rs1_pc_imm_sel_ex_i  ),
+      .out_o   (   alu1_input           )
   );
 
-mux_2x1 #(
+mux_4x1 #(
     .DATA_WIDTH(32)
 ) alu2_selector(
-    .in0_i  (   rs2_data_ex_i       ),
-    .in1_i  (   imm_value_ex_i      ),
-    .sel_i  (   rs2_imm_sel_ex_i    ),
-    .out_o  (   alu2_input          )
+    .in0_i  (   rs2_data_ex_i         ),
+    .in1_i  (   imm_value_ex_i        ),
+    .in2_i  (   csr_value_ex_i        ),
+    .in3_i  (   32'hAD0BE             ),
+    .sel_i  (   rs2_imm_csr_sel_ex_i  ),
+    .out_o  (   alu2_input            )
 );
 
 ALU ALU_u(
@@ -170,12 +190,22 @@ always @(posedge clk_i, posedge rst_i) begin
       latest_rs2_value_ex_o       <= 32'h0 ;
       fetched_instruction_ex_o    <= 32'h13;
       sb_id_ex_o                  <= 8'b0  ;
+      imm_value_ex_o              <= 32'b0 ;
+      rs1_value_ex_o              <= 32'b0 ;
+      csr_wr_en_ex_o              <= 1'b0  ;
+      csr_addr_ex_o               <= 12'b0;
+      csr_rd_value_ex_o           <= 32'b0;
+      ebreak_trap_ex_o            <= 1'b0;
+      ecall_trap_ex_o             <= 1'b0;
   end else if(ex_stage_flush & !ex_stage_stall) begin 
       reg_write_en_ex_o           <= 1'b0   ;
       fetched_instruction_ex_o    <= 32'h13 ;
       sb_id_ex_o                  <= 8'b0   ;
       is_load_instr_ex_o          <= 1'b0   ;
       is_store_instr_ex_o         <= 1'b0   ;
+      csr_wr_en_ex_o              <= 1'b0   ;
+      ebreak_trap_ex_o            <= 1'b0   ;
+      ecall_trap_ex_o             <= 1'b0   ;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o             <= ex_stage_result_o          ;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
@@ -189,6 +219,13 @@ always @(posedge clk_i, posedge rst_i) begin
       latest_rs2_value_ex_o       <= rs2_data_ex_i              ;
       fetched_instruction_ex_o    <= fetched_instruction_ex_i   ;
       sb_id_ex_o                  <= sb_id_ex_i                 ;
+      imm_value_ex_o              <= imm_value_ex_i             ;
+      rs1_value_ex_o              <= rs1_data_ex_i              ;
+      csr_wr_en_ex_o              <= csr_wr_en_ex_i             ;
+      csr_addr_ex_o               <= csr_addr_ex_i              ;
+      csr_rd_value_ex_o           <= csr_rd_value_ex_i          ;
+      ebreak_trap_ex_o            <= ebreak_trap_ex_i           ;
+      ecall_trap_ex_o             <= ecall_trap_ex_i            ;
   end
 end
 

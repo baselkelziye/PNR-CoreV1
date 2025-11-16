@@ -36,6 +36,7 @@ module imm_gen
         3'b010: imm_r = {{21{instr_i[31]}}, instr_i[30:25], instr_i[11:7]};  // S-immediate (STORE)
         3'b011: imm_r = {{20{instr_i[31]}}, instr_i[7], instr_i[30:25], instr_i[11:8], 1'b0}; // B-immediate (Branch)
         3'b100: imm_r = {{21{instr_i[31]}}, instr_i[31:20]}; //  I-immediate (Load, JALR, addi)
+        3'b101: imm_r = { {27{1'b0}},instr_i[19:15]}; //CSR Imm
         default: imm_r = 32'h0;
     endcase
   end

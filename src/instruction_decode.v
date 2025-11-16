@@ -40,7 +40,8 @@ module instruction_decode(
   output reg  load_store_forward_sel_id_o,
   output wire load_stall_id_o,
   //Control Unit
-  output reg reg_write_en_id_o, rs1_pc_sel_id_o, rs2_imm_sel_id_o,
+  output reg reg_write_en_id_o,
+  output reg [1:0] rs1_pc_imm_sel_id_o, rs2_imm_csr_sel_id_o,
   output reg is_branch_instr_id_o, is_store_instr_id_o, is_load_instr_id_o,
   output reg [1:0] wb_sel_id_o,
   output reg [3:0] alu_op_id_o,
@@ -78,7 +79,23 @@ module instruction_decode(
   input wire reg_write_en_wb_i,
   input wire [4:0] rd_label_wb_i,
   input wire [31:0] rd_value_wb_i,
-  
+
+  //Trap and CSR inputs,
+  input wire csr_wr_en_wb_i, // Inputs from WB
+  input wire [11:0] csr_wr_addr_wb_i,
+  input wire [31:0] csr_rd_value_wb_i, //Value to be written in Register File
+  output reg [31:0] csr_rd_value_id_o,
+  output reg ecall_trap_id_o ,
+  output reg ebreak_trap_id_o,
+  input [31:0] s_trap_cause_wb_i,
+  input [31:0] s_trap_pc_wb_i,
+  input [31:0] s_trap_tval_wb_i,
+  output wire [31:0] s_tvec_id_o,
+  input wire trap_en_id_i,
+  //Outputs to EX
+  output reg [11:0] csr_addr_id_o,
+  output reg csr_wr_en_o,
+
   //Pipeline Control Signals
   input wire branching_id_i,
 
@@ -104,7 +121,8 @@ wire [31:0] imm_value;
 wire load_stall, load_store_forward_sel;
 
 //Control Unit Signals
-wire reg_write_en, rs1_pc_sel, rs2_imm_sel, is_branch_instr;
+wire reg_write_en, is_branch_instr;
+wire [1:0] rs1_pc_imm_sel, rs2_imm_csr_sel;
 wire is_load_instr, is_store_instr;
 wire [1:0] wb_sel;
 wire [2:0] imm_type;
@@ -113,7 +131,12 @@ wire	unconditional_branch;
 wire id_stage_stall;
 wire id_flush;
 wire ex_unit_sel;
+//Trap and CSR Signals
 
+wire csr_wr_en;
+wire [11:0] csr_addr;
+wire [31:0] csr_rd_value;
+wire ecall_trap, ebreak_trap;
 //Forwaring Signals
 wire [1:0] forwardA, forwardB;
 wire [31:0] rs1_forwarded_value, rs2_forwarded_value;
@@ -129,12 +152,16 @@ assign rs2_label = fetched_instruction_id_i[24:20];
 assign funct3    = fetched_instruction_id_i[14:12];
 assign funct7    = fetched_instruction_id_i[31:25];
 assign opcode    = fetched_instruction_id_i[6:0  ];
+assign csr_addr  = fetched_instruction_id_i[31:20];
     
     
 assign load_stall_id_o = load_stall;
-assign id_stage_stall  =  peripheral_stall_id_i | mem_stage_stall_i | mdu_stall_ex_i;
-assign id_flush        = load_stall | branching_id_i;
+assign id_stage_stall  =  (peripheral_stall_id_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_id_i; //If we have a Trap, Cancel Stall to let Bubble
+assign id_flush        = load_stall | branching_id_i | trap_en_id_i;
 
+
+//CSR wr_en signal indicates that 
+wire [31:0] rf_wr_value = (csr_wr_en_wb_i) ? csr_rd_value_wb_i : rd_value_wb_i;
 register_file register_file_u
 (
     .clk_i          (   clk_i             ),
@@ -143,10 +170,28 @@ register_file register_file_u
     .rs1_label_i    (   rs1_label         ),
     .rs2_label_i    (   rs2_label         ),
     .reg_write_en_i (   reg_write_en_wb_i ), //To be filed from WB Stage
-    .wr_data_i      (   rd_value_wb_i     ),
+    .wr_data_i      (   rf_wr_value       ),
     .rs1_data_o     (   rs1_value         ),
     .rs2_data_o     (   rs2_value         )
 );
+
+csr csr_u(
+  .clk_i            (   clk_i                           ),
+  .rst_i            (   rst_i                           ),
+  // Reads for this Stage
+  .csr_rd_addr_i    (   csr_addr                        ), //This Will read the Register
+  .csr_rd_data_o    (   csr_rd_value                    ),
+  //Writes from WB
+  .csr_wr_en_i      (   csr_wr_en_wb_i                  ),
+  .csr_wr_addr_i    (   csr_wr_addr_wb_i                ),
+  .csr_trap_wr_en_i (   1'b0                            ),//This Updates Registers That written by HW (SEPC etc)
+  .s_trap_pc_i      (   s_trap_pc_wb_i                  ),
+  .s_trap_cause_i   (   s_trap_cause_wb_i               ),
+  .s_trap_tval      (   s_trap_tval_wb_i                ),
+  .s_tvec_o         (   s_tvec_id_o                     ), //Output to Instruction Fetch
+  .csr_wr_value_i   (   rd_value_wb_i                   ) //CSR Wr value is from ALU, RF gets value from The Propagated CSR Value that have been read
+);
+
 
 forwarding_unit forwarding_unit_u(
   .rd_label_mem_wb_o (   rd_label_wb_i        ), // Rd Label From Write Back
@@ -208,15 +253,18 @@ mux_4x1 #(
   .funct7_i               (   funct7                ),
   .reg_write_en_o         (   reg_write_en          ),
   .wb_sel_o               (   wb_sel                ),
-  .rs1_pc_sel_o           (   rs1_pc_sel            ),
-  .rs2_imm_sel_o          (   rs2_imm_sel           ),
+  .rs1_pc_imm_sel_o       (   rs1_pc_imm_sel        ),
+  .rs2_imm_csr_sel_o      (   rs2_imm_csr_sel       ),
   .imm_type_o             (   imm_type              ),
   .is_branch_instr_o      (   is_branch_instr       ),
   .is_load_instr_o        (   is_load_instr         ),
   .is_store_instr_o       (   is_store_instr        ),
   .alu_op_o               (   alu_op                ),
   .unconditional_branch_o (   unconditional_branch  ),
-  .ex_unit_sel_o          (   ex_unit_sel           )
+  .ex_unit_sel_o          (   ex_unit_sel           ),
+  .csr_wr_en_o            (   csr_wr_en             ),
+  .ebreak_trap_o          (   ebreak_trap           ),
+  .ecall_trap_o           (   ecall_trap            )
 );
    
 always @(posedge clk_i, posedge rst_i) begin
@@ -234,13 +282,13 @@ always @(posedge clk_i, posedge rst_i)
 begin
     if(rst_i)
     begin 
-        rs1_data_id_o  	          		 <= 32'h0 ;
-        rs2_data_id_o  		          	 <= 32'h0 ;
+        rs1_data_id_o                  <= 32'h0 ;
+        rs2_data_id_o                  <= 32'h0 ;
         imm_value_id_o         		  	 <= 32'h0 ;
         load_store_forward_sel_id_o      <= 1'b0  ;
         reg_write_en_id_o 	       		   <= 1'b0  ;
-        rs1_pc_sel_id_o 	               <= 1'b0  ;
-        rs2_imm_sel_id_o 	               <= 1'b0  ;
+        rs1_pc_imm_sel_id_o 	               <= 2'b0  ;
+        rs2_imm_csr_sel_id_o 	               <= 2'b0  ;
         is_branch_instr_id_o 	           <= 1'b0  ;
         is_store_instr_id_o 	           <= 1'b0  ;
         is_load_instr_id_o           	   <= 1'b0  ;
@@ -257,6 +305,11 @@ begin
         fetched_instruction_id_o         <= 32'h13;
         ex_unit_sel_o                    <= 1'b0;
         sb_id_reg                        <= '0;
+        csr_wr_en_o                      <= 1'b0;
+        csr_addr_id_o                    <= '0;
+        csr_rd_value_id_o                <= '0;
+        ecall_trap_id_o                  <= 1'b0;
+        ebreak_trap_id_o                 <= 1'b0;
     end 
     else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
@@ -268,6 +321,9 @@ begin
         btb_predicted_pc_id_o            <= 32'h0;
         branch_is_taken_prediction_id_o  <= 1'b0 ;
         fetched_instruction_id_o         <= 32'h13;
+        csr_wr_en_o                      <= 1'b0;
+        ecall_trap_id_o                  <= 1'b0;
+        ebreak_trap_id_o                 <= 1'b0;
     end
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
@@ -276,8 +332,8 @@ begin
         imm_value_id_o                  <= imm_value                      ;
         load_store_forward_sel_id_o     <= load_store_forward_sel         ;
         reg_write_en_id_o               <= reg_write_en                   ;
-        rs1_pc_sel_id_o                 <= rs1_pc_sel                     ;
-        rs2_imm_sel_id_o 	              <= rs2_imm_sel                    ;
+        rs1_pc_imm_sel_id_o             <= rs1_pc_imm_sel                 ;
+        rs2_imm_csr_sel_id_o 	          <= rs2_imm_csr_sel                ;
         is_branch_instr_id_o            <= is_branch_instr                ;
         is_store_instr_id_o             <= is_store_instr                 ;
         is_load_instr_id_o              <= is_load_instr                  ;
@@ -294,6 +350,11 @@ begin
         fetched_instruction_id_o        <= fetched_instruction_id_i       ;
         ex_unit_sel_o                   <= ex_unit_sel                    ;
         sb_id_o                         <= sb_id_reg                      ;
+        csr_wr_en_o                     <= csr_wr_en                      ;
+        csr_addr_id_o                   <= csr_addr                       ;
+        csr_rd_value_id_o               <= csr_rd_value                   ;
+        ecall_trap_id_o                  <= ecall_trap;
+        ebreak_trap_id_o                 <= ebreak_trap;
   end 
   end
 
