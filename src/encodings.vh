@@ -104,13 +104,16 @@
 `define SYSTEM_OPCODE    5'b11100
 `define ECALL  3'b000
 `define EBREAK 3'b000
+`define SRET   3'b000
 `define CSRRW  3'b001
 `define CSRRS  3'b010  
 `define CSRRC  3'b011
 `define CSRRWI 3'b101
 `define CSRRSI 3'b110
 `define CSRRCI 3'b111
-
+`define M_MODE 2'b11
+`define S_MODE 2'b01
+`define U_MODE 2'b00
 
 // Machine Information Registers (RO)
 `define MVENDORID        12'hf11  // Vendor ID.

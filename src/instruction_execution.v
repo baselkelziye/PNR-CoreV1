@@ -50,6 +50,8 @@ module instruction_execution(
   input wire ebreak_trap_ex_i,
   output reg ecall_trap_ex_o,
   output reg ebreak_trap_ex_o,
+  input wire sret_trap_ex_i,
+  output reg sret_trap_ex_o,
   output reg csr_wr_en_ex_o,
   output reg [31:0] imm_value_ex_o,
   output reg [31:0] rs1_value_ex_o,
@@ -193,10 +195,11 @@ always @(posedge clk_i, posedge rst_i) begin
       imm_value_ex_o              <= 32'b0 ;
       rs1_value_ex_o              <= 32'b0 ;
       csr_wr_en_ex_o              <= 1'b0  ;
-      csr_addr_ex_o               <= 12'b0;
-      csr_rd_value_ex_o           <= 32'b0;
-      ebreak_trap_ex_o            <= 1'b0;
-      ecall_trap_ex_o             <= 1'b0;
+      csr_addr_ex_o               <= 12'b0 ;
+      csr_rd_value_ex_o           <= 32'b0 ;
+      ebreak_trap_ex_o            <= 1'b0  ;
+      ecall_trap_ex_o             <= 1'b0  ;
+      sret_trap_ex_o              <= 1'b0  ;
   end else if(ex_stage_flush & !ex_stage_stall) begin 
       reg_write_en_ex_o           <= 1'b0   ;
       fetched_instruction_ex_o    <= 32'h13 ;
@@ -206,6 +209,7 @@ always @(posedge clk_i, posedge rst_i) begin
       csr_wr_en_ex_o              <= 1'b0   ;
       ebreak_trap_ex_o            <= 1'b0   ;
       ecall_trap_ex_o             <= 1'b0   ;
+      sret_trap_ex_o              <= 1'b0   ;
   end else if (!ex_stage_stall) begin
       alu_result_ex_o             <= ex_stage_result_o          ;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
@@ -226,6 +230,7 @@ always @(posedge clk_i, posedge rst_i) begin
       csr_rd_value_ex_o           <= csr_rd_value_ex_i          ;
       ebreak_trap_ex_o            <= ebreak_trap_ex_i           ;
       ecall_trap_ex_o             <= ecall_trap_ex_i            ;
+      sret_trap_ex_o              <= sret_trap_ex_i             ;
   end
 end
 
@@ -236,8 +241,8 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
-        alu_op_trace(file);
-        mdu_op_trace(file);
+        // alu_op_trace(file);
+        // mdu_op_trace(file);
         branch_op_trace(file);
     end
   endfunction

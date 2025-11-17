@@ -45,6 +45,8 @@ module instruction_memory_stage
   input ebreak_trap_mem_i,
   output reg ecall_trap_mem_o,
   output reg ebreak_trap_mem_o,
+  input sret_trap_mem_i,
+  output reg sret_trap_mem_o,
   //Outputs to WriteBack Stage
   output reg [31:0] load_value_mem_o,
   output reg [31:0] rd_value_mem_ro,
@@ -64,7 +66,7 @@ module instruction_memory_stage
   output reg [11:0] csr_addr_mem_o,
   input [31:0] csr_rd_value_mem_i,
   output reg [31:0] csr_rd_value_mem_o,
-  input trap_en_mem_i,
+  input trap_en_mem_i, //This is a trap from WB
   
   //Wishbone + Peripherals
   output wire peripheral_stall_o,
@@ -117,6 +119,8 @@ module instruction_memory_stage
       .write_data_i               (   latest_rs2_value_mem_i  ),
       .is_load_instr              (   is_load_mem_i           ),
       .is_store_instr             (   is_store_mem_i          ),
+      .trap_en_mem_i              (ebreak_trap_mem_i | ecall_trap_mem_i),
+      .trap_en_wb_i               (   trap_en_mem_i           ), //This signal comes from WB to MEM stage,
       .funct3_i                   (   funct3_mem_i            ),
       .sb_id_i                    (   sb_id_mem_i             ),
       .data_mem_subsystem_stall_o (   data_subsystem_stall    ),
@@ -197,6 +201,7 @@ always @(posedge clk_i, posedge rst_i)
       ebreak_trap_mem_o    <= 1'b0;
       ecall_trap_mem_o     <= 1'b0;
       pc_mem_o             <= 32'hDEADC0DE;
+      sret_trap_mem_o      <= 1'b0;
     end
   else //if(!mem_stage_stall)
     begin
@@ -213,6 +218,7 @@ always @(posedge clk_i, posedge rst_i)
       ebreak_trap_mem_o    <= ebreak_trap_mem_i;
       ecall_trap_mem_o     <= ecall_trap_mem_i;
       pc_mem_o             <= pc_mem_i;
+      sret_trap_mem_o      <= sret_trap_mem_i;
     end
   end
 

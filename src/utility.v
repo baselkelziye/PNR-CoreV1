@@ -23,6 +23,24 @@ begin
         12'h343: csr_name = "MTVAL";
         12'h344: csr_name = "MIP";
 
+        // Supervisor Trap Setup
+        12'h100: csr_name = "SSTATUS";
+        12'h102: csr_name = "SEDELEG";
+        12'h103: csr_name = "SIDELEG";
+        12'h104: csr_name = "SIE";
+        12'h105: csr_name = "STVEC";
+        12'h106: csr_name = "SCOUNTEREN";
+
+        // Supervisor Trap Handling
+        12'h140: csr_name = "SSCRATCH";
+        12'h141: csr_name = "SEPC";
+        12'h142: csr_name = "SCAUSE";
+        12'h143: csr_name = "STVAL";
+        12'h144: csr_name = "SIP";
+
+        // Supervisor Protection and Translation
+        12'h180: csr_name = "SATP";
+
         // Memory Protection
         12'h3A0: csr_name = "PMPCFG0";
         12'h3A1: csr_name = "PMPCFG1";
@@ -134,4 +152,16 @@ begin
         default: csr_name = "UNKNOWN";
     endcase
 end
+endfunction
+
+
+function [127:0] privilege_mode_converter(input [1:0] current_execution_mode);
+
+case (current_execution_mode)
+    `U_MODE: privilege_mode_converter = "U_MODE";
+    `S_MODE: privilege_mode_converter = "S_MODE";
+    `M_MODE: privilege_mode_converter = "M_MODE";
+    default: privilege_mode_converter = "PANIC_MODE";
+endcase
+
 endfunction

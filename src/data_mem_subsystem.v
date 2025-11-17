@@ -18,6 +18,8 @@ module data_mem_subsystem #(
     input              is_store_instr,
     input      [2:0 ]  funct3_i,
     input      [7:0 ]  sb_id_i,
+    input              trap_en_mem_i,
+    input              trap_en_wb_i,
     output             data_mem_subsystem_stall_o,
     output     [31:0]  read_data_o
 );
@@ -225,9 +227,13 @@ store_buffer_u(
     .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
     .sb_cache_wr_o          (   sb_cache_wr                 ),
     .sb_id_i                (   sb_id_i                     ),
+    //Interrupt Inputs to prevent writing, when ROB is added those are not needed
+    //Because SB will not be an architectural state
+    .trap_en_mem_i          (   trap_en_mem_i               ),
+    .trap_en_wb_i           (   trap_en_wb_i                ),
     //SB Forwarding
-    .sb_load_hit_o         (   sb_load_hit                 ),
-    .sb_forwarded_value_o  (   sb_forwarded_value          )
+    .sb_load_hit_o          (   sb_load_hit                 ),
+    .sb_forwarded_value_o   (   sb_forwarded_value          )
     );
 
 `ifdef CORE_VERBOSITY

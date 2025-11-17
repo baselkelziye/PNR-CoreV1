@@ -87,10 +87,12 @@ module instruction_decode(
   output reg [31:0] csr_rd_value_id_o,
   output reg ecall_trap_id_o ,
   output reg ebreak_trap_id_o,
+  output reg sret_trap_id_o,
   input [31:0] s_trap_cause_wb_i,
   input [31:0] s_trap_pc_wb_i,
   input [31:0] s_trap_tval_wb_i,
-  output wire [31:0] s_tvec_id_o,
+  output wire [31:0] stvec_id_o,
+  output wire [31:0] sepc_id_o,
   input wire trap_en_id_i,
   //Outputs to EX
   output reg [11:0] csr_addr_id_o,
@@ -137,6 +139,7 @@ wire csr_wr_en;
 wire [11:0] csr_addr;
 wire [31:0] csr_rd_value;
 wire ecall_trap, ebreak_trap;
+wire sret_trap;
 //Forwaring Signals
 wire [1:0] forwardA, forwardB;
 wire [31:0] rs1_forwarded_value, rs2_forwarded_value;
@@ -188,7 +191,8 @@ csr csr_u(
   .s_trap_pc_i      (   s_trap_pc_wb_i                  ),
   .s_trap_cause_i   (   s_trap_cause_wb_i               ),
   .s_trap_tval      (   s_trap_tval_wb_i                ),
-  .s_tvec_o         (   s_tvec_id_o                     ), //Output to Instruction Fetch
+  .stvec_id_o       (   stvec_id_o                      ), //Output to Instruction Fetch
+  .sepc_id_o        (   sepc_id_o                       ), //Output for trap return
   .csr_wr_value_i   (   rd_value_wb_i                   ) //CSR Wr value is from ALU, RF gets value from The Propagated CSR Value that have been read
 );
 
@@ -251,6 +255,7 @@ mux_4x1 #(
   .opcode_i               (   opcode[6:2]           ), //dismiss lower 2 bits
   .funct3_i               (   funct3                ),
   .funct7_i               (   funct7                ),
+  .rs2_i                  (   rs2_label             ),
   .reg_write_en_o         (   reg_write_en          ),
   .wb_sel_o               (   wb_sel                ),
   .rs1_pc_imm_sel_o       (   rs1_pc_imm_sel        ),
@@ -264,7 +269,8 @@ mux_4x1 #(
   .ex_unit_sel_o          (   ex_unit_sel           ),
   .csr_wr_en_o            (   csr_wr_en             ),
   .ebreak_trap_o          (   ebreak_trap           ),
-  .ecall_trap_o           (   ecall_trap            )
+  .ecall_trap_o           (   ecall_trap            ),
+  .sret_trap_o            (   sret_trap             )
 );
    
 always @(posedge clk_i, posedge rst_i) begin
@@ -310,6 +316,7 @@ begin
         csr_rd_value_id_o                <= '0;
         ecall_trap_id_o                  <= 1'b0;
         ebreak_trap_id_o                 <= 1'b0;
+        sret_trap_id_o                   <= 1'b0;
     end 
     else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
@@ -324,6 +331,7 @@ begin
         csr_wr_en_o                      <= 1'b0;
         ecall_trap_id_o                  <= 1'b0;
         ebreak_trap_id_o                 <= 1'b0;
+        sret_trap_id_o                   <= 1'b0;
     end
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
@@ -353,8 +361,9 @@ begin
         csr_wr_en_o                     <= csr_wr_en                      ;
         csr_addr_id_o                   <= csr_addr                       ;
         csr_rd_value_id_o               <= csr_rd_value                   ;
-        ecall_trap_id_o                  <= ecall_trap;
-        ebreak_trap_id_o                 <= ebreak_trap;
+        ecall_trap_id_o                 <= ecall_trap                     ;
+        ebreak_trap_id_o                <= ebreak_trap                    ;
+        sret_trap_id_o                  <= sret_trap                      ;
   end 
   end
 
@@ -362,7 +371,10 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
 `ifdef CORE_VERBOSITY
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
-    $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
+    $fwrite(file,"\nTime, %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
+    
+    csr_u.csr_trace_log(file);
+    // $fwrite(file,"\nTime, %1t, CSR: ", $time)
     // register_file_u.dump_register_file(file);
   endfunction
 `endif

@@ -53,7 +53,9 @@ wire csr_wr_en_id_o;
 wire csr_wr_en_mem_o;
 wire [31:0] csr_rd_value_id_o;
 wire ebreak_trap_id_o, ecall_trap_id_o;
-wire [31:0] s_tvec_id_o;
+wire sret_trap_id_o;
+wire [31:0] stvec_id_o;
+wire [31:0] sepc_id_o;
 //--------------------------------------------
 
 
@@ -80,6 +82,7 @@ wire csr_wr_en_ex_o;
 wire [11:0] csr_addr_ex_o;
 wire [31:0] csr_rd_value_ex_o;
 wire ecall_trap_ex_o, ebreak_ex_o;
+wire sret_trap_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -95,7 +98,7 @@ wire [31:0] rd_value_mem_ro;
 wire [11:0] csr_addr_mem_o;
 wire [31:0] csr_rd_value_mem_o;
 wire ecall_trap_mem_o, ebreak_trap_mem_o;
-
+wire sret_trap_mem_o;
 //Wishbone + Peripherals
 wire peripheral_stall_mem_o;
 wire mem_stage_stall;
@@ -111,6 +114,28 @@ reg exception_raised;
 reg [31:0] scause;
 reg [31:0] stval;
 
+reg [1:0] current_execution_mode;
+
+//On reset go to U_MODE, Isa goes to M Mode later to be modified
+//Now, I only Do SRET to go back to u-mode, Later need to involve sstatus, mstatus.
+always @(posedge clk_i, posedge rst_i) begin
+  if(rst_i) begin
+    current_execution_mode <= `U_MODE;
+  end else begin
+    if(exception_raised) begin
+      //If Trap Happens go to higher privilege
+      //Now i only go from U to S mode
+      case (current_execution_mode)
+        `U_MODE: current_execution_mode <= `S_MODE; 
+        `S_MODE: current_execution_mode <= `M_MODE;
+        `M_MODE: current_execution_mode <= `M_MODE;
+        default: current_execution_mode <= `U_MODE;
+      endcase
+    end else if(sret_trap_mem_o) begin // Return to U-MODE
+          current_execution_mode <= `U_MODE;
+    end
+  end
+end
 
 
 instruction_fetch if_u
@@ -131,8 +156,11 @@ instruction_fetch if_u
   .pc_ex_i                        (   pc_id_o                           ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
   //Trap Signals
-  .stvec_csr_i                    (   s_tvec_id_o                       ),
+  .stvec_csr_i                    (   stvec_id_o                       ),
   .trap_en_if_i                   (   exception_raised                  ),
+  .sret_trap_wb_i                 (   sret_trap_mem_o                   ),
+  .trap_return_pc_i               (),
+  .current_execution_mode_if_i    (   current_execution_mode            ),
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o          (   btb_predicted_pc_if_o             ),
   .branch_is_taken_prediction_if_o(   branch_is_taken_prediction_if_o   ),
@@ -205,10 +233,12 @@ instruction_decode id_u
   .csr_rd_value_id_o              (   csr_rd_value_id_o                 ),
   .ecall_trap_id_o                (   ecall_trap_id_o                   ),
   .ebreak_trap_id_o               (   ebreak_trap_id_o                  ),
+  .sret_trap_id_o                 (   sret_trap_id_o                    ),
   .s_trap_cause_wb_i              (   scause                            ),
   .s_trap_pc_wb_i                 (   pc_mem_o                          ),
   .s_trap_tval_wb_i               (   stval                             ),
-  .s_tvec_id_o                    (   s_tvec_id_o                       ),
+  .stvec_id_o                     (   stvec_id_o                        ),
+  .sepc_id_o                      (   sepc_id_o                         ),
   //Pipeline Control Signals
   .branching_id_i                 (   branching_ex_o                    ),
   .peripheral_stall_id_i          (   peripheral_stall_mem_o            ),
@@ -283,6 +313,8 @@ instruction_execution ex_u
   .ebreak_trap_ex_i               (   ebreak_trap_id_o                  ),
   .ecall_trap_ex_o                (   ecall_trap_ex_o                   ),
   .ebreak_trap_ex_o               (   ebreak_trap_ex_o                  ),
+  .sret_trap_ex_i                 (   sret_trap_id_o                    ),
+  .sret_trap_ex_o                 (   sret_trap_ex_o                    ),
   .trap_en_ex_i                   (   exception_raised                  ),
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
@@ -313,11 +345,13 @@ instruction_memory_stage mem_u
   .sb_id_mem_i                 (   sb_id_ex_o                     ),
   .csr_wr_en_mem_i             (   csr_wr_en_ex_o                 ),
   //Inputs for CSR
-  .ecall_trap_mem_i           (   ecall_trap_ex_o                  ),
-  .ebreak_trap_mem_i          (   ebreak_trap_ex_o                 ),
-  .ecall_trap_mem_o           (   ecall_trap_mem_o                 ),
-  .ebreak_trap_mem_o          (   ebreak_trap_mem_o                ),
-  .trap_en_mem_i              (   exception_raised                  ),
+  .ecall_trap_mem_i            (   ecall_trap_ex_o                ),
+  .ebreak_trap_mem_i           (   ebreak_trap_ex_o               ),
+  .ecall_trap_mem_o            (   ecall_trap_mem_o               ),
+  .ebreak_trap_mem_o           (   ebreak_trap_mem_o              ),
+  .sret_trap_mem_i             (   sret_trap_ex_o                 ),
+  .sret_trap_mem_o             (   sret_trap_mem_o                ),
+  .trap_en_mem_i               (   exception_raised               ),
   //Outputs To WriteBack Stage
   .load_value_mem_o            (   load_value_mem_o               ),
   .rd_label_mem_o              (   rd_label_mem_o                 ),
@@ -352,9 +386,14 @@ always @* begin
     exception_raised = 1'b1;
     stval            = 32'b0;
   end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
-    scause = {1'b0,30'd8};
     exception_raised = 1'b1;
     stval            = 32'b0;
+    case (current_execution_mode)
+      `U_MODE: scause = {1'b0,30'd8}; //ecall from UMODE has cause 8 
+      `S_MODE: scause = {1'b0,30'd9};
+      `M_MODE: scause = {1'b0, 30'd11}; //Probably, should assign mcause, TODO
+      default: scause = 32'b0;
+    endcase
   end else begin //Later add
     exception_raised = 1'b0;
     scause           = 32'b0;
@@ -383,10 +422,10 @@ end
   `define MEM_PATH mem_u
   reg  [31:0] cycle_reg;
   wire [31:0] cycle_next;
-
+  wire [127:0] current_execution_mode_str;
   reg [31:0] executed_instructions_reg;
   wire [31:0] executed_instructions_next;
-
+  assign current_execution_mode_str = privilege_mode_converter(current_execution_mode);
   always @(posedge clk_i) begin
     if(rst_i) begin
       cycle_reg <= 0;
@@ -409,7 +448,7 @@ end
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
-    $fwrite(trace_file, "Cycle: %d", cycle_reg);
+    $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
     if_u.if_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);

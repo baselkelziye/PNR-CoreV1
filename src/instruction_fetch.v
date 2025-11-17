@@ -38,6 +38,9 @@ module instruction_fetch(
   //Exception Inputs
   input wire [31:0] stvec_csr_i,
   input wire trap_en_if_i,
+  input wire current_execution_mode_if_i,
+  input wire [31:0] sret_trap_wb_i,
+  input wire [31:0] trap_return_pc_i, //This is MEPC
 
   //Inputs For Branch Prediction.
   input wire is_branch_instr_ex_i,

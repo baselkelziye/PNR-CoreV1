@@ -19,6 +19,8 @@ module store_buffer
     input [2:0] funct3_i,
     input cache_access_is_done_i,
     input [SB_ID_SIZE-1:0] sb_id_i,
+    input trap_en_mem_i,
+    input trap_en_wb_i,
 
     output [SB_ENTRY_SIZE-1:0]  sb_entry_rd_o,
     output                      sb_stall_o,
@@ -52,7 +54,7 @@ reg sb_drain_reg, sb_drain_next;
 reg sb_cache_wr_reg, sb_cache_wr_next;
 wire sb_empty, sb_full;
 wire sb_wr_en, sb_rd_en;
-
+wire mem_wb_exception;
 // wire [1:0] sb_state_next;
 reg  [1:0] sb_state_reg,sb_state_next;
 
@@ -133,11 +135,13 @@ end
 
 assign sb_entry_wr = {sb_id_i,1'b1, wr_addr_i, updated_sb_wr_data,funct3_i};
 
+
+assign mem_wb_exception = trap_en_mem_i | trap_en_wb_i;
 //We write To SB if we are not Draining and its Store Instruction.
-assign sb_wr_en = is_store_instr_i & ~sb_drain_reg;
+assign sb_wr_en = is_store_instr_i & ~sb_drain_reg & ~(trap_en_mem_i | trap_en_wb_i);
 
 //If we Have a Drain Command, And we Finish our Cache Access. We Delete From FIFO
-assign sb_rd_en = sb_drain_reg & cache_access_is_done_i;
+assign sb_rd_en = sb_drain_reg & cache_access_is_done_i & ~(trap_en_mem_i | trap_en_wb_i);
 
 fifo #(
     .B(SB_ENTRY_SIZE),

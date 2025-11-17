@@ -196,6 +196,7 @@
           // ECALL (0x00000073) or EBREAK (0x00100073) or generic SYSTEM
           if (instr == 32'h00000073) $swrite(s,"ecall");
           else if (instr == 32'h00100073) $swrite(s,"ebreak");
+          else if (instr == 32'h10200073 ) $swrite(s,"sret");
           else $swrite(s,"SYSTEM");
         end
 

@@ -25,6 +25,7 @@ module control_unit(
     input  [4:0] opcode_i               , 
     input  [2:0] funct3_i               ,
     input  [6:0] funct7_i               ,
+    input  [4:0] rs2_i                  , //Encoding ecall, ebreak, sret requires bits 24-20 (RS2)
 
     output       reg_write_en_o         , // Register File'e yazma sinyali
     output [1:0] wb_sel_o               , // Yazilacak Veriyi secen mux sinyali
@@ -39,6 +40,7 @@ module control_unit(
     output       ex_unit_sel_o          ,
     output       ebreak_trap_o,
     output       ecall_trap_o,
+    output       sret_trap_o,
     output       csr_wr_en_o              //Write To CSR
     );
 
@@ -106,7 +108,7 @@ reg ex_unit_select;
 //control_singals = reg_write_en, wb_sel[1:0], rs1_pc_sel, rs2_imm_sel, imm_type[2:0]
 reg csr_wr_en;
 reg ebreak_trap, ecall_trap;
-
+reg sret_trap;
 always @(*)
 begin
   //defualt values to not infer latch
@@ -119,6 +121,7 @@ begin
   csr_wr_en            = 1'b0   ;
   ebreak_trap          = 1'b0   ;
   ecall_trap           = 1'b0   ;
+  sret_trap            = 1'b0   ;
   case(opcode_i)
     `LOAD_OPCODE   : 
     begin
@@ -210,8 +213,17 @@ begin
     begin 
       //We can use Funct3[2] to differentiate between I instructions
         case (funct3_i) 
-          `ECALL,`EBREAK: begin
-            
+          3'b000: begin //`ECALL,`EBREAK,`SRET
+            case (rs2_i)
+              5'b00000: ecall_trap  = 1'b1; //ECALL
+              5'b00001: ebreak_trap = 1'b1;//ebreak
+              5'b00010: sret_trap   = 1'b1;//SRET, MRET Has same encoding, when adding it i need extra bits!!!!
+              default: begin
+                ecall_trap  = 1'b0;
+                ebreak_trap = 1'b0;
+                sret_trap   = 1'b0;
+              end
+            endcase
             ebreak_trap = funct7_i[0];
             ecall_trap  = ~funct7_i[0];
           end
@@ -272,4 +284,5 @@ assign ex_unit_sel_o  = ex_unit_select;
 assign csr_wr_en_o = csr_wr_en;
 assign ebreak_trap_o = ebreak_trap;
 assign ecall_trap_o = ecall_trap;
+assign sret_trap_o = sret_trap;
 endmodule

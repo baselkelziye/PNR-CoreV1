@@ -18,7 +18,8 @@ module csr(
     input [31:0] s_trap_cause_i,
     input [31:0] s_trap_tval,
 
-    output [31:0] s_tvec_o
+    output [31:0] stvec_id_o,
+    output [31:0] sepc_id_o
 
 );
 
@@ -32,10 +33,12 @@ Mode 0 = Direct, 1 = Vectored
 reg [29:0] stvec_base; //30 Bit Address (Lower 2 bits are always 00)
 reg [1: 0] stvec_mode; //Vectore Mode Addressing,
 
-reg [31:0] SCAUSE;
-reg [31:0] STVAL;
-reg [31:0] SEPC;
+//These 2 Registers are handled in the Wrapper (core.v)
+// reg [31:0] SCAUSE;
+// reg [31:0] STVAL;
 
+reg [31:0] SEPC;
+reg [31:0] SSCRATCH;
 reg [31:0] csr_data;
 
 
@@ -52,6 +55,7 @@ always @(posedge clk_i, posedge rst_i) begin
             stvec_base <= csr_wr_value_i[31:2];
             stvec_mode <= 2'b0; //Always Vectored for now
         end
+        `SSCRATCH: SSCRATCH <= csr_wr_value_i;
          
         endcase
     end
@@ -69,13 +73,15 @@ always @(*) begin
 end
 
 assign csr_rd_data_o = csr_data;
-assign s_tvec_o = {stvec_base,2'b0};
-wire [1023:0] csr_in = csr_name(csr_rd_addr_i);
+assign stvec_id_o = {stvec_base,2'b0};
+assign sepc_id_o = SEPC;
+wire [1023:0] csr_rd_in = csr_name(csr_rd_addr_i);
+wire [1023:0] csr_wr_in = csr_name(csr_wr_addr_i);
 `ifdef CORE_VERBOSITY
 
 
 function void csr_trace_log(int file);
-$fwrite(file,"\nTime: %1t, CSR Name: %0s", $time, csr_in);
+$fwrite(file,"\nTime: %1t, RD CSR: %0s, WR CSR: %0s", $time, csr_rd_in, csr_wr_in);
 endfunction
 
 `endif
