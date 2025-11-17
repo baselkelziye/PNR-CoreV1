@@ -91,6 +91,9 @@ trap_handler:
     sw x31, 124(x5)
 
     # Trap body placeholder
+    csrr t1,sepc
+    addi t1,t1,4
+    csrw sepc,t1
     addi x1,x0,0
     addi x2,x0,0
     addi x3,x0,0

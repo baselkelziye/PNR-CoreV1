@@ -93,7 +93,7 @@ module instruction_decode(
   input [31:0] s_trap_tval_wb_i,
   output wire [31:0] stvec_id_o,
   output wire [31:0] sepc_id_o,
-  input wire trap_en_id_i,
+  input wire trap_en_id_i, //Exception Raised in WB
   //Outputs to EX
   output reg [11:0] csr_addr_id_o,
   output reg csr_wr_en_o,
@@ -187,7 +187,7 @@ csr csr_u(
   //Writes from WB
   .csr_wr_en_i      (   csr_wr_en_wb_i                  ),
   .csr_wr_addr_i    (   csr_wr_addr_wb_i                ),
-  .csr_trap_wr_en_i (   1'b0                            ),//This Updates Registers That written by HW (SEPC etc)
+  .csr_trap_wr_en_i (   trap_en_id_i                    ),//This Updates Registers That written by HW (SEPC etc)
   .s_trap_pc_i      (   s_trap_pc_wb_i                  ),
   .s_trap_cause_i   (   s_trap_cause_wb_i               ),
   .s_trap_tval      (   s_trap_tval_wb_i                ),
@@ -374,6 +374,8 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
     $fwrite(file,"\nTime, %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
     
     csr_u.csr_trace_log(file);
+    $fwrite(file, "\nTime: %1t, rs1_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs1_forwarded_value: 0x%h", $time,rs1_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardA,rs1_forwarded_value);
+    $fwrite(file, "\nTime: %1t, rs2_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs2_forwarded_value: 0x%h", $time,rs2_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardB,rs2_forwarded_value);
     // $fwrite(file,"\nTime, %1t, CSR: ", $time)
     // register_file_u.dump_register_file(file);
   endfunction

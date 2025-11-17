@@ -224,8 +224,6 @@ begin
                 sret_trap   = 1'b0;
               end
             endcase
-            ebreak_trap = funct7_i[0];
-            ecall_trap  = ~funct7_i[0];
           end
           `CSRRW: begin
             csr_wr_en = 1'b1;

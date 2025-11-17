@@ -56,7 +56,7 @@ always @(posedge clk_i, posedge rst_i) begin
             stvec_mode <= 2'b0; //Always Vectored for now
         end
         `SSCRATCH: SSCRATCH <= csr_wr_value_i;
-         
+        `SEPC: SEPC <= csr_wr_value_i;
         endcase
     end
 end
@@ -67,7 +67,9 @@ always @(*) begin
     csr_data = 32'b0;
 
     case(csr_rd_addr_i)
-        `STVEC: csr_data = {stvec_base, stvec_mode};
+        `STVEC:    csr_data = {stvec_base, stvec_mode};
+        `SEPC:     csr_data = SEPC;
+        `SSCRATCH: csr_data = SSCRATCH;
         default: csr_data = 32'b0;
     endcase
 end
@@ -81,7 +83,10 @@ wire [1023:0] csr_wr_in = csr_name(csr_wr_addr_i);
 
 
 function void csr_trace_log(int file);
-$fwrite(file,"\nTime: %1t, RD CSR: %0s, WR CSR: %0s", $time, csr_rd_in, csr_wr_in);
+$fwrite(file,"\nTime: %1t, RD CSR: %0s, csr_rd_data_o: 0x%h", $time, csr_rd_in,csr_rd_data_o);
+$fwrite(file,"\nTime: %1t, WR CSR: %0s, csr_wr_en_i: %b, csr_wr_value_i: 0x%h, csr_trap_wr_en_i: %b", $time,csr_wr_in, csr_wr_en_i, csr_wr_value_i, csr_trap_wr_en_i);
+$fwrite(file,"\nTime: %1t, TRAP, s_trap_pc_i: 0x%h, s_trap_cause_i: 0x%h, s_trap_tval: 0x%h", $time, s_trap_pc_i, s_trap_cause_i,s_trap_tval);
+$fwrite(file, "\nTime: %1t, STVEC: 0x%h, SEPC: 0x%h, SSCRATCH: 0x%h", $time, {stvec_base,2'b00}, SEPC, SSCRATCH);
 endfunction
 
 `endif

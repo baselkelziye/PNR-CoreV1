@@ -76,6 +76,8 @@ module instruction_fetch(
   begin
     if(trap_en_if_i) begin
       pc_next = stvec_csr_i;
+    end else if(sret_trap_wb_i) begin
+      pc_next = trap_return_pc_i;
     end else if(branching_i) begin      
       // If we have branch, Then Next shall be the calculated New address adn means we predicted wrong.
 	    pc_next = branching_address_i;

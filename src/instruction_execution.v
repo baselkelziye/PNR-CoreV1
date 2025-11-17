@@ -150,7 +150,7 @@ mux_4x1 #(
 ) alu2_selector(
     .in0_i  (   rs2_data_ex_i         ),
     .in1_i  (   imm_value_ex_i        ),
-    .in2_i  (   csr_value_ex_i        ),
+    .in2_i  (   csr_rd_value_ex_i        ),
     .in3_i  (   32'hAD0BE             ),
     .sel_i  (   rs2_imm_csr_sel_ex_i  ),
     .out_o  (   alu2_input            )
@@ -241,7 +241,9 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
     if(`CORE_VERBOSITY >= 500 ) begin
-        // alu_op_trace(file);
+      $fwrite(file, "\nTime: %1t, rs1_data_ex_i: 0x%h, pc_ex_i: 0x%h, imm_value_ex_i: 0x%h, rs1_pc_imm_sel: %b", $time,rs1_data_ex_i,pc_ex_i,imm_value_ex_i,rs1_pc_imm_sel_ex_i);
+      $fwrite(file, "\nTime: %1t, rs2_data_ex_i: 0x%h, imm_value_ex_i: 0x%h, csr_rd_value_ex_i: 0x%h, rs2_imm_csr_sel_ex_i: %b", $time,rs2_data_ex_i,imm_value_ex_i,csr_rd_value_ex_i,rs2_imm_csr_sel_ex_i);
+        alu_op_trace(file);
         // mdu_op_trace(file);
         branch_op_trace(file);
     end

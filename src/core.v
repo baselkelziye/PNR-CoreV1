@@ -159,7 +159,7 @@ instruction_fetch if_u
   .stvec_csr_i                    (   stvec_id_o                       ),
   .trap_en_if_i                   (   exception_raised                  ),
   .sret_trap_wb_i                 (   sret_trap_mem_o                   ),
-  .trap_return_pc_i               (),
+  .trap_return_pc_i               (   sepc_id_o                         ),
   .current_execution_mode_if_i    (   current_execution_mode            ),
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o          (   btb_predicted_pc_if_o             ),
