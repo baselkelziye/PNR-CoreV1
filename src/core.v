@@ -14,8 +14,7 @@ Assertions to be Added:
 */
 
 /*
-Exception Shall Clear All stalls
-
+I need to transfer to IDLE stage in cache/Ram controllers on Trap
 */
 
 module core(
