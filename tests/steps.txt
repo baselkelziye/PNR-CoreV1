@@ -1,0 +1,30 @@
+1# Compile to Binary file
+riscv32-unknown-elf-gcc -march=rv32imzicsr -mabi=ilp32 -c div_exception.s -o prog.o
+
+2# Link and create Elf file
+riscv32-unknown-elf-gcc -march=rv32imzicsr -mabi=ilp32 -nostdlib -T link.ld prog.o -o prog.elf
+
+3# Disassemble
+riscv32-unknown-elf-objdump -d prog.elf > prog.dis
+
+4# Generate Hex From Elf
+hexdump -v -e '1/4 "%08x\n"' text.bin > text.hex
+
+
+Spike:
+Error: cannot execute 32-bit program on RV64 hart
+My ELF is targeting RV32, Spike defaults for 64. I need to specify the architecture.
+Solution: spike --isa=RV32IMZicsr --pc=0x80000000 -l prog.elf
+
+-d flag in spike allows line by line execution
+
+: until pc 0 2020                   (stop when pc=2020)
+: until reg 0 mie a                 (stop when register mie=0xa)
+: until mem 2020 50a9907311096993   (stop when mem[2020]=50a9907311096993)
+
+Alternatively, you can execute as long as an equality is true:
+
+: while mem 2020 50a9907311096993
+
+To see the contents of an integer register (0 is for core 0):
+: reg 0 a0

@@ -18,6 +18,8 @@ module data_mem_subsystem #(
     input              is_store_instr,
     input      [2:0 ]  funct3_i,
     input      [7:0 ]  sb_id_i,
+    input              trap_en_mem_i,
+    input              trap_en_wb_i,
     output             data_mem_subsystem_stall_o,
     output     [31:0]  read_data_o
 );
@@ -225,9 +227,13 @@ store_buffer_u(
     .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
     .sb_cache_wr_o          (   sb_cache_wr                 ),
     .sb_id_i                (   sb_id_i                     ),
+    //Interrupt Inputs to prevent writing, when ROB is added those are not needed
+    //Because SB will not be an architectural state
+    .trap_en_mem_i          (   trap_en_mem_i               ),
+    .trap_en_wb_i           (   trap_en_wb_i                ),
     //SB Forwarding
-    .sb_load_hit_o         (   sb_load_hit                 ),
-    .sb_forwarded_value_o  (   sb_forwarded_value          )
+    .sb_load_hit_o          (   sb_load_hit                 ),
+    .sb_forwarded_value_o   (   sb_forwarded_value          )
     );
 
 `ifdef CORE_VERBOSITY
@@ -237,12 +243,12 @@ function void data_mem_subsystem_trace_log(int file);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, word_addr_dcache: %b",$time,word_addr_dcache);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
-    l1_dcache_array_u.l1_dcache_array_trace_log(file);
-    store_buffer_u.store_buffer_trace_log(file);
-    DATA_RAM_u.DATA_RAM_trace_log(file);
-    $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);
-    $fwrite(file,"\nTime: %1t , byte_off: %b,  read_byte: %h, read_half: %h, read_word: %h, dcache_array_dline_wr[word_off]: %h", $time,byte_off,read_byte,read_half,read_word, dcache_array_dline_wr[word_off]);
-    $fwrite(file,"\nTime: %1t, SB: sb_drain: %b, sb_entry_rd_valid: %b, sb_entry_rd_addr: %h, sb_entry_rd_data: %h, sb_entry_rd_funct3: %b", $time, sb_drain, sb_entry_rd_valid, sb_entry_rd_addr, sb_entry_rd_data, sb_entry_rd_funct3);
+    // l1_dcache_array_u.l1_dcache_array_trace_log(file);
+    // store_buffer_u.store_buffer_trace_log(file);
+    // DATA_RAM_u.DATA_RAM_trace_log(file);
+    // $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);
+    // $fwrite(file,"\nTime: %1t , byte_off: %b,  read_byte: %h, read_half: %h, read_word: %h, dcache_array_dline_wr[word_off]: %h", $time,byte_off,read_byte,read_half,read_word, dcache_array_dline_wr[word_off]);
+    // $fwrite(file,"\nTime: %1t, SB: sb_drain: %b, sb_entry_rd_valid: %b, sb_entry_rd_addr: %h, sb_entry_rd_data: %h, sb_entry_rd_funct3: %b", $time, sb_drain, sb_entry_rd_valid, sb_entry_rd_addr, sb_entry_rd_data, sb_entry_rd_funct3);
     end
 
 endfunction

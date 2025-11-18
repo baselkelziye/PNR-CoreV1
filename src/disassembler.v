@@ -179,19 +179,67 @@
        endcase 
     end
     7'b1110011: begin
-       case(instr[14:12])
-         3'b000: $swrite(s,"ebreak");
-         3'b010: begin
-        case({instr[27],instr[21]})
-          2'b00: $swrite(s,"rdcycle x%0d",   instr[11:7]);
-          2'b10: $swrite(s,"rdcycleh x%0d",  instr[11:7]);
-          2'b01: $swrite(s,"rdinstret x%0d", instr[11:7]);
-          2'b11: $swrite(s,"rdinstreth x%0d",instr[11:7]);
-        endcase
-         end
-         default: $swrite(s,"SYSTEM");
-       endcase
-    end
+      // CSR / SYSTEM instructions
+      // funct3 codes:
+      // 000: ECALL/EBREAK (and some SYSTEMs)
+      // 001: CSRRW
+      // 010: CSRRS  (or rdcycle/rdinstret special cases)
+      // 011: CSRRC
+      // 101: CSRRWI
+      // 110: CSRRSI
+      // 111: CSRRCI
+      reg [11:0] csr;
+      csr = instr[31:20];
+
+      case(instr[14:12])
+        3'b000: begin
+          // ECALL (0x00000073) or EBREAK (0x00100073) or generic SYSTEM
+          if (instr == 32'h00000073) $swrite(s,"ecall");
+          else if (instr == 32'h00100073) $swrite(s,"ebreak");
+          else if (instr == 32'h10200073 ) $swrite(s,"sret");
+          else $swrite(s,"SYSTEM");
+        end
+
+        3'b001: // CSRRW rd, csr, rs1
+          $swrite(s,"csrrw x%0d,0x%0h,x%0d",
+                  instr[11:7], csr, instr[19:15]);
+
+        3'b010: begin
+          // RFC: the original code special-cased counter CSRs here.
+          // Keep those special names when CSR matches, otherwise it's CSRRS.
+          case (csr)
+            12'hC00: $swrite(s,"rdcycle x%0d",   instr[11:7]);
+            12'hC80: $swrite(s,"rdcycleh x%0d",  instr[11:7]);
+            12'hC02: $swrite(s,"rdinstret x%0d", instr[11:7]);
+            12'hC82: $swrite(s,"rdinstreth x%0d",instr[11:7]);
+            default:
+              // CSRRS rd, csr, rs1
+              $swrite(s,"csrrs x%0d,0x%0h,x%0d",
+                      instr[11:7], csr, instr[19:15]);
+          endcase
+        end
+
+        3'b011: // CSRRC rd, csr, rs1
+          $swrite(s,"csrrc x%0d,0x%0h,x%0d",
+                  instr[11:7], csr, instr[19:15]);
+
+        3'b101: // CSRRWI rd, csr, zimm
+          $swrite(s,"csrrwi x%0d,0x%0h,%0d",
+                  instr[11:7], csr, instr[19:15]); // rs1 holds zimm for immediate forms
+
+        3'b110: // CSRRSI rd, csr, zimm
+          $swrite(s,"csrrsi x%0d,0x%0h,%0d",
+                  instr[11:7], csr, instr[19:15]);
+
+        3'b111: // CSRRCI rd, csr, zimm
+          $swrite(s,"csrrci x%0d,0x%0h,%0d",
+                  instr[11:7], csr, instr[19:15]);
+
+        default:
+          $swrite(s,"SYSTEM");
+      endcase
+   end
+
     default:
       $swrite(s,"?????");
       endcase

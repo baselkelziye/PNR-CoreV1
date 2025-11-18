@@ -35,6 +35,12 @@ module instruction_fetch(
   input wire [31:0] pc_ex_i, //This is the PC for the branch instruction in EX Stage
   input wire mdu_stall_ex_i,
 
+  //Exception Inputs
+  input wire [31:0] stvec_csr_i,
+  input wire trap_en_if_i,
+  input wire current_execution_mode_if_i,
+  input wire [31:0] sret_trap_wb_i,
+  input wire [31:0] trap_return_pc_i, //This is MEPC
 
   //Inputs For Branch Prediction.
   input wire is_branch_instr_ex_i,
@@ -55,9 +61,9 @@ module instruction_fetch(
   localparam [31:0] INSTR_NOP = 32'h00000013;
   
   wire if_stage_stall;
-  
-  assign if_stage_stall = load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i;
-  
+  wire if_flush;
+  assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_if_i;
+  assign if_flush = branching_i | trap_en_if_i;
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
@@ -68,9 +74,14 @@ module instruction_fetch(
     
 	always @*
   begin
-		if(branching_i)  // If we have branch, Then Next shall be the calculated New address adn means we predicted wrong.
-			pc_next = branching_address_i;
-		 else
+    if(trap_en_if_i) begin
+      pc_next = stvec_csr_i;
+    end else if(sret_trap_wb_i) begin
+      pc_next = trap_return_pc_i;
+    end else if(branching_i) begin      
+      // If we have branch, Then Next shall be the calculated New address adn means we predicted wrong.
+	    pc_next = branching_address_i;
+		end else
       begin
 			  if(branch_is_taken_prediction)
 			    pc_next = btb_predicted_pc;
@@ -108,7 +119,7 @@ module instruction_fetch(
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
       end
-    else if(branching_i & !if_stage_stall) // If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
+    else if(if_flush & !if_stage_stall) // If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
       begin //Flush Sadece Branchte olur simdilik
         fetched_instruction_if_o        <= INSTR_NOP;
         pc_incremented_if_o             <= 32'hDEADC0DE;

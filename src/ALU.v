@@ -40,6 +40,9 @@ module ALU
   1000 OR
   1001 AND
   1010 LUI
+  1011 JAKR
+  1100 ASSIGN
+  1101 CLEAR
   */        
         
   `include "encodings.vh"
@@ -60,7 +63,10 @@ module ALU
       `AND_ALU_OP :  result_r = alu1_i & alu2_i;
       `LUI_ALU_OP :  result_r = alu2_i;
       `JALR_ALU_OP:  result_r = (alu1_i + alu2_i) & 32'hfffffffe; //Set lsb to zero
+      `ASSIGN_OP  :  result_r = alu1_i;
+      `CLEAR_OP   :  result_r = alu1_i & (~alu2_i);
       default     :  result_r = 32'hdeadbeef;
+
     endcase
   end   
 

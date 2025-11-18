@@ -1,0 +1,125 @@
+
+load_misaligned_exception.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+   0:	800020b7          	lui	ra,0x80002
+   4:	10509073          	csrrw	zero,stvec,ra
+   8:	00100093          	addi	ra,zero,1
+   c:	00200113          	addi	sp,zero,2
+  10:	00300193          	addi	gp,zero,3
+  14:	00400213          	addi	tp,zero,4
+  18:	00500293          	addi	t0,zero,5
+  1c:	00600313          	addi	t1,zero,6
+  20:	00700393          	addi	t2,zero,7
+  24:	00800413          	addi	s0,zero,8
+  28:	00900493          	addi	s1,zero,9
+  2c:	00a00513          	addi	a0,zero,10
+  30:	00b00593          	addi	a1,zero,11
+  34:	00c00613          	addi	a2,zero,12
+  38:	00d00693          	addi	a3,zero,13
+  3c:	00e00713          	addi	a4,zero,14
+  40:	00f00793          	addi	a5,zero,15
+  44:	01000813          	addi	a6,zero,16
+  48:	01100893          	addi	a7,zero,17
+  4c:	01200913          	addi	s2,zero,18
+  50:	01300993          	addi	s3,zero,19
+  54:	01400a13          	addi	s4,zero,20
+  58:	01500a93          	addi	s5,zero,21
+  5c:	01600b13          	addi	s6,zero,22
+  60:	01700b93          	addi	s7,zero,23
+  64:	01800c13          	addi	s8,zero,24
+  68:	01900c93          	addi	s9,zero,25
+  6c:	01a00d13          	addi	s10,zero,26
+  70:	01b00d93          	addi	s11,zero,27
+  74:	01c00e13          	addi	t3,zero,28
+  78:	01d00e93          	addi	t4,zero,29
+  7c:	01e00f13          	addi	t5,zero,30
+  80:	01f00f93          	addi	t6,zero,31
+  84:	00000073          	ecall
+  88:	01f02023          	sw	t6,0(zero) # 0 <_start>
+  8c:	0000006f          	jal	zero,8c <_start+0x8c>
+
+Disassembly of section .text.trap:
+
+00002000 <trap_handler>:
+    2000:	14029073          	csrrw	zero,sscratch,t0
+    2004:	000102b7          	lui	t0,0x10
+    2008:	0002a023          	sw	zero,0(t0) # 10000 <trap_handler+0xe000>
+    200c:	0012a223          	sw	ra,4(t0)
+    2010:	0022a423          	sw	sp,8(t0)
+    2014:	0032a623          	sw	gp,12(t0)
+    2018:	0042a823          	sw	tp,16(t0)
+    201c:	0062ac23          	sw	t1,24(t0)
+    2020:	0072ae23          	sw	t2,28(t0)
+    2024:	0282a023          	sw	s0,32(t0)
+    2028:	0292a223          	sw	s1,36(t0)
+    202c:	02a2a423          	sw	a0,40(t0)
+    2030:	02b2a623          	sw	a1,44(t0)
+    2034:	02c2a823          	sw	a2,48(t0)
+    2038:	02d2aa23          	sw	a3,52(t0)
+    203c:	02e2ac23          	sw	a4,56(t0)
+    2040:	02f2ae23          	sw	a5,60(t0)
+    2044:	0502a023          	sw	a6,64(t0)
+    2048:	0512a223          	sw	a7,68(t0)
+    204c:	0522a423          	sw	s2,72(t0)
+    2050:	0532a623          	sw	s3,76(t0)
+    2054:	0542a823          	sw	s4,80(t0)
+    2058:	0552aa23          	sw	s5,84(t0)
+    205c:	0562ac23          	sw	s6,88(t0)
+    2060:	0572ae23          	sw	s7,92(t0)
+    2064:	0782a023          	sw	s8,96(t0)
+    2068:	0792a223          	sw	s9,100(t0)
+    206c:	07a2a423          	sw	s10,104(t0)
+    2070:	07b2a623          	sw	s11,108(t0)
+    2074:	07c2a823          	sw	t3,112(t0)
+    2078:	07d2aa23          	sw	t4,116(t0)
+    207c:	07e2ac23          	sw	t5,120(t0)
+    2080:	07f2ae23          	sw	t6,124(t0)
+    2084:	14102373          	csrrs	t1,sepc,zero
+    2088:	00430313          	addi	t1,t1,4
+    208c:	14131073          	csrrw	zero,sepc,t1
+    2090:	00000093          	addi	ra,zero,0
+    2094:	00000113          	addi	sp,zero,0
+    2098:	00000193          	addi	gp,zero,0
+    209c:	00000213          	addi	tp,zero,0
+    20a0:	00000293          	addi	t0,zero,0
+    20a4:	00000313          	addi	t1,zero,0
+    20a8:	00000393          	addi	t2,zero,0
+    20ac:	00000413          	addi	s0,zero,0
+    20b0:	000102b7          	lui	t0,0x10
+    20b4:	0002a003          	lw	zero,0(t0) # 10000 <trap_handler+0xe000>
+    20b8:	0042a083          	lw	ra,4(t0)
+    20bc:	0082a103          	lw	sp,8(t0)
+    20c0:	00c2a183          	lw	gp,12(t0)
+    20c4:	0102a203          	lw	tp,16(t0)
+    20c8:	0182a303          	lw	t1,24(t0)
+    20cc:	01c2a383          	lw	t2,28(t0)
+    20d0:	0202a403          	lw	s0,32(t0)
+    20d4:	0242a483          	lw	s1,36(t0)
+    20d8:	0282a503          	lw	a0,40(t0)
+    20dc:	02c2a583          	lw	a1,44(t0)
+    20e0:	0302a603          	lw	a2,48(t0)
+    20e4:	0342a683          	lw	a3,52(t0)
+    20e8:	0382a703          	lw	a4,56(t0)
+    20ec:	03c2a783          	lw	a5,60(t0)
+    20f0:	0402a803          	lw	a6,64(t0)
+    20f4:	0442a883          	lw	a7,68(t0)
+    20f8:	0482a903          	lw	s2,72(t0)
+    20fc:	04c2a983          	lw	s3,76(t0)
+    2100:	0502aa03          	lw	s4,80(t0)
+    2104:	0542aa83          	lw	s5,84(t0)
+    2108:	0582ab03          	lw	s6,88(t0)
+    210c:	05c2ab83          	lw	s7,92(t0)
+    2110:	0602ac03          	lw	s8,96(t0)
+    2114:	0642ac83          	lw	s9,100(t0)
+    2118:	0682ad03          	lw	s10,104(t0)
+    211c:	06c2ad83          	lw	s11,108(t0)
+    2120:	0702ae03          	lw	t3,112(t0)
+    2124:	0742ae83          	lw	t4,116(t0)
+    2128:	0782af03          	lw	t5,120(t0)
+    212c:	07c2af83          	lw	t6,124(t0)
+    2130:	140022f3          	csrrs	t0,sscratch,zero
+    2134:	10200073          	sret
