@@ -80,7 +80,7 @@ wire [31:0] imm_value_ex_o, rs1_value_ex_o;
 wire csr_wr_en_ex_o;
 wire [11:0] csr_addr_ex_o;
 wire [31:0] csr_rd_value_ex_o;
-wire ecall_trap_ex_o, ebreak_ex_o;
+wire ecall_trap_ex_o, ebreak_trap_ex_o;
 wire sret_trap_ex_o;
 //--------------------------------------------
 
@@ -381,16 +381,16 @@ always @* begin
   scause           = 32'b0;
   stval            = 32'b0;
   if(ebreak_trap_mem_o) begin
-    scause = {1'b0, 30'd3}; //Breakpoint Has Trap Code = 3
+    scause = {1'b0, 31'd3}; //Breakpoint Has Trap Code = 3
     exception_raised = 1'b1;
     stval            = 32'b0;
   end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
     exception_raised = 1'b1;
     stval            = 32'b0;
     case (current_execution_mode)
-      `U_MODE: scause = {1'b0,30'd8}; //ecall from UMODE has cause 8 
-      `S_MODE: scause = {1'b0,30'd9};
-      `M_MODE: scause = {1'b0, 30'd11}; //Probably, should assign mcause, TODO
+      `U_MODE: scause = {1'b0, 31'd8}; //ecall from UMODE has cause 8 
+      `S_MODE: scause = {1'b0, 31'd9};
+      `M_MODE: scause = {1'b0, 31'd11}; //Probably, should assign mcause, TODO
       default: scause = 32'b0;
     endcase
   end else begin //Later add

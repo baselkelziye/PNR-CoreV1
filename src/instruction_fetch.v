@@ -38,8 +38,8 @@ module instruction_fetch(
   //Exception Inputs
   input wire [31:0] stvec_csr_i,
   input wire trap_en_if_i,
-  input wire current_execution_mode_if_i,
-  input wire [31:0] sret_trap_wb_i,
+  input wire [1:0] current_execution_mode_if_i,
+  input wire sret_trap_wb_i,
   input wire [31:0] trap_return_pc_i, //This is MEPC
 
   //Inputs For Branch Prediction.
@@ -62,8 +62,13 @@ module instruction_fetch(
   
   wire if_stage_stall;
   wire if_flush;
-  assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_if_i;
+  wire icache_stall;
+
+
+  assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i | icache_stall) & ~trap_en_if_i;
   assign if_flush = branching_i | trap_en_if_i;
+
+
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
@@ -91,10 +96,20 @@ module instruction_fetch(
 	end
 //    assign pc_next = (branch_is_taken_prediction) ? btb_predicted_pc : pc_reg + 32'd4;
 
-  instr_cache instr_cache_u(
-    .pc_i     (   pc_reg             ),
-    .instr_o  (   fetched_instruction)
+  imem_subsystem imem_subsystem_u(
+    .clk_i                 (  clk_i              ),
+    .rst_i                 (  rst_i              ),
+    .icache_pc_i           (  pc_reg             ),
+    .icache_fill_done_i    (                     ),
+    .icache_fill_stall_o   (  icache_stall       ),
+    .icache_fetched_instr_o(  fetched_instruction)
+
   );
+
+  // instr_cache instr_cache_u(
+  //   .pc_i     (   pc_reg             ),
+  //   .instr_o  (   fetched_instruction)
+  // );
 
   branch_predictor #(.N(10))
   branch_predictor_u (
