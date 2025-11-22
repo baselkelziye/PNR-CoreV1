@@ -29,6 +29,9 @@ async def get_register_file(dut):
 def get_data_cache(dut):
     return dut.mem_u.data_mem_subsystem_u.DATA_RAM_u.RAM
 
+def get_RAM(dut):
+    return dut.RAM_u.MEMORY
+
 async def reset_register_file(dut):
     for i in range(32):
         dut.id_u.register_file_u.registers[i].value = 0

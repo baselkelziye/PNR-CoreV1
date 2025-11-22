@@ -21,6 +21,10 @@ module core(
     input clk_i, rst_i
 );
 
+localparam I_ENTRIES = 32;
+localparam I_WORDS_PER_LINE = 4;
+localparam INSTRUCTION_WIDTH = 32;
+
 //Instruction Fetch Stage Variables
 wire [31:0] pc_incremented_if_o;
 wire [31:0] fetched_instruction_if_o;
@@ -115,6 +119,11 @@ reg [31:0] stval;
 
 reg [1:0] current_execution_mode;
 
+//Icache <--> RAM 
+wire [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_line_fill_data;
+wire [INSTRUCTION_WIDTH-1-2:0] icache_fill_rd_addr;
+
+
 //On reset go to U_MODE, Isa goes to M Mode later to be modified
 //Now, I only Do SRET to go back to u-mode, Later need to involve sstatus, mstatus.
 always @(posedge clk_i, posedge rst_i) begin
@@ -136,7 +145,7 @@ always @(posedge clk_i, posedge rst_i) begin
   end
 end
 
-
+wire icache_fill_req_if_o, icache_fill_done_if_i;
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -163,6 +172,11 @@ instruction_fetch if_u
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o          (   btb_predicted_pc_if_o             ),
   .branch_is_taken_prediction_if_o(   branch_is_taken_prediction_if_o   ),
+  //icache signals
+  .icache_fill_done_if_i          (   icache_fill_done_if_i             ),
+  .icache_fill_req_if_o           (   icache_fill_req_if_o              ),
+  .icache_fill_rd_addr_if_o       (   icache_fill_rd_addr               ),
+  .icache_fill_line_data_if_i     (   icache_line_fill_data             ),
   .periheral_stall_if_i           (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
 );
@@ -400,6 +414,24 @@ always @* begin
   end
 end
 
+
+//MEMORY BLOCK
+
+RAM #(
+  .I_ENTRIES(I_ENTRIES),
+  .I_WORDS_PER_LINE(I_WORDS_PER_LINE),
+  .INSTRUCTION_WIDTH(INSTRUCTION_WIDTH)
+)
+RAM_u(
+  .clk_i(clk_i),
+  .rst_i(rst_i),
+  //ICache Interface 
+  .icache_fill_req_i        ( icache_fill_req_if_o  ), //Fill Request
+  .icache_rd_addr_i         ( icache_fill_rd_addr   ), // Fill request Address
+  .icache_fill_done_o       ( icache_fill_done_if_i ), //Fill request is Done (Write to icache array)
+  .icache_line_fill_data_o  ( icache_line_fill_data ) //icache fetched from RAM
+  
+);
 
 `ifdef COCOTB_SIM
     initial begin

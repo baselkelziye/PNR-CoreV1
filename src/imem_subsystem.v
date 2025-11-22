@@ -18,6 +18,7 @@ module imem_subsystem #(
 
     //Inputs from RAM
     input icache_fill_done_i,
+    input [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_fill_line_data_i, 
 
     //Outputs to RAM
     output icache_fill_req_o,
@@ -33,6 +34,7 @@ localparam I_TAG_SIZE = INSTRUCTION_WIDTH - (I_INDEX_BITS + I_WORD_OFF_BITS + I_
 wire [I_INDEX_BITS-1   :0] icache_index_bits;
 wire [I_WORD_OFF_BITS-1:0] icache_word_off_bits;
 wire [I_TAG_SIZE-1     :0] icache_tag_bits, icache_indexed_tag;
+wire [INSTRUCTION_WIDTH-1:0] icache_indexed_line[0:I_WORDS_PER_LINE-1];
 
 wire icache_hit, icache_indexed_valid;
 
@@ -41,7 +43,7 @@ assign icache_word_off_bits = icache_pc_i[`I_WORD_OFF];
 assign icache_tag_bits      = icache_pc_i[`I_TAG];
 
 assign icache_hit = (icache_tag_bits == icache_indexed_tag) & icache_indexed_valid;
-
+assign icache_fetched_instr_o = icache_indexed_line[icache_word_off_bits];
 // icache controller -> icache tag array 
 wire icache_fill_line_o;
 
@@ -55,13 +57,15 @@ l1_icache_array_u
     .clk_i                      (   clk_i                   ),
     .rst_i                      (   rst_i                   ),
     .icache_index_bits_i        (   icache_index_bits       ),
+    .icache_tag_bits_i          (   icache_tag_bits         ),
     .icache_word_off_i          (   icache_word_off_bits    ),
-    .icache_line_fill_data_i    (   icache_line_fill_data_i ),
+    .icache_fill_line_data_i    (   icache_fill_line_data_i ),
     .icache_line_fill_i         (   icache_fill_line_o      ),
 
     //The line pointed by current PC (to compare hit/miss)
     .icache_indexed_tag_o   (   icache_indexed_tag      ),
-    .icache_indexed_valid_o (   icache_indexed_valid    )
+    .icache_indexed_valid_o (   icache_indexed_valid    ),
+    .icache_indexed_line_o  (   icache_indexed_line     )
 );
 
 l1_icache_controller l1_icache_controller_u(

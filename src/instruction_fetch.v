@@ -20,7 +20,11 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module instruction_fetch(
+module instruction_fetch #(
+  parameter I_WORDS_PER_LINE = 4,
+  localparam INSTRUCTION_WIDTH = 32
+)
+(
   input clk_i, rst_i,
   
   output reg [31:0] fetched_instruction_if_o,
@@ -50,6 +54,12 @@ module instruction_fetch(
   output reg [31:0] btb_predicted_pc_if_o,
   output reg branch_is_taken_prediction_if_o,
 
+  //icache signals
+  input wire icache_fill_done_if_i, //input from ram that fill request is done
+  output wire icache_fill_req_if_o, //Request ICache Line
+  output wire [29:0] icache_fill_rd_addr_if_o, //ICache Line Request Address
+  input [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_fill_line_data_if_i, //ICache Line Data
+
   input wire periheral_stall_if_i,
   input wire mem_stage_stall_i
 );
@@ -76,6 +86,9 @@ module instruction_fetch(
     else if(!if_stage_stall)
       pc_reg <= pc_next;
   end
+
+
+  assign icache_fill_rd_addr_if_o = pc_reg[31:2];
     
 	always @*
   begin
@@ -95,14 +108,16 @@ module instruction_fetch(
 		  end
 	end
 //    assign pc_next = (branch_is_taken_prediction) ? btb_predicted_pc : pc_reg + 32'd4;
-
+  wire icache_fill_req;
   imem_subsystem imem_subsystem_u(
-    .clk_i                 (  clk_i              ),
-    .rst_i                 (  rst_i              ),
-    .icache_pc_i           (  pc_reg             ),
-    .icache_fill_done_i    (                     ),
-    .icache_fill_stall_o   (  icache_stall       ),
-    .icache_fetched_instr_o(  fetched_instruction)
+    .clk_i                    (       clk_i                 ),
+    .rst_i                    (       rst_i                 ),
+    .icache_pc_i              (       pc_reg                ),
+    .icache_fill_done_i       (      icache_fill_done_if_i  ),
+    .icache_fill_line_data_i  (   icache_fill_line_data_if_i),
+    .icache_fill_stall_o      (       icache_stall          ),
+    .icache_fill_req_o        (       icache_fill_req_if_o  ),
+    .icache_fetched_instr_o   (       fetched_instruction   )
 
   );
 
@@ -156,6 +171,10 @@ module instruction_fetch(
     function void if_trace_log(int file);
       $fwrite(file,"\n***********Instruction Fetch Stage****************:");
       $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, load_stall_if_i: %b, periheral_stall_if_i: %b, mem_stage_stall_i: %b ", $time, disasm_str,pc_reg,load_stall_if_i,periheral_stall_if_i,mem_stage_stall_i);
+      if(`CORE_VERBOSITY >= 600) begin
+        imem_subsystem_u.l1_icache_array_u.l1_icache_array_trace_log(file);
+        imem_subsystem_u.l1_icache_controller_u.icache_controller_trace_log(file);
+      end
     endfunction
   `endif
     
