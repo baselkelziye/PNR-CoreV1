@@ -12,7 +12,8 @@ module RAM #
     input icache_fill_req_i,
     output icache_fill_done_o,
     output [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_line_fill_data_o,
-    input [INSTRUCTION_WIDTH-1-2:0] icache_rd_addr_i
+    input [INSTRUCTION_WIDTH-1-2:0] icache_rd_addr_i,
+    input branching_i
 );
 
 localparam MEM_SIZE = 32'h200000;  // 16 KB
@@ -32,7 +33,10 @@ reg [2:0] mem_state_reg,mem_state_next;
 reg [INSTRUCTION_WIDTH-1:0] icache_line_tmp[I_WORDS_PER_LINE-1:0];
 
 initial begin
-    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/loop.hex", MEMORY);
+    $readmemh("artifacts/program_test.hex", MEMORY);
+    // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_small.hex", MEMORY);
+
 
 end
 
@@ -54,8 +58,14 @@ always @* begin
     icache_word_counter_next = icache_word_counter_reg;
     icache_word_rd_en  = 1'b0;
     icache_rd_done_next = 1'b0;
+    if(branching_i) begin
+        mem_state_next = IDLE;
+        icache_rd_done_next = 1'b0;
+        icache_word_counter_next = '0;
+    end else begin
     case (mem_state_reg)
         IDLE: begin
+            icache_word_counter_next = '0;
             if(icache_fill_req_i) begin
                 mem_state_next = ICACHE_READ_WORD;
             end
@@ -80,12 +90,16 @@ always @* begin
         end
     endcase
 end
+end
 //make its parameterizable?
 wire [30:0] icache_rd_addr;
 wire [30:0] dcache_rd_addr;
 wire [30:0] dcache_wr_addr;
+wire [INSTRUCTION_WIDTH-1-2:0] icache_rd_block_addr;
+assign icache_rd_block_addr = {icache_rd_addr_i[29:2],2'b00};
+     
 
-assign icache_rd_addr = icache_rd_addr_i + icache_word_counter_reg;
+assign icache_rd_addr = icache_rd_block_addr + icache_word_counter_reg;
 
 //READ Address should be Multiplexed by arbitration logic
 always @(posedge clk_i) begin
@@ -134,14 +148,14 @@ function void ram_trace_log(int file);
     $fwrite(file, "\nTime: %1t, RAM Controller, state_reg: %0s, state_next: %0s, icache_fill_req_i: %b, icache_fill_done_o: %b", 
             $time, mem_state_str_reg, mem_state_str_next, icache_fill_req_i, icache_fill_done_o);
     $fwrite(file, "\nTime: %1t, RAM Controller, icache_word_counter: %0d/%0d, icache_word_rd_en: %b, icache_rd_addr: 0x%08h",
-            $time, icache_word_counter_reg, I_WORDS_PER_LINE, icache_word_rd_en, icache_rd_addr_i);
+            $time, icache_word_counter_reg, I_WORDS_PER_LINE, icache_word_rd_en, {icache_rd_addr_i,2'b00});
     
     if (`CORE_VERBOSITY >= 600) begin
         case (mem_state_reg)
             IDLE: begin
                 if (icache_fill_req_i) begin
                     $fwrite(file, "\nTime: %1t, RAM Controller -> ICache fill request received, starting read at address 0x%08h", 
-                            $time, icache_rd_addr_i);
+                            $time, {icache_rd_addr_i,2'b00});
                 end
             end
             ICACHE_READ_WORD: begin

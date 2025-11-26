@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
     top->clk_i = 0;
 
 
-    while (!Verilated::gotFinish() && main_time <150000) {
+    while (!Verilated::gotFinish() && main_time <600000) {
         // Toggle clock
         top->clk_i = !top->clk_i;
 

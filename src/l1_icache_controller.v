@@ -5,7 +5,8 @@ module l1_icache_controller(
     output icache_fill_stall_o,
     output icache_fill_line_o,
     output icache_fill_req_o,
-    input icache_hit_i
+    input icache_hit_i,
+    input branch_ex_i
 );
 
 localparam [1:0] I_IDLE     = 2'b00,
@@ -34,6 +35,7 @@ always @(*) begin
     icache_fill_line = 1'b0;
     case (icache_state_reg)
         I_IDLE: begin
+            icache_stall_next = 1'b0;
             if(~icache_hit_i) begin //If we have a Cache Miss
                 icache_state_next = I_ALLOCATE;
                 icache_fill_req_next = 1'b1;
@@ -42,9 +44,11 @@ always @(*) begin
         end
         I_ALLOCATE: begin
             icache_fill_req_next = 1'b0;
-            if(~icache_fill_req_reg & icache_fill_done_i) begin
+            if(branch_ex_i) begin
+                icache_fill_line = 1'b0;
+                icache_state_next = I_IDLE;
+            end else if(~icache_fill_req_reg & icache_fill_done_i) begin
                 icache_fill_line = 1'b1;
-                icache_stall_next = 1'b0;
                 icache_state_next      = I_IDLE;
             end
         end

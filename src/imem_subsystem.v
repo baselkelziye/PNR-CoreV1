@@ -22,6 +22,7 @@ module imem_subsystem #(
 
     //Outputs to RAM
     output icache_fill_req_o,
+    input branch_ex_i,
 
     output [INSTRUCTION_WIDTH-1:0] icache_fetched_instr_o
 );
@@ -75,8 +76,28 @@ l1_icache_controller l1_icache_controller_u(
     .icache_fill_stall_o    (   icache_fill_stall_o   ),
     .icache_fill_line_o     (   icache_fill_line_o    ),
     .icache_hit_i           (   icache_hit            ),
-    .icache_fill_req_o      (   icache_fill_req_o     )
+    .icache_fill_req_o      (   icache_fill_req_o     ),
+    .branch_ex_i            (   branch_ex_i           )
 );
 
+
+`ifdef CORE_VERBOSITY
+
+function void imem_subsystem_trace_log(int file);
+$fwrite(file, "\nTime: %0t, IMEM: pc: %h, stall: %b, fill_done: %b, fill_req: %b, index: %h, word_off: %h, tag: %h, hit: %b, instr: %h", 
+            $time, 
+            icache_pc_i, 
+            icache_fill_stall_o, 
+            icache_fill_done_i, 
+            icache_fill_req_o, 
+            icache_index_bits, 
+            icache_word_off_bits, 
+            icache_tag_bits, 
+            icache_hit, 
+            icache_fetched_instr_o
+        );
+endfunction
+
+`endif 
 
 endmodule

@@ -86,6 +86,7 @@ wire [11:0] csr_addr_ex_o;
 wire [31:0] csr_rd_value_ex_o;
 wire ecall_trap_ex_o, ebreak_trap_ex_o;
 wire sret_trap_ex_o;
+wire update_btb_address_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -161,6 +162,7 @@ instruction_fetch if_u
   .is_branch_instr_ex_i           (   is_branch_instr_id_o              ), // The output reg of id =  is equal to ex_wire
   .decrement_counter_i            (   decrement_counter_ex_o            ),
   .increment_counter_i            (   increment_counter_ex_o            ),
+  .update_btb_address_i           (   update_btb_address_ex_o           ),
   .pc_ex_i                        (   pc_id_o                           ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
   //Trap Signals
@@ -334,6 +336,7 @@ instruction_execution ex_u
   .branch_address_ex_o            (   branch_address_ex_o               ),
   .increment_counter_ex_o         (   increment_counter_ex_o            ),
   .decrement_counter_ex_o         (   decrement_counter_ex_o            ),
+  .update_btb_address_ex_o        (   update_btb_address_ex_o           ),
   .periheral_stall_ex_i           (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
 );
@@ -429,7 +432,8 @@ RAM_u(
   .icache_fill_req_i        ( icache_fill_req_if_o  ), //Fill Request
   .icache_rd_addr_i         ( icache_fill_rd_addr   ), // Fill request Address
   .icache_fill_done_o       ( icache_fill_done_if_i ), //Fill request is Done (Write to icache array)
-  .icache_line_fill_data_o  ( icache_line_fill_data ) //icache fetched from RAM
+  .icache_line_fill_data_o  ( icache_line_fill_data ), //icache fetched from RAM
+  .branching_i              ( branching_ex_o        ) // If we have branch, Abort the request
   
 );
 
@@ -481,6 +485,7 @@ RAM_u(
     $fwrite(trace_file,"\n");
     $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
     if_u.if_trace_log(trace_file);
+    RAM_u.ram_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
