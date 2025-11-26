@@ -95,6 +95,7 @@ module instruction_execution(
   output wire [31:0] branch_address_ex_o,
   output wire increment_counter_ex_o,
   output wire decrement_counter_ex_o,
+  output wire update_btb_address_ex_o,
 
   input periheral_stall_ex_i,
   input mem_stage_stall_i
@@ -119,7 +120,7 @@ module instruction_execution(
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
   assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
   assign branching_ex_o = branch_is_taken ^ branch_is_taken_prediction_ex_i; // We have branching because the branch status differens from the prediction
-
+  assign update_btb_address_ex_o = branch_address_ex_o & wrong_prediction_NT_T; //If we branch from Not taken, to Taken. We need to update BTB (This can write same value to same address mutliple time no problem )
   //If we Guess NT and we Take we need to branch to calculated address
   //If we Guess T and we didn't take we need to branch to PC + 4
   assign branch_address_ex_o = (wrong_prediction_NT_T) ? alu_result : pc_ex_i + 32'h4;

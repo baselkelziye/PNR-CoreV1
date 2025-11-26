@@ -21,6 +21,10 @@ module core(
     input clk_i, rst_i
 );
 
+localparam I_ENTRIES = 32;
+localparam I_WORDS_PER_LINE = 4;
+localparam INSTRUCTION_WIDTH = 32;
+
 //Instruction Fetch Stage Variables
 wire [31:0] pc_incremented_if_o;
 wire [31:0] fetched_instruction_if_o;
@@ -80,8 +84,9 @@ wire [31:0] imm_value_ex_o, rs1_value_ex_o;
 wire csr_wr_en_ex_o;
 wire [11:0] csr_addr_ex_o;
 wire [31:0] csr_rd_value_ex_o;
-wire ecall_trap_ex_o, ebreak_ex_o;
+wire ecall_trap_ex_o, ebreak_trap_ex_o;
 wire sret_trap_ex_o;
+wire update_btb_address_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -115,6 +120,11 @@ reg [31:0] stval;
 
 reg [1:0] current_execution_mode;
 
+//Icache <--> RAM 
+wire [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_line_fill_data;
+wire [INSTRUCTION_WIDTH-1-2:0] icache_fill_rd_addr;
+
+
 //On reset go to U_MODE, Isa goes to M Mode later to be modified
 //Now, I only Do SRET to go back to u-mode, Later need to involve sstatus, mstatus.
 always @(posedge clk_i, posedge rst_i) begin
@@ -136,7 +146,7 @@ always @(posedge clk_i, posedge rst_i) begin
   end
 end
 
-
+wire icache_fill_req_if_o, icache_fill_done_if_i;
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -152,6 +162,7 @@ instruction_fetch if_u
   .is_branch_instr_ex_i           (   is_branch_instr_id_o              ), // The output reg of id =  is equal to ex_wire
   .decrement_counter_i            (   decrement_counter_ex_o            ),
   .increment_counter_i            (   increment_counter_ex_o            ),
+  .update_btb_address_i           (   update_btb_address_ex_o           ),
   .pc_ex_i                        (   pc_id_o                           ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
   //Trap Signals
@@ -163,6 +174,11 @@ instruction_fetch if_u
   //Outputs For Branch Prediction
   .btb_predicted_pc_if_o          (   btb_predicted_pc_if_o             ),
   .branch_is_taken_prediction_if_o(   branch_is_taken_prediction_if_o   ),
+  //icache signals
+  .icache_fill_done_if_i          (   icache_fill_done_if_i             ),
+  .icache_fill_req_if_o           (   icache_fill_req_if_o              ),
+  .icache_fill_rd_addr_if_o       (   icache_fill_rd_addr               ),
+  .icache_fill_line_data_if_i     (   icache_line_fill_data             ),
   .periheral_stall_if_i           (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
 );
@@ -320,6 +336,7 @@ instruction_execution ex_u
   .branch_address_ex_o            (   branch_address_ex_o               ),
   .increment_counter_ex_o         (   increment_counter_ex_o            ),
   .decrement_counter_ex_o         (   decrement_counter_ex_o            ),
+  .update_btb_address_ex_o        (   update_btb_address_ex_o           ),
   .periheral_stall_ex_i           (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
 );
@@ -381,16 +398,16 @@ always @* begin
   scause           = 32'b0;
   stval            = 32'b0;
   if(ebreak_trap_mem_o) begin
-    scause = {1'b0, 30'd3}; //Breakpoint Has Trap Code = 3
+    scause = {1'b0, 31'd3}; //Breakpoint Has Trap Code = 3
     exception_raised = 1'b1;
     stval            = 32'b0;
   end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
     exception_raised = 1'b1;
     stval            = 32'b0;
     case (current_execution_mode)
-      `U_MODE: scause = {1'b0,30'd8}; //ecall from UMODE has cause 8 
-      `S_MODE: scause = {1'b0,30'd9};
-      `M_MODE: scause = {1'b0, 30'd11}; //Probably, should assign mcause, TODO
+      `U_MODE: scause = {1'b0, 31'd8}; //ecall from UMODE has cause 8 
+      `S_MODE: scause = {1'b0, 31'd9};
+      `M_MODE: scause = {1'b0, 31'd11}; //Probably, should assign mcause, TODO
       default: scause = 32'b0;
     endcase
   end else begin //Later add
@@ -400,6 +417,25 @@ always @* begin
   end
 end
 
+
+//MEMORY BLOCK
+
+RAM #(
+  .I_ENTRIES(I_ENTRIES),
+  .I_WORDS_PER_LINE(I_WORDS_PER_LINE),
+  .INSTRUCTION_WIDTH(INSTRUCTION_WIDTH)
+)
+RAM_u(
+  .clk_i(clk_i),
+  .rst_i(rst_i),
+  //ICache Interface 
+  .icache_fill_req_i        ( icache_fill_req_if_o  ), //Fill Request
+  .icache_rd_addr_i         ( icache_fill_rd_addr   ), // Fill request Address
+  .icache_fill_done_o       ( icache_fill_done_if_i ), //Fill request is Done (Write to icache array)
+  .icache_line_fill_data_o  ( icache_line_fill_data ), //icache fetched from RAM
+  .branching_i              ( branching_ex_o        ) // If we have branch, Abort the request
+  
+);
 
 `ifdef COCOTB_SIM
     initial begin
@@ -449,6 +485,7 @@ end
     $fwrite(trace_file,"\n");
     $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
     if_u.if_trace_log(trace_file);
+    RAM_u.ram_trace_log(trace_file);
     id_u.id_trace_log(trace_file);
     ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);

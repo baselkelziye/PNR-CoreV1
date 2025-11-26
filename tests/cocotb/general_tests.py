@@ -29,17 +29,34 @@ async def get_register_file(dut):
 def get_data_cache(dut):
     return dut.mem_u.data_mem_subsystem_u.DATA_RAM_u.RAM
 
+def get_RAM(dut):
+    try:
+        ram = dut.RAM_u.MEMORY
+        print(f"Found RAM at: RAM_u.MEMORY")
+        return ram
+    except AttributeError:
+        # Try alternative paths
+        try:
+            ram = dut.MEMORY
+            print(f"Found RAM at: MEMORY")
+            return ram
+        except AttributeError:
+            print("Error: Could not find MEMORY in design hierarchy")
+            # Add more alternative paths here based on your design
+            raise
+
 async def reset_register_file(dut):
     for i in range(32):
         dut.id_u.register_file_u.registers[i].value = 0
 
 async def reset_instruction_cache(dut):
+    dut_RAM = get_RAM(dut)
     for i in range(0, instruction_cache_size, 4):
         # Write 0x00000013 as little-endian bytes
-        dut.if_u.instr_cache_u.instructions[i].value = 0x13    # LSB
-        dut.if_u.instr_cache_u.instructions[i + 1].value = 0x00
-        dut.if_u.instr_cache_u.instructions[i + 2].value = 0x00
-        dut.if_u.instr_cache_u.instructions[i + 3].value = 0x00  # MSB
+        dut_RAM[i + 0].value = 0x13    # LSB
+        dut_RAM[i + 1].value = 0x00
+        dut_RAM[i + 2].value = 0x00
+        dut_RAM[i + 3].value = 0x00  # MSB
 
 async def reset_data_mem(dut):
     data_mem =  get_data_cache(dut)
@@ -82,7 +99,7 @@ async def reset(dut):
     await reset_data_mem(dut)
 
 async def load_instruction_cache(dut, file_path):
-
+    dut_RAM = get_RAM(dut)
     with open(file_path, "r") as file:
         lines = file.readlines()
         instruction_index = 0
@@ -98,7 +115,7 @@ async def load_instruction_cache(dut, file_path):
             # Store each byte directly in memory
             for byte_str in byte_strings:
                 byte_value = int(byte_str, 16)
-                dut.if_u.instr_cache_u.instructions[instruction_index].value = byte_value
+                dut_RAM[instruction_index].value = byte_value
                 instruction_index += 1
 
 async def load_data_cache(dut, file_path, start_addr=0):
@@ -230,7 +247,7 @@ async def basel_bubblesort(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 1250
+    num_cycles = 12500
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     await write_cache_to_memory(dut)
     data_memory =  get_data_cache(dut)
@@ -245,7 +262,7 @@ async def branch_flush_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 100
+    num_cycles = 10000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0x10000", "0x20000", "0x0", "0xbbbbb000", "0x0"]
@@ -259,7 +276,7 @@ async def load_hazard_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 100
+    num_cycles = 10000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0xa", "0xa", "0x14", "0x1", "0xa", "0xa"]
@@ -276,7 +293,7 @@ async def forwarding_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 100
+    num_cycles = 10000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0xc", "0x2", "0xe", "0xa", "0x55555000", "0x2", "0x55555002", "0x4", "0x2"]
@@ -293,7 +310,7 @@ async def loop_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 400
+    num_cycles = 40000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0xa", "0xb", "0x00eef000"]
@@ -315,7 +332,7 @@ async def buffer_sum_test(dut):
     await reset(dut)
     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
     await load_data_cache(dut, performance_filepath +data_mem_filename, MEM_OFFSET )
-    num_cycles = 2000
+    num_cycles = 200000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0x00002040"]
@@ -337,7 +354,7 @@ async def mem_copy_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
-    num_cycles = 4000
+    num_cycles = 400000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await write_cache_to_memory(dut)
     data_memory =  get_data_cache(dut)
@@ -364,7 +381,7 @@ async def matrix_mul_small(dut):
     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
     await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
     await load_data_cache(dut, performance_filepath + data_mem_filenameB, B_MATRIX_BASE_ADDR)
-    num_cycles = 3000
+    num_cycles = 30000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await write_cache_to_memory(dut)
     data_memory = get_data_cache(dut)
@@ -406,7 +423,7 @@ async def store_buffer_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut)
     await load_instruction_cache(dut, filepath + filename)
-    num_cycles = 400
+    num_cycles = 40000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     registers = await get_register_file(dut)
     expected_register_values = ["0x44444000", "0x99999000", "0x99999077"]

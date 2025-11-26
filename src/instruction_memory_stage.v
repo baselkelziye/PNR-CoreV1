@@ -236,7 +236,7 @@ always @(posedge clk_i, posedge rst_i)
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     end
     `ifdef MEM_DUMP
-    if(cycle == 1500 || cycle == 1) begin
+    if(cycle == 30000 || cycle == 1) begin
       data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  
     end
     `endif

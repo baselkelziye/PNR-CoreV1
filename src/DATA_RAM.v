@@ -43,8 +43,10 @@ reg [7:0] RAM[0:MEM_SIZE-1] ;
 // end
 
 initial begin
-    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_a.txt", RAM,32'h0000);
-    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_b.txt", RAM,32'h5000);
+    // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_a.txt", RAM,32'h0000);
+    // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_b.txt", RAM,32'h5000);
+    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_a.mem", RAM,32'h0000);
+    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_b.mem", RAM,32'h1000);
 end
 
 
@@ -207,7 +209,7 @@ function void memory_dump(int mem_dump_file, int cycle);
     int i;
     $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
     $fwrite(mem_dump_file, "  Address \t \t   Word \t \t   Byte0 \t Byte1 \t Byte2 \t Byte3\n");
-    for (i = 32'ha000; i < (32'ha000 + 32'h4000); i = i + 4) begin
+    for (i = 32'h0000; i < (32'h0000 + 32'h4000); i = i + 4) begin
         // Print each memory location as "address: value"
         $fwrite(mem_dump_file, "0x%h \t \t  0x%h \t \t %h \t   %h \t   %h \t   %h \n", i, {RAM[i+3], RAM[i+2], RAM[i+1], RAM[i]}, RAM[i], RAM[i+1], RAM[i+2], RAM[i+3]);
     end
