@@ -33,10 +33,11 @@ reg [2:0] mem_state_reg,mem_state_next;
 reg [INSTRUCTION_WIDTH-1:0] icache_line_tmp[I_WORDS_PER_LINE-1:0];
 
 initial begin
-    $readmemh("artifacts/program_test.hex", MEMORY);
+    // $readmemh("artifacts/program_test.hex", MEMORY);
     // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_small.hex", MEMORY);
-
+   $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/load_misaligned_exception.hex", MEMORY);
+   $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/trap_handler.hex", MEMORY,32'h2000);
 
 end
 

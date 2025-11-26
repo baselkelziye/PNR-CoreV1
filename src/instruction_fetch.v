@@ -76,14 +76,14 @@ module instruction_fetch #(
 
 
   assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_if_i;
-  assign if_flush = branching_i | trap_en_if_i;
+  assign if_flush = branching_i | trap_en_if_i | sret_trap_wb_i;
 
 
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
       pc_reg <=  32'h80000000;
-    else if((!if_stage_stall & !icache_stall) || branching_i)
+    else if((!if_stage_stall & !icache_stall) || branching_i || trap_en_if_i || sret_trap_wb_i)
       pc_reg <= pc_next;
   end
 
