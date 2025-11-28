@@ -15,7 +15,7 @@ module l1_icache_array
     input [I_TAG_SIZE-1      :0]                        icache_tag_bits_i,
     input [I_WORD_OFF_BITS-1 :0]                        icache_word_off_i  ,
     input                                               icache_line_fill_i,
-    input [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_fill_line_data_i,
+    input [INSTRUCTION_WIDTH-1:0] icache_fill_line_data_i[0:I_WORDS_PER_LINE-1],
 
     output [I_TAG_SIZE-1:0] icache_indexed_tag_o,
     output                  icache_indexed_valid_o,
