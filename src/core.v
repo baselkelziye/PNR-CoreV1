@@ -138,7 +138,8 @@ wire cache_ready_o;
 //MEMORY BLOCK
 wire ram_data_valid_o;
 wire [29:0] arb_address_o;
-
+// wire [29:0] dcache_addr_req;
+wire dcache_resp_valid_o, icache_resp_valid_o;
 //On reset go to U_MODE, Isa goes to M Mode later to be modified
 //Now, I only Do SRET to go back to u-mode, Later need to involve sstatus, mstatus.
 always @(posedge clk_i, posedge rst_i) begin
@@ -162,6 +163,10 @@ end
 
 wire icache_fill_req_if_o, icache_fill_done_if_i;
 wire icache_req_valid_if_o,icache_data_ready_if_o;
+wire dcache_req_valid_mem_o, dcache_req_valid_mem_i;
+wire [29:0] dcache_address_mem_o;
+wire dcache_rd_wr_mem_o,dcache_req_ready_o,dcache_data_ready_mem_o;
+
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -194,7 +199,7 @@ instruction_fetch if_u
   .icache_fill_req_if_o           (   icache_fill_req_if_o              ),
   .icache_fill_rd_addr_if_o       (   icache_fill_rd_addr               ),
   .icache_fill_line_data_if_i     (   icache_line_fill_data             ),
-  .ram_data_valid_if_i            (   ram_data_valid_o                  ), //Ram finished transaction, ID is used to seperate icache and dcache requets
+  .icache_resp_valid_if_i         (   icache_resp_valid_o               ), //Ram finished transaction, ID is used to seperate icache and dcache requets
   .ram_response_id_if_i           (   arb_req_id_o                      ), //This is the arbited response
   //icache <-> Arbiter
   .icache_req_valid_if_o          (icache_req_valid_if_o),
@@ -408,7 +413,17 @@ instruction_memory_stage mem_u
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
-  .fetched_instruction_mem_o   (   fetched_instruction_wb         )
+  .fetched_instruction_mem_o   (   fetched_instruction_wb         ),
+
+  //dcache request handshake
+  .dcache_req_valid_mem_o(dcache_req_valid_mem_o),
+  .dcache_req_valid_mem_i(dcache_req_ready_o),
+  .dcache_address_mem_o(dcache_address_mem_o),
+  .dcache_rd_wr_mem_o(dcache_rd_wr_mem_o),
+    //-------------------------------------------
+  .dcache_resp_valid_mem_i(dcache_resp_valid_o),
+  .ram_response_id_mem_i(arb_req_id_o),
+  .dcache_data_ready_mem_o(dcache_data_ready_mem_o)
 );
 
 //Write Back Stage is Implicitly Here
@@ -438,9 +453,7 @@ always @* begin
   end
 end
 
-wire dcache_req_valid_mem_o;
-wire dcache_req_ready_o;
-// wire [29:0] dcache_addr_req;
+
 
 arbiter arbiter_u(
   .clk_i(clk_i),
@@ -448,9 +461,9 @@ arbiter arbiter_u(
   //dcache interface
   .dcache_req_valid_i(dcache_req_valid_mem_o),
   .dcache_req_ready_o(dcache_req_ready_o), 
-  .dcache_address_i(), //dcache line to be written/Read to/from ram
-  .dcache_rd_wr_i(), //0 =Read, 1=Write
-  .dcache_data_ready_i(), //dcache is ready to receive RAM data
+  .dcache_address_i(dcache_address_mem_o), //dcache line to be written/Read to/from ram
+  .dcache_rd_wr_i(dcache_rd_wr_mem_o), //0 =Read, 1=Write
+  .dcache_data_ready_i(dcache_data_ready_mem_o), //dcache is ready to receive RAM data
   //icache request signals----------------------------------------------------------
   .icache_req_valid_i ( icache_req_valid_if_o    ), //Cache request data
   .icache_req_ready_o ( icache_req_ready_o       ), //Cache transaction is ready to be served
@@ -467,8 +480,10 @@ arbiter arbiter_u(
   // .arb_data_in_o(),
   .arb_rd_wr_o(arb_rd_wr_o),
   .arb_req_id_o(arb_req_id_o),
-  .cache_ready_o(cache_ready_o) //Requester cache is ready to receieve
-);
+  .cache_ready_o(cache_ready_o), //Requester cache is ready to receieve
+  .dcache_resp_valid_o(dcache_resp_valid_o), //When RAM is valid, Check the request ID and fires the corresponding one
+  .icache_resp_valid_o(icache_resp_valid_o)
+  );
 
 
 

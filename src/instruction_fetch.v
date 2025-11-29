@@ -65,7 +65,7 @@ module instruction_fetch #(
   output icache_data_ready_if_o,
 
   //icache <-> RAM
-  input ram_data_valid_if_i,
+  input icache_resp_valid_if_i,
   input ram_response_id_if_i,
 
   input wire periheral_stall_if_i,
@@ -131,7 +131,7 @@ module instruction_fetch #(
     .icache_req_valid_o       (       icache_req_valid_if_o ),
     .icache_data_ready_o      (       icache_data_ready_if_o),
     //RAM-icache interface
-    .ram_data_valid_i         (     ram_data_valid_if_i     ),
+    .icache_resp_valid_i      (     icache_resp_valid_if_i  ),
     .ram_response_id_i        (     ram_response_id_if_i    ),
     .branch_ex_i              (     branching_i             )
 

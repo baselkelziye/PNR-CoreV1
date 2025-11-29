@@ -22,12 +22,15 @@ module arbiter (
     // --- RAM Request Outputs ---
     output arb_req_valid_o,  // Unified request to RAM
     output [29:0] arb_address_o,
-    output [31:0] arb_data_in_o,
+    // output [31:0] arb_data_in_o,
     output arb_rd_wr_o,
     output arb_req_id_o,     // 1'b1=DCache, 1'b0=ICache
     
     // --- RAM Response Output (NEW: Ready signal for RAM) ---
-    output logic cache_ready_o // Drives RAM.cache_ready_i
+    output  cache_ready_o, // Drives RAM.cache_ready_i
+
+    output  dcache_resp_valid_o,
+    output  icache_resp_valid_o
 );
 
 localparam DC_ID = 1'b1;
@@ -95,6 +98,8 @@ assign cache_ready_o = transaction_active_reg ?
                        (served_id_reg == DC_ID ? dcache_data_ready_i : icache_data_ready_i) : 
                        1'b0; // If no transaction is active, the ready signal is irrelevant (or 0)
 
+assign dcache_resp_valid_o = ram_data_valid_i && served_id_reg == DC_ID;
+assign icache_resp_valid_o = ram_data_valid_i && served_id_reg == IC_ID;
 
 `ifdef CORE_VERBOSITY
 

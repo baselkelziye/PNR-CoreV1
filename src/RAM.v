@@ -67,7 +67,7 @@ localparam  [2:0]
     // Initialization
     initial begin
         // Update path to your hex file
-        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/forwarding_test.hex", MEMORY);
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basic_store.hex", MEMORY);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/load_misaligned_exception.hex", MEMORY);
         // Note: Second readmemh will overwrite overlapping regions
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/trap_handler.hex", MEMORY, 32'h2000);

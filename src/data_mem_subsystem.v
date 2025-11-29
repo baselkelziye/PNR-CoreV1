@@ -21,7 +21,18 @@ module data_mem_subsystem #(
     input              trap_en_mem_i,
     input              trap_en_wb_i,
     output             data_mem_subsystem_stall_o,
-    output     [31:0]  read_data_o
+    output     [31:0]  read_data_o,
+
+    //dcache request handshake
+    output dcache_req_valid_o, //request access
+    input dcache_req_ready_i, //arbiter grants request access
+    output [29:0] dcache_address_o, //request address to arbiter
+    output dcache_rd_wr_o, //Request Type
+    //-------------------------------------------
+    //dcache respond handshake
+    input dcache_resp_valid_i, //Ram finished Request
+    input ram_response_id_i, //icache =0, dcache = 1
+    output dcache_data_ready_o //dcache is ready to accept respond
 );
 
 `include "encodings.vh"
@@ -149,39 +160,48 @@ l1_dcache_array #(
 );
 
 logic dcache_cntrl_update_entry_cpu,dcache_cntrl_update_entry_mem;
-
+wire sb_req_ready_o, sb_resp_done_o;
+wire sb_req_valid_o,sb_req_wr_o;
 l1_dcache_controller l1_dcache_controller_u
 (
     .clk_i                           (   clk_i                          ),
     .rst_i                           (   rst_i                          ),
     .is_load_instr_i                 (   is_load_instr                  ),
-    .is_store_instr_i                (   is_store_instr                 ),
+    // .is_store_instr_i                (   is_store_instr                 ),
+    .mem_byte_address_i              (),
     //The tag of the current address_i
     .tag_i                           (   tag                            ),
     //Indexed Valid, Dirty and Tags from dcache_array
     .indexed_tag_i                   (   indexed_tag                    ),
     .indexed_dirty_bit_i             (   indexed_dirty_bit              ),
     .indexed_valid_bit_i             (   indexed_valid_bit              ),
-    .indexed_data_raw_i              (   dcache_array_dline_wr          ),
+    // .indexed_data_raw_i              (   dcache_array_dline_wr          ),
     //Store Buffer Signals
-    .sb_drain_i                      (   sb_drain                       ),
-    .sb_cache_wr_i                   (   sb_cache_wr                    ),
-    .sb_load_hit_i                   (   sb_load_hit                    ),
+    .sb_req_valid_i(sb_req_valid_o),
+    .sb_req_rw_i(sb_req_rw_o),
+    .sb_req_ready_o(sb_req_ready_o),
+    .sb_resp_done_o(sb_resp_done_o),
+    .sb_load_hit_i(sb_load_hit),
 
     .dcache_stall_o                  (   dcache_stall                   ),
     .dcache_cntrl_valid_bit_o        (   dcache_cntrl_valid_bit_o       ),
     .dcache_cntrl_dirty_bit_o        (   dcache_cntrl_dirty_bit_o       ),
     .dcache_cntrl_tag_o              (   dcache_cntrl_tag_o             ),
-    .dcache_cntrl_access_done_o      (   dcache_cntrl_access_done       ),
+    // .dcache_cntrl_access_done_o      (   dcache_cntrl_access_done       ),
     // .dcache_cntrl_update_entry_o     (   dcache_cntrl_update_entry_o    ),
     .dcache_cntrl_update_entry_cpu_o (   dcache_cntrl_update_entry_cpu  ),
     .dcache_cntrl_update_entry_mem_o (   dcache_cntrl_update_entry_mem  ),
     //Outputs to RAM memory 
-    .start_ram_write_o               (   start_ram_write                ),
-    .start_ram_read_o                (   start_ram_read                 ),
     //Inputs from RAM Memory 
-    .ram_wr_done_i                   (   ram_wr_done                    ),
-    .ram_rd_done_i                   (   ram_rd_done                    )
+    //dcache request handhsake-----------------------------
+    .dcache_req_valid_o(dcache_req_valid_o), //dcache creates request to RAM
+    .dcache_req_ready_i(dcache_req_ready_i), //arbiter grants access to dcache
+    .dcache_address_o(dcache_address_o), //Address to RAM/abiter
+    .dcache_rd_wr_o(dcache_rd_wr_o), //request type, Read = 0, Write =1
+    //-----------------------------------------------------
+    .dcache_resp_valid_i(dcache_resp_valid_i),
+    .ram_response_id_i(ram_response_id_i),
+    .dcache_data_ready_o(dcache_data_ready_o)
 );
 
 
@@ -221,11 +241,11 @@ store_buffer_u(
     .wr_addr_i              (   address_i                   ),
     .funct3_i               (   funct3_i                    ),
     //Inputs From Cache Controller
-    .cache_access_is_done_i (   dcache_cntrl_access_done    ),
-    .sb_entry_rd_o          (   sb_entry_rd                 ),
+    // .cache_access_is_done_i (   dcache_cntrl_access_done    ),
+    // .sb_entry_rd_o          (   sb_entry_rd                 ),
     .sb_stall_o             (   sb_is_full                  ),
-    .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
-    .sb_cache_wr_o          (   sb_cache_wr                 ),
+    // .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
+    // .sb_cache_wr_o          (   sb_cache_wr                 ),
     .sb_id_i                (   sb_id_i                     ),
     //Interrupt Inputs to prevent writing, when ROB is added those are not needed
     //Because SB will not be an architectural state
@@ -233,7 +253,12 @@ store_buffer_u(
     .trap_en_wb_i           (   trap_en_wb_i                ),
     //SB Forwarding
     .sb_load_hit_o          (   sb_load_hit                 ),
-    .sb_forwarded_value_o   (   sb_forwarded_value          )
+    .sb_forwarded_value_o   (   sb_forwarded_value          ),
+    .sb_req_valid_o(sb_req_valid_o), //SB request Drain
+    .sb_req_rw_o(sb_req_rw_o), //Sb always writes
+    .dcache_req_ready_i(sb_req_ready_o), //Dcache is ready to accept
+    .dcache_resp_done_i(sb_resp_done_o) //Dcache finished writing
+
     );
 
 `ifdef CORE_VERBOSITY
@@ -243,6 +268,7 @@ function void data_mem_subsystem_trace_log(int file);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, word_addr_dcache: %b",$time,word_addr_dcache);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
+    store_buffer_u.store_buffer_trace_log(file);
     // l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
     // DATA_RAM_u.DATA_RAM_trace_log(file);

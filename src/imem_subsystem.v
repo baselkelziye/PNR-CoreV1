@@ -25,7 +25,7 @@ module imem_subsystem #(
     output icache_req_valid_o, //icache request is valid
     output icache_data_ready_o, // icache is ready to receive
     //RAM signals
-    input ram_data_valid_i, //Ram finished operation
+    input icache_resp_valid_i, //Ram finished operation
     input ram_response_id_i, //Id of the operation (to not mix dcache)
     //Outputs to RAM
     output icache_fill_req_o,
@@ -86,7 +86,7 @@ l1_icache_controller l1_icache_controller_u(
     .icache_req_valid_o     (   icache_req_valid_o    ), //I have active request
     .icache_req_ready_i     (   icache_req_ready_i    ), //Arbiter Grants access
     //Response from RAM
-    .ram_data_valid_i       (   ram_data_valid_i      ), //Data Finishes
+    .icache_resp_valid_i       (   icache_resp_valid_i      ), //Data Finishes
     .ram_response_id_i      (   ram_response_id_i     ), //Icache reqeust
     .icache_data_ready_o    (   icache_data_ready_o   ), //We are ready to accept new data
     .icache_hit_i           (   icache_hit            ),
