@@ -18,6 +18,8 @@ module store_buffer
     input is_load_instr_i,
     input [31:0] wr_addr_i,
     input [31:0] write_data_i,
+    output [SB_ENTRY_SIZE-1:0] sb_entry_rd_o,
+    output drain_sb_o,
     input [2:0] funct3_i,
     input [SB_ID_SIZE-1:0] sb_id_i,
     
@@ -116,7 +118,7 @@ assign sb_wr_en = is_store_instr_i & ~(trap_en_mem_i | trap_en_wb_i) & ~sb_drain
 
 // POP (Read from FIFO): When transaction is completely DONE
 assign sb_rd_en = sb_drain_reg & dcache_resp_done_i;
-
+assign drain_sb_o = sb_drain_reg;
 
 // ----------------------------------------------------------------
 // Data Processing & FIFO Instance
@@ -187,7 +189,7 @@ assign sb_load_hit_o  = sb_addr_hit & is_load_instr_i;
 // 3. Handshake Outputs
 assign sb_req_valid_o = sb_req_valid_reg; 
 assign sb_req_rw_o    = 1'b1; // Always a write
-
+assign sb_entry_rd_o = sb_entry_rd;
 
 `ifdef CORE_VERBOSITY
 

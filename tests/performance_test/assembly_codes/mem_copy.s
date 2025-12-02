@@ -3,8 +3,8 @@
 # for (i=0; i<128; i++) { a[i] = 5; }
 # for (i=0; i<128; i++) { b[i] = a[i]; }
 
-addi x1,x0, 256 #Base Address for a[]
-addi x3, x0, 1024 # Base address for b[]
+lui x1, 0x16
+lui x3, 0x18
 
 addi x2, x0, 128 #Size for a[], b[] = 128
 addi x4, x2, 0 #1 More register for Size of arrays, To be used as iterator

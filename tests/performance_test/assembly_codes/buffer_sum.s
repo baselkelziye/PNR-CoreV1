@@ -3,8 +3,7 @@
 # for (i=0; i<128; i++) { sum += a[i]; }
 
 
-
-addi x1, x0, 256      # x1 = base address (0x100)
+lui x1, 0x16 # x1 = base address (0x100) THIS IS DONE in cocotb (backdoor access)
 addi x10, x0, 128     # x10 = number of words
 addi x5, x0, 0        # x5 = sum accumulator
 

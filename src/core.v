@@ -25,6 +25,7 @@ localparam I_ENTRIES = 32;
 localparam I_WORDS_PER_LINE = 4;
 localparam INSTRUCTION_WIDTH = 32;
 localparam D_WORDS_PER_LINE = 4;
+localparam DATA_WIDTH =32 ;
 //Instruction Fetch Stage Variables
 wire [31:0] pc_incremented_if_o;
 wire [31:0] fetched_instruction_if_o;
@@ -122,8 +123,8 @@ reg [1:0] current_execution_mode;
 
 //Icache <--> RAM 
 wire [INSTRUCTION_WIDTH-1:0] icache_line_fill_data[0:I_WORDS_PER_LINE-1];
-wire [INSTRUCTION_WIDTH-1:0] dcache_line_fill_data_o[0:D_WORDS_PER_LINE-1];
-wire [INSTRUCTION_WIDTH-1:0] dcache_write_line_data_i[0:D_WORDS_PER_LINE-1];
+wire [DATA_WIDTH-1:0] dcache_line_fill_data_o[0:D_WORDS_PER_LINE-1];
+wire [DATA_WIDTH-1:0] dcache_line_evict_mem_o[0:D_WORDS_PER_LINE-1];
 wire [INSTRUCTION_WIDTH-1-2:0] icache_fill_rd_addr;
 
 //icache <-> arbiter
@@ -423,7 +424,9 @@ instruction_memory_stage mem_u
     //-------------------------------------------
   .dcache_resp_valid_mem_i(dcache_resp_valid_o),
   .ram_response_id_mem_i(arb_req_id_o),
-  .dcache_data_ready_mem_o(dcache_data_ready_mem_o)
+  .dcache_data_ready_mem_o(dcache_data_ready_mem_o),
+  .dcache_line_fill_mem_i(dcache_line_fill_data_o),
+  .dcache_line_evict_mem_o(dcache_line_evict_mem_o)
 );
 
 //Write Back Stage is Implicitly Here
@@ -482,7 +485,8 @@ arbiter arbiter_u(
   .arb_req_id_o(arb_req_id_o),
   .cache_ready_o(cache_ready_o), //Requester cache is ready to receieve
   .dcache_resp_valid_o(dcache_resp_valid_o), //When RAM is valid, Check the request ID and fires the corresponding one
-  .icache_resp_valid_o(icache_resp_valid_o)
+  .icache_resp_valid_o(icache_resp_valid_o),
+  .branching_i(branching_ex_o)
   );
 
 
@@ -507,7 +511,7 @@ RAM_u(
   .ram_data_valid_o         ( ram_data_valid_o ), //Fill request is Done (Write to icache array)
   .icache_line_fill_data_o  ( icache_line_fill_data ), //icache line read from RAM (Allocate)
   .dcache_line_fill_data_o  ( dcache_line_fill_data_o ), //dcache line read from RAM (Allocate)
-  .dcache_write_line_data_i (dcache_write_line_data_i),// dcache line written to RAM (Writeback)
+  .dcache_line_evict_mem_i (dcache_line_evict_mem_o),// dcache line written to RAM (Writeback)
   .branching_i              ( branching_ex_o        ) // If we have branch, Abort the request
   
 );
@@ -551,6 +555,7 @@ RAM_u(
       executed_instructions_reg <= executed_instructions_next;
     end
   end
+  
   localparam PROGRAM_END = 32'h0000006f ;
   // assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
   assign cycle_next =  cycle_reg + 32'b1;
@@ -559,14 +564,20 @@ RAM_u(
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
     $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
-    if_u.if_trace_log(trace_file);
+    // if_u.if_trace_log(trace_file);
     RAM_u.ram_trace_log(trace_file);
     arbiter_u.arbiter_trace_log(trace_file);
-    id_u.id_trace_log(trace_file);
-    ex_u.ex_trace_log(trace_file);
+    // id_u.id_trace_log(trace_file);
+    // ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
+
+  `ifdef MEM_DUMP
+    if(cycle_reg == 1 || cycle_reg == 10000) begin
+      RAM_u.memory_dump(memory_dump, cycle_reg);
+    end
+  `endif
 end
   
 `endif

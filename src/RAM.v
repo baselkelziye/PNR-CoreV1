@@ -15,7 +15,7 @@ module RAM #
     output logic arb_req_ready_o,      // Ready to receive new request (High when IDLE)
     input  logic [29:0] arb_address_i, // Byte address from Arbiter
     // DCache burst write data (e.g., for cache line eviction)
-    input  logic [WORD_WIDTH-1:0] dcache_write_line_data_i[0:D_WORDS_PER_LINE-1],, 
+    input  logic [WORD_WIDTH-1:0] dcache_line_evict_mem_i[0:D_WORDS_PER_LINE-1],
     input  logic arb_rd_wr_i,          // 0 = Read, 1 = Write
     input  logic arb_req_id_i,         // 0 = ICache, 1 = DCache
     
@@ -67,8 +67,13 @@ localparam  [2:0]
     // Initialization
     initial begin
         // Update path to your hex file
-        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basic_store.hex", MEMORY);
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/load_misaligned_exception.hex", MEMORY);
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h4000);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
+        
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/load_misaligned_exception.hex", MEMORY,32'h4000);
         // Note: Second readmemh will overwrite overlapping regions
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/trap_handler.hex", MEMORY, 32'h2000);
     end
@@ -88,6 +93,26 @@ localparam  [2:0]
         end
     end
 
+    reg [29:0] arb_address_latched;
+    reg arb_rd_wr_latched, arb_req_id_latched;
+
+    always @(posedge clk_i, posedge rst_i) begin
+        if(rst_i) begin
+            arb_address_latched <= '1;
+            arb_rd_wr_latched <= 'X;
+            arb_req_id_latched <= 'X;
+        end else begin
+            if(arb_req_valid_i && mem_state_reg == IDLE) begin //Op Starts
+                arb_address_latched <= arb_address_i;
+                arb_rd_wr_latched   <= arb_rd_wr_i;
+                arb_req_id_latched  <= arb_req_id_i;
+            end else if(op_done_reg) begin //Clear
+                arb_address_latched <= '1;
+                arb_rd_wr_latched   <= 'X;
+                arb_req_id_latched <= 'X;
+            end
+        end
+    end
     // --- Output Assignments ---
     assign arb_req_ready_o = (mem_state_reg == IDLE);
     // ram_data_valid_o is asserted for one cycle when the cache is ready
@@ -216,13 +241,13 @@ localparam  [2:0]
 
     // ICache: Extract block start word index (Word Address).
     // Assign icache_rd_block_addr = {arb_address_i[29:2], 2'b00}; // Original
-    assign icache_rd_block_addr = {arb_address_i[29:2],2'b00};
+    assign icache_rd_block_addr = {arb_address_latched[29:2],2'b00};
     
     // ICache Read Word Address: Block Base + Word Counter Offset
     assign icache_rd_addr = icache_rd_block_addr + icache_word_counter_reg;
 
     // DCache Base Word Address: Start of the line transaction (Word Address)
-    assign dcache_word_addr = arb_address_i;
+    assign dcache_word_addr = arb_address_latched;
     
     // DCache Write Word Address: Base Word Address + Current Word Offset
     assign dcache_wr_addr = dcache_word_addr + dcache_word_counter_reg;
@@ -244,10 +269,10 @@ localparam  [2:0]
         // DCache Write Burst
         if(dcache_word_wr_en) begin
             // Address concatenation follows user's requested style
-            MEMORY[{dcache_wr_addr, 2'b00}] <= dcache_write_line_data_i[dcache_word_counter_reg][7:0];
-            MEMORY[{dcache_wr_addr, 2'b01}] <= dcache_write_line_data_i[dcache_word_counter_reg][15:8];
-            MEMORY[{dcache_wr_addr, 2'b10}] <= dcache_write_line_data_i[dcache_word_counter_reg][23:16];
-            MEMORY[{dcache_wr_addr, 2'b11}] <= dcache_write_line_data_i[dcache_word_counter_reg][31:24];
+            MEMORY[{dcache_wr_addr, 2'b00}] <= dcache_line_evict_mem_i[dcache_word_counter_reg][7:0];
+            MEMORY[{dcache_wr_addr, 2'b01}] <= dcache_line_evict_mem_i[dcache_word_counter_reg][15:8];
+            MEMORY[{dcache_wr_addr, 2'b10}] <= dcache_line_evict_mem_i[dcache_word_counter_reg][23:16];
+            MEMORY[{dcache_wr_addr, 2'b11}] <= dcache_line_evict_mem_i[dcache_word_counter_reg][31:24];
         end
         
         // DCache Burst Read Access (Multi-cycle)
@@ -295,75 +320,18 @@ localparam  [2:0]
 
     function void ram_trace_log(int file);
         integer j;
-        
-        if (`CORE_VERBOSITY >= 100) begin
-            // Log header with state transition and control signals
-            $fwrite(file, "\nTime: %1t, RAM: State: %0s -> %0s | Req: %b, Ready: %b, Valid: %b | Cache_Ready: %b | Branch: %b", 
-                    $time, mem_state_str_reg, mem_state_str_next, arb_req_valid_i, arb_req_ready_o, ram_data_valid_o, arb_cache_ready_i, branching_i);
-            
-            // Log detailed operation based on current state
-            case (mem_state_reg)
-                IDLE: begin
-                    if (arb_req_valid_i) begin
-                        $fwrite(file, "\nTime: %1t, RAM: Request received: %0s %0s Addr: 0x%h", 
-                                $time, arb_req_id_i ? "DCACHE" : "ICACHE", arb_rd_wr_i ? "WRITE" : "READ", 
-                                arb_address_i);
-                    end
-                end
-                
-                ICACHE_READ_WORD: begin
-                    if (icache_word_rd_en) begin
-                        $fwrite(file, "\nTime: %1t, RAM: ICACHE Burst Read: Word %0d/%0d | Byte Addr: 0x%h", 
-                                $time, icache_word_counter_reg, I_WORDS_PER_LINE, 
-                                {icache_rd_addr, 2'b00});
-                    end
-                end
-
-                ICACHE_READ_DONE: begin
-                    $fwrite(file, "\nTime: %1t, RAM: ICACHE Burst Done. Base Addr: 0x%h. Waiting for Cache Ready (%b)", 
-                            $time, {icache_rd_block_addr, 2'b00}, arb_cache_ready_i);
-                    if (`CORE_VERBOSITY >= 500 && arb_cache_ready_i) begin
-                        $fwrite(file, "\nTime: %1t, RAM: ICACHE Line Output (icache_line_fill_data_o):", $time);
-                        for (j = 0; j < I_WORDS_PER_LINE; j = j + 1) begin
-                            $fwrite(file, " W%0d: 0x%08h", j, icache_line_fill_data_o[j]);
-                        end
-                    end
-                end
-
-                DCACHE_READ_WORD: begin
-                    if (dcache_word_rd_en) begin
-                        $fwrite(file, "\nTime: %1t, RAM: DCACHE READ | Word %0d/%0d | Byte Addr: 0x%h | Data_Next: 0x%h", 
-                                $time, dcache_word_counter_reg, I_WORDS_PER_LINE, 
-                                {dcache_current_rd_addr, 2'b00}, dcache_rdata_word[dcache_word_counter_reg]);
-                    end
-                end
-                
-                DCACHE_WRITE_WORD: begin
-                    if (dcache_word_wr_en) begin
-                        $fwrite(file, "\nTime: %1t, RAM: DCACHE WRITE | Word %0d/%0d | Byte Addr: 0x%h | Data: 0x%h", 
-                                $time, dcache_word_counter_reg, I_WORDS_PER_LINE, 
-                                {dcache_wr_addr, 2'b00}, dcache_write_line_data_i[dcache_word_counter_reg]);
-                    end
-                end
-                
-                DCACHE_DONE: begin
-                    $fwrite(file, "\nTime: %1t, RAM: DCACHE operation completed. Waiting for Cache Ready (%b)", $time, arb_cache_ready_i);
-                    if (`CORE_VERBOSITY >= 500 && arb_cache_ready_i) begin
-                        $fwrite(file, "\nTime: %1t, RAM: DCACHE Line Output (dcache_line_fill_data_o):", $time);
-                        for (j = 0; j < I_WORDS_PER_LINE; j = j + 1) begin
-                            $fwrite(file, " W%0d: 0x%08h", j, dcache_line_fill_data_o[j]);
-                        end
-                    end
-                end
-                
-            endcase
-            
-            // Log when a branch event flushes the current operation
-            if (branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE) && (mem_state_next == IDLE)) begin
-                $fwrite(file, "\nTime: %1t, RAM: Branch detected. Current memory operation flushed and reset to IDLE.", $time);
-            end
-        end
+        $fwrite(file, "\nTime: %1t, RAM, mem_state_str_reg: %0s, mem_state_str_next: %0s",$time,mem_state_str_reg,mem_state_str_next);
     endfunction
+
+    function void memory_dump(int mem_dump_file, int cycle);
+    int i;
+    $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
+    $fwrite(mem_dump_file, "  Address \t \t   Word \t \t   Byte0 \t Byte1 \t Byte2 \t Byte3\n");
+    for (i = 32'h16000; i < (32'h16000 + 32'h4000); i = i + 4) begin
+        // Print each memory location as "address: value"
+        $fwrite(mem_dump_file, "0x%h \t \t  0x%h \t \t %h \t   %h \t   %h \t   %h \n", i, {MEMORY[i+3], MEMORY[i+2], MEMORY[i+1], MEMORY[i]}, MEMORY[i], MEMORY[i+1], MEMORY[i+2], MEMORY[i+3]);
+    end
+endfunction
     `endif
 
 endmodule

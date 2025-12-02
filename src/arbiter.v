@@ -9,6 +9,7 @@ module arbiter (
     input  dcache_rd_wr_i, // 0=Read, 1=Write
     input  logic dcache_data_ready_i, 
     
+    input branching_i,
     // --- ICache Interface (Request) ---
     input  icache_req_valid_i,
     output icache_req_ready_o,
@@ -47,7 +48,7 @@ always @(posedge clk_i, posedge rst_i) begin
         served_id_reg          <= IC_ID;
     end else begin
         // 1. Transaction Active Update
-        if (ram_data_valid_i) begin
+        if (ram_data_valid_i | (branching_i && served_id_reg == IC_ID)) begin
             // RAM signaled completion (Valid high), clear active flag
             transaction_active_reg <= 1'b0;
         end else if (dcache_req_ready_o | icache_req_ready_o) begin

@@ -1,5 +1,5 @@
 addi x1, x0, 0 # index initialized
-addi x2, x0, 256 #Memory Address begining
+lui x2, 0x16 #Memory Address begining
 addi x3, x0, 10 #Arrat size
 addi x4, x0,9 #swap loop count array size -1
 addi x6,x0,2

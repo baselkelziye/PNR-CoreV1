@@ -90,7 +90,7 @@ module instruction_fetch #(
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
-      pc_reg <=  32'h80000000 - 32'h4;
+      pc_reg <=  32'h80004000 - 32'h4;
     else if((!if_stage_stall & !icache_stall) || branching_i || trap_en_if_i || sret_trap_wb_i)
       pc_reg <= pc_next;
   end

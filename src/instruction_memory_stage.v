@@ -22,6 +22,10 @@
 //I need to select the data from the PERIPHERAL or the MEMORY
 
 module instruction_memory_stage
+#(
+  parameter D_WORDS_PER_LINE = 4,
+  parameter DATA_WIDTH = 32
+)
 (
   input clk_i, rst_i,
   
@@ -82,7 +86,9 @@ module instruction_memory_stage
   //-------------------------------------------
   input dcache_resp_valid_mem_i,
   input ram_response_id_mem_i,
-  output dcache_data_ready_mem_o
+  output dcache_data_ready_mem_o,
+  input [DATA_WIDTH-1:0] dcache_line_fill_mem_i[0:D_WORDS_PER_LINE-1],
+  output [DATA_WIDTH-1:0] dcache_line_evict_mem_o [0:D_WORDS_PER_LINE-1]
 
 );
 
@@ -145,7 +151,9 @@ module instruction_memory_stage
       //dcache respond handshake
       .dcache_resp_valid_i(dcache_resp_valid_mem_i),
       .ram_response_id_i(ram_response_id_mem_i),
-      .dcache_data_ready_o(dcache_data_ready_mem_o)
+      .dcache_data_ready_o(dcache_data_ready_mem_o),
+      .dcache_line_fill_i(dcache_line_fill_mem_i),
+      .dcache_line_evit_o(dcache_line_evict_mem_o)
   );
 
 
@@ -256,11 +264,11 @@ always @(posedge clk_i, posedge rst_i)
     if(`CORE_VERBOSITY >= 400)begin
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     end
-    `ifdef MEM_DUMP
-    if(cycle == 30000 || cycle == 1) begin
-      data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  
-    end
-    `endif
+    // `ifdef MEM_DUMP
+    // if(cycle == 30000 || cycle == 1) begin
+    //   data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  
+    // end
+    // `endif
   endfunction
 
   function void mem_op_trace(int file);

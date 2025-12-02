@@ -133,8 +133,8 @@ assign icache_data_ready_o  = icache_data_ready_reg; // Data Ready signal to RAM
 
 `ifdef CORE_VERBOSITY
 
-reg [127:0] icache_state_str_reg;
-reg [127:0] icache_state_str_next;
+reg [511:0] icache_state_str_reg;
+reg [511:0] icache_state_str_next;
 
 always @* begin
   case (icache_state_reg)
