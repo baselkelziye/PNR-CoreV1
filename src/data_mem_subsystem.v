@@ -110,7 +110,7 @@ assign sb_entry_rd_funct3 = sb_entry_rd[2:0];
 assign sb_entry_rd_data   = sb_entry_rd[DATA_WIDTH+2:3];
 assign sb_entry_rd_addr   = sb_entry_rd[ADDRESS_WIDTH+DATA_WIDTH+2:DATA_WIDTH+3];
 assign sb_entry_rd_valid  = sb_entry_rd[SB_ENTRY_SIZE-1];
-
+assign latched_line_addr  = sb_drain ? sb_entry_rd_addr : address_i;
 
 assign byte_off       = sb_drain ? sb_entry_rd_addr[`BYTE_OFF]   : address_i[`BYTE_OFF];
 assign word_off       = sb_drain ? sb_entry_rd_addr[`WORD_OFF]   : address_i[`WORD_OFF];
@@ -121,8 +121,8 @@ assign tag_arr_funct3 = sb_drain ? sb_entry_rd_funct3            : funct3_i;
 assign data_mem_subsystem_stall_o = dcache_stall | sb_is_full;
 
 assign cache_line_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; //Address gathered from tag array
-assign cache_line_rd_addr = {address_i[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
-
+assign cache_line_rd_addr = {latched_line_addr[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
+//CHECK WR AND RD ADDRESS, ON STORE DRAIN WE ARE GIVING WRONG ADDRESS TO ARBITER
 assign dcache_address_o = dcache_rd_wr_o ? cache_line_wr_addr : cache_line_rd_addr;
 
 // assign ram_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; // We write from Array Controller to RAM
@@ -277,7 +277,7 @@ function void data_mem_subsystem_trace_log(int file);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
-    l1_dcache_array_u.l1_dcache_array_trace_log(file);
+    // l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
     // DATA_RAM_u.DATA_RAM_trace_log(file);
     // $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);

@@ -305,7 +305,7 @@ class pnr_core(pluginTemplate):
             # )
                 utils.shellCommand(convert_cmd).run()
 
-                rebase_hex_file(hex_path,0x80000000)
+                # rebase_hex_file(hex_path,0x80000000)
                 extract_data_memory_from_hex(hex_path,data_mem_path)
 
                 # rearrange_mem_file(hex_path)

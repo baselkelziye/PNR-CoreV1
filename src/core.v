@@ -564,7 +564,7 @@ RAM_u(
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
     $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
-    // if_u.if_trace_log(trace_file);
+    if_u.if_trace_log(trace_file);
     RAM_u.ram_trace_log(trace_file);
     arbiter_u.arbiter_trace_log(trace_file);
     // id_u.id_trace_log(trace_file);

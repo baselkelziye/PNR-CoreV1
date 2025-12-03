@@ -241,7 +241,7 @@ async def mem_copy_test(dut):
     num_cycles = 7000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await mem.write_cache_to_memory()
-    # await ClockCycles(dut.clk_i,1, rising=False) #If we don't wait sometimes the cache update doesn't occur
+    await ClockCycles(dut.clk_i,1, rising=False) #If we don't wait sometimes the cache update doesn't occur
     # await write_cache_to_memory(dut)
     for i in range(0, BUFFER_SIZE * 4, 4):
     # Calculate current byte offsets

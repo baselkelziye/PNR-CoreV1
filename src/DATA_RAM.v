@@ -45,8 +45,8 @@ reg [7:0] RAM[0:MEM_SIZE-1] ;
 initial begin
     // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_a.txt", RAM,32'h0000);
     // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_b.txt", RAM,32'h5000);
-    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_a.mem", RAM,32'h0000);
-    $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_b.mem", RAM,32'h1000);
+    // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_a.mem", RAM,32'h0000);
+    // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/small_b.mem", RAM,32'h1000);
 end
 
 

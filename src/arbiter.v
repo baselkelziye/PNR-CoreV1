@@ -78,7 +78,9 @@ wire can_grant = ram_ready_i & ~transaction_active_reg;
 wire dcache_wins = dcache_req_valid_i & can_grant;
 
 // ICache wins if valid, RAM grant is possible, AND DCache is not requesting
-wire icache_wins = icache_req_valid_i & can_grant & ~dcache_req_valid_i;
+//If we Branch on Grant, Transaction will still be active, the CPU will stall, Because new transaction comes from icache controller
+//But the aribter can't accept
+wire icache_wins = icache_req_valid_i & can_grant & ~dcache_req_valid_i & ~branching_i; 
 
 // 3. Grant Signals (Cache Ready Outputs)
 assign dcache_req_ready_o = dcache_wins;

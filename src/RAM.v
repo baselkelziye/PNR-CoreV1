@@ -67,15 +67,16 @@ localparam  [2:0]
     // Initialization
     initial begin
         // Update path to your hex file
-        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
-        
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/load_misaligned_exception.hex", MEMORY,32'h4000);
+        // $readmemh("artifacts/program_test.hex", MEMORY, 32'h4000);
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/program_test.hex", MEMORY,32'h4000);
         // Note: Second readmemh will overwrite overlapping regions
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/trap_handler.hex", MEMORY, 32'h2000);
+        
     end
 
     // --- Sequential Logic: State & Counters ---
@@ -144,7 +145,8 @@ localparam  [2:0]
         op_done_next = 1'b0;
 
         // Reset logic on branch (Flush ICache fill if in progress)
-        if(branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE)) begin
+        //Even if we are in IDLE, We check so we don't instantiate a Request
+        if(branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE || mem_state_reg == IDLE)) begin
             mem_state_next = IDLE;
             op_done_next = 1'b0;
             icache_word_counter_next = '0;
@@ -235,7 +237,7 @@ localparam  [2:0]
     
     wire [29:0] icache_rd_block_addr;
     wire [29:0] icache_rd_addr;
-    wire [29:0] dcache_word_addr;
+    wire [29:0] dcache_rd_wr_block_addr;
     wire [29:0] dcache_wr_addr;
     wire [29:0] dcache_current_rd_addr; // Current address for the DCache burst read
 
@@ -247,13 +249,13 @@ localparam  [2:0]
     assign icache_rd_addr = icache_rd_block_addr + icache_word_counter_reg;
 
     // DCache Base Word Address: Start of the line transaction (Word Address)
-    assign dcache_word_addr = arb_address_latched;
+    assign dcache_rd_wr_block_addr = {arb_address_latched[29:2], 2'b00};
     
     // DCache Write Word Address: Base Word Address + Current Word Offset
-    assign dcache_wr_addr = dcache_word_addr + dcache_word_counter_reg;
+    assign dcache_wr_addr = dcache_rd_wr_block_addr + dcache_word_counter_reg;
     
     // DCache Read Word Address: Base Word Address + Current Word Offset (for burst)
-    assign dcache_current_rd_addr = dcache_word_addr + dcache_word_counter_reg;
+    assign dcache_current_rd_addr = dcache_rd_wr_block_addr + dcache_word_counter_reg;
     
     // --- Memory Access (Read/Write) ---
     always @(posedge clk_i) begin
