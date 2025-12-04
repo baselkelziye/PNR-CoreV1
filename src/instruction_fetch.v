@@ -58,7 +58,15 @@ module instruction_fetch #(
   input wire icache_fill_done_if_i, //input from ram that fill request is done
   output wire icache_fill_req_if_o, //Request ICache Line
   output wire [29:0] icache_fill_rd_addr_if_o, //ICache Line Request Address
-  input [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_fill_line_data_if_i, //ICache Line Data
+  input [INSTRUCTION_WIDTH-1:0] icache_fill_line_data_if_i[0:I_WORDS_PER_LINE-1], //ICache Line Data
+  //icache <-> arbiter
+  output icache_req_valid_if_o, //Request icache access from aribter
+  input icache_req_ready_if_i, //Arbiter grants icache
+  output icache_data_ready_if_o,
+
+  //icache <-> RAM
+  input icache_resp_valid_if_i,
+  input ram_response_id_if_i,
 
   input wire periheral_stall_if_i,
   input wire mem_stage_stall_i
@@ -82,7 +90,7 @@ module instruction_fetch #(
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
-      pc_reg <=  32'h80000000;
+      pc_reg <=  32'h80004000 - 32'h4;
     else if((!if_stage_stall & !icache_stall) || branching_i || trap_en_if_i || sret_trap_wb_i)
       pc_reg <= pc_next;
   end
@@ -118,7 +126,14 @@ module instruction_fetch #(
     .icache_fill_stall_o      (       icache_stall          ),
     .icache_fill_req_o        (       icache_fill_req_if_o  ),
     .icache_fetched_instr_o   (       fetched_instruction   ),
-    .branch_ex_i              (branching_i)
+    //Arbiter-icache interface
+    .icache_req_ready_i       (       icache_req_ready_if_i ), //arbiter grants access to icache
+    .icache_req_valid_o       (       icache_req_valid_if_o ),
+    .icache_data_ready_o      (       icache_data_ready_if_o),
+    //RAM-icache interface
+    .icache_resp_valid_i      (     icache_resp_valid_if_i  ),
+    .ram_response_id_i        (     ram_response_id_if_i    ),
+    .branch_ex_i              (     branching_i             )
 
   );
 
@@ -173,8 +188,8 @@ module instruction_fetch #(
       $fwrite(file,"\n***********Instruction Fetch Stage****************:");
       $fwrite(file,"\nTime %1t, Instruction: %0s, Program Counter: 0x%8h, load_stall_if_i: %b, periheral_stall_if_i: %b, mem_stage_stall_i: %b ", $time, disasm_str,pc_reg,load_stall_if_i,periheral_stall_if_i,mem_stage_stall_i);
       if(`CORE_VERBOSITY >= 600) begin
-        branch_predictor_u.branch_predictor_trace_log(file);
-        branch_predictor_u.BTB_trace_log(file);
+        // branch_predictor_u.branch_predictor_trace_log(file);
+        // branch_predictor_u.BTB_trace_log(file);
         imem_subsystem_u.imem_subsystem_trace_log(file);
         // imem_subsystem_u.l1_icache_array_u.l1_icache_array_trace_log(file);
         imem_subsystem_u.l1_icache_controller_u.icache_controller_trace_log(file);

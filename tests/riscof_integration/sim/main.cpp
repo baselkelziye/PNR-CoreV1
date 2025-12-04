@@ -20,7 +20,8 @@ double sc_time_stamp() {
 }
 
 
-const uint32_t MEM_BASE = 0x80000000;
+// const uint32_t MEM_BASE = 0x00000000;
+const uint32_t MEM_BASE = 0x00000000;
 const uint32_t CACHE_SIZE = 0x200000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
 
 // --- L1 Data Cache Geometry Assumptions ---
@@ -71,7 +72,7 @@ bool load_data_memory(const char* filename, Vcore* top) {
                 break;
             }
             // Accessing the RAM array via Verilator-generated path
-            top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset] = byte_val;
+            top->rootp->core__DOT__RAM_u__DOT__MEMORY[offset] = byte_val;
             offset++;
         }
     }
@@ -166,7 +167,7 @@ void write_back_cache_to_mem(Vcore* top) {
                     // Perform the actual write (little-endian)
                     for (int k = 0; k < 4; ++k) {
                         uint8_t byte_val = (word >> (8 * k)) & 0xFF;
-                        top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset + k] = byte_val;
+                        top->rootp->core__DOT__RAM_u__DOT__MEMORY[mem_offset + k] = byte_val;
                     }
                 }
             }
@@ -174,32 +175,33 @@ void write_back_cache_to_mem(Vcore* top) {
     }
 
     log << "L1 D-Cache write-back complete.\n";
-    log.close();
+    
 
-    std::cout << "L1 D-Cache write-back complete." << std::endl;
-    std::cout.flush();
+    // std::cout << "L1 D-Cache write-back complete." << std::endl;
+    // std::cout.flush();
 
     // --- Assign constant value to signature beginning and end ---
     if (sig_end != 0) {
-        std::cout << "Assigning signature constant 0x6f5ca309 to addresses 0x" 
+        log << "Assigning signature constant 0x6f5ca309 to addresses 0x" 
                   << std::hex << sig_start << " and 0x" << sig_end << std::dec << std::endl;
         
         // Assign to signature beginning
         uint32_t mem_offset_start = sig_start - MEM_BASE;
         for (int k = 0; k < 4; ++k) {
             uint8_t byte_val = (0x6f5ca309 >> (8 * k)) & 0xFF;
-            top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset_start + k] = byte_val;
+            top->rootp->core__DOT__RAM_u__DOT__MEMORY[mem_offset_start + k] = byte_val;
         }
         
         // Assign to signature end
-        uint32_t mem_offset_end = sig_end - MEM_BASE;
+        uint32_t mem_offset_end = sig_end - MEM_BASE - 4;
         for (int k = 0; k < 4; ++k) {
             uint8_t byte_val = (0x6f5ca309 >> (8 * k)) & 0xFF;
-            top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[mem_offset_end + k] = byte_val;
+            top->rootp->core__DOT__RAM_u__DOT__MEMORY[mem_offset_end + k] = byte_val;
         }
         
-        std::cout << "Signature constant assignment complete." << std::endl;
+        log << "Signature constant assignment complete." << std::endl;
     }
+    log.close();
 }
 
 
@@ -221,7 +223,7 @@ void dump_data_memory(const char* filename, Vcore* top) {
         // Read 4 bytes from memory and combine them into a word (little-endian)
         for (int i = 0; i < 4; ++i) {
             uint32_t byte_offset = offset + i;
-            uint8_t val = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[byte_offset];
+            uint8_t val = top->rootp->core__DOT__RAM_u__DOT__MEMORY[byte_offset];
             word |= (uint32_t)val << (8 * i);
         }
 
@@ -269,11 +271,11 @@ int main(int argc, char **argv) {
             if (main_time > 20 && !memory_loaded) {
                 // Load data memory on the first rising edge after reset release
                 if (top->clk_i == 1) {
-                    if (!load_data_memory("artifacts/data_mem.hex", top)) {
-                        std::cerr << "Failed to load data memory!" << std::endl;
-                        delete top;
-                        return 1;
-                    }
+                    // if (!load_data_memory("artifacts/data_mem.hex", top)) {
+                    //     std::cerr << "Failed to load data memory!" << std::endl;
+                    //     delete top;
+                    //     return 1;
+                    // }
                     memory_loaded = true;
                     dump_data_memory("artifacts/memory_before.txt", top);
                 }
@@ -338,7 +340,7 @@ int main(int argc, char **argv) {
             }
     
             uint32_t offset = byte_addr - MEM_BASE;
-            uint8_t val = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__DATA_RAM_u__DOT__RAM[offset];
+            uint8_t val = top->rootp->core__DOT__RAM_u__DOT__MEMORY[offset];
             word |= val << (8 * i);
         }
     

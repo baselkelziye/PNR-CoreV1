@@ -24,7 +24,8 @@ module core(
 localparam I_ENTRIES = 32;
 localparam I_WORDS_PER_LINE = 4;
 localparam INSTRUCTION_WIDTH = 32;
-
+localparam D_WORDS_PER_LINE = 4;
+localparam DATA_WIDTH =32 ;
 //Instruction Fetch Stage Variables
 wire [31:0] pc_incremented_if_o;
 wire [31:0] fetched_instruction_if_o;
@@ -121,10 +122,25 @@ reg [31:0] stval;
 reg [1:0] current_execution_mode;
 
 //Icache <--> RAM 
-wire [I_WORDS_PER_LINE-1:0][INSTRUCTION_WIDTH-1:0] icache_line_fill_data;
+wire [INSTRUCTION_WIDTH-1:0] icache_line_fill_data[0:I_WORDS_PER_LINE-1];
+wire [DATA_WIDTH-1:0] dcache_line_fill_data_o[0:D_WORDS_PER_LINE-1];
+wire [DATA_WIDTH-1:0] dcache_line_evict_mem_o[0:D_WORDS_PER_LINE-1];
 wire [INSTRUCTION_WIDTH-1-2:0] icache_fill_rd_addr;
 
+//icache <-> arbiter
+wire icache_req_ready_o;
 
+//Icache and Dcache Arbiter
+wire arb_req_ready_o;
+wire arb_req_valid_o;
+wire arb_rd_wr_o;
+wire arb_req_id_o;
+wire cache_ready_o;
+//MEMORY BLOCK
+wire ram_data_valid_o;
+wire [29:0] arb_address_o;
+// wire [29:0] dcache_addr_req;
+wire dcache_resp_valid_o, icache_resp_valid_o;
 //On reset go to U_MODE, Isa goes to M Mode later to be modified
 //Now, I only Do SRET to go back to u-mode, Later need to involve sstatus, mstatus.
 always @(posedge clk_i, posedge rst_i) begin
@@ -147,6 +163,11 @@ always @(posedge clk_i, posedge rst_i) begin
 end
 
 wire icache_fill_req_if_o, icache_fill_done_if_i;
+wire icache_req_valid_if_o,icache_data_ready_if_o;
+wire dcache_req_valid_mem_o, dcache_req_valid_mem_i;
+wire [29:0] dcache_address_mem_o;
+wire dcache_rd_wr_mem_o,dcache_req_ready_o,dcache_data_ready_mem_o;
+
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -179,6 +200,12 @@ instruction_fetch if_u
   .icache_fill_req_if_o           (   icache_fill_req_if_o              ),
   .icache_fill_rd_addr_if_o       (   icache_fill_rd_addr               ),
   .icache_fill_line_data_if_i     (   icache_line_fill_data             ),
+  .icache_resp_valid_if_i         (   icache_resp_valid_o               ), //Ram finished transaction, ID is used to seperate icache and dcache requets
+  .ram_response_id_if_i           (   arb_req_id_o                      ), //This is the arbited response
+  //icache <-> Arbiter
+  .icache_req_valid_if_o          (icache_req_valid_if_o),
+  .icache_req_ready_if_i          (icache_req_ready_o),
+  .icache_data_ready_if_o         (icache_data_ready_if_o),
   .periheral_stall_if_i           (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
 );
@@ -387,7 +414,19 @@ instruction_memory_stage mem_u
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
-  .fetched_instruction_mem_o   (   fetched_instruction_wb         )
+  .fetched_instruction_mem_o   (   fetched_instruction_wb         ),
+
+  //dcache request handshake
+  .dcache_req_valid_mem_o(dcache_req_valid_mem_o),
+  .dcache_req_valid_mem_i(dcache_req_ready_o),
+  .dcache_address_mem_o(dcache_address_mem_o),
+  .dcache_rd_wr_mem_o(dcache_rd_wr_mem_o),
+    //-------------------------------------------
+  .dcache_resp_valid_mem_i(dcache_resp_valid_o),
+  .ram_response_id_mem_i(arb_req_id_o),
+  .dcache_data_ready_mem_o(dcache_data_ready_mem_o),
+  .dcache_line_fill_mem_i(dcache_line_fill_data_o),
+  .dcache_line_evict_mem_o(dcache_line_evict_mem_o)
 );
 
 //Write Back Stage is Implicitly Here
@@ -418,7 +457,39 @@ always @* begin
 end
 
 
-//MEMORY BLOCK
+
+arbiter arbiter_u(
+  .clk_i(clk_i),
+  .rst_i(rst_i),
+  //dcache interface
+  .dcache_req_valid_i(dcache_req_valid_mem_o),
+  .dcache_req_ready_o(dcache_req_ready_o), 
+  .dcache_address_i(dcache_address_mem_o), //dcache line to be written/Read to/from ram
+  .dcache_rd_wr_i(dcache_rd_wr_mem_o), //0 =Read, 1=Write
+  .dcache_data_ready_i(dcache_data_ready_mem_o), //dcache is ready to receive RAM data
+  //icache request signals----------------------------------------------------------
+  .icache_req_valid_i ( icache_req_valid_if_o    ), //Cache request data
+  .icache_req_ready_o ( icache_req_ready_o       ), //Cache transaction is ready to be served
+  .icache_address_i   ( icache_fill_rd_addr      ),
+  //--------------------------------------------------------------------------------
+  //icache respond signals
+  .icache_data_ready_i(icache_data_ready_if_o), //icache is ready to receive data
+  //------------------------------------------------------------------------------
+  //RAM interface
+  .ram_ready_i(arb_req_ready_o), //Ram is ready to receive new request
+  .ram_data_valid_i(ram_data_valid_o), //To clear the active transaction and accept new
+  .arb_req_valid_o(arb_req_valid_o),
+  .arb_address_o(arb_address_o),
+  // .arb_data_in_o(),
+  .arb_rd_wr_o(arb_rd_wr_o),
+  .arb_req_id_o(arb_req_id_o),
+  .cache_ready_o(cache_ready_o), //Requester cache is ready to receieve
+  .dcache_resp_valid_o(dcache_resp_valid_o), //When RAM is valid, Check the request ID and fires the corresponding one
+  .icache_resp_valid_o(icache_resp_valid_o),
+  .branching_i(branching_ex_o)
+  );
+
+
 
 RAM #(
   .I_ENTRIES(I_ENTRIES),
@@ -428,11 +499,19 @@ RAM #(
 RAM_u(
   .clk_i(clk_i),
   .rst_i(rst_i),
-  //ICache Interface 
-  .icache_fill_req_i        ( icache_fill_req_if_o  ), //Fill Request
-  .icache_rd_addr_i         ( icache_fill_rd_addr   ), // Fill request Address
-  .icache_fill_done_o       ( icache_fill_done_if_i ), //Fill request is Done (Write to icache array)
-  .icache_line_fill_data_o  ( icache_line_fill_data ), //icache fetched from RAM
+  //RAM <----> Arbiter 
+  .arb_req_valid_i  ( arb_req_valid_o  ), //we have a request from arbiter, Can be read/write, icache/dcache
+  .arb_req_ready_o  ( arb_req_ready_o), //RAM ready to receieve new request
+  .arb_address_i    ( arb_address_o       ), // Fill request Address
+  .arb_rd_wr_i      (arb_rd_wr_o), //Cache is a Read/Write request  0 = Read, 1 = Write
+  .arb_req_id_i     (arb_req_id_o), //icache or dcache request, 0 = icache, 1 = dcache
+  .arb_cache_ready_i(cache_ready_o),
+  //--------------------------------------------------------------
+  
+  .ram_data_valid_o         ( ram_data_valid_o ), //Fill request is Done (Write to icache array)
+  .icache_line_fill_data_o  ( icache_line_fill_data ), //icache line read from RAM (Allocate)
+  .dcache_line_fill_data_o  ( dcache_line_fill_data_o ), //dcache line read from RAM (Allocate)
+  .dcache_line_evict_mem_i (dcache_line_evict_mem_o),// dcache line written to RAM (Writeback)
   .branching_i              ( branching_ex_o        ) // If we have branch, Abort the request
   
 );
@@ -476,6 +555,7 @@ RAM_u(
       executed_instructions_reg <= executed_instructions_next;
     end
   end
+  
   localparam PROGRAM_END = 32'h0000006f ;
   // assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
   assign cycle_next =  cycle_reg + 32'b1;
@@ -486,11 +566,18 @@ RAM_u(
     $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
     if_u.if_trace_log(trace_file);
     RAM_u.ram_trace_log(trace_file);
-    id_u.id_trace_log(trace_file);
-    ex_u.ex_trace_log(trace_file);
+    arbiter_u.arbiter_trace_log(trace_file);
+    // id_u.id_trace_log(trace_file);
+    // ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
   end
+
+  `ifdef MEM_DUMP
+    if(cycle_reg == 1 || cycle_reg == 10000) begin
+      RAM_u.memory_dump(memory_dump, cycle_reg);
+    end
+  `endif
 end
   
 `endif
