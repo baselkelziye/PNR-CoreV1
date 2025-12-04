@@ -212,26 +212,6 @@ l1_dcache_controller l1_dcache_controller_u
     .dcache_data_ready_o(dcache_data_ready_o)
 );
 
-
-// DATA_RAM #(
-//     .D_WORDS_PER_LINE (   D_WORDS_PER_LINE  ),
-//     .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
-//     .DATA_WIDTH     (   DATA_WIDTH      )
-// )
-// DATA_RAM_u(
-//     // .clk_i              (   clk_i                   ),
-//     // .rst_i              (   rst_i                   ),
-//     // .wr_data_i          (   dcache_array_dline_wr   ),
-//     // .rd_data_addr_i     (   ram_rd_addr             ),
-//     // .wr_data_addr_i     (   ram_wr_addr             ),
-//     // .start_ram_write_i  (   start_ram_write         ),
-//     // .start_ram_read_i   (   start_ram_read          ),
-//     .rd_data_o          (   dcache_array_dline_rd   ),
-//     // .ram_wr_done_o      (   ram_wr_done             ),
-//     // .ram_rd_done_o      (   ram_rd_done             )
-    
-// );
-
 store_buffer #(
     .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
     .DATA_WIDTH     (   DATA_WIDTH      ),
