@@ -40,13 +40,17 @@ reg [1: 0] stvec_mode; //Vectore Mode Addressing,
 reg [31:0] SEPC;
 reg [31:0] SSCRATCH;
 reg [31:0] csr_data;
-
+reg [31:0] SATP;
 
 wire csr_wr;
 
 
 always @(posedge clk_i, posedge rst_i) begin
-    if(csr_trap_wr_en_i) begin
+    if (rst_i) begin
+        SATP <= 32'h5; //Root Page Table address, When Shifted becomes 0x5000
+        stvec_base <= 30'h0; //Trap Handler located at 0.
+        stvec_mode <= 2'b0;
+    end else if(csr_trap_wr_en_i) begin
         //Here need to set the HW controlled Regs
         SEPC <= s_trap_pc_i; 
     end else if(csr_wr_en_i) begin
@@ -70,6 +74,7 @@ always @(*) begin
         `STVEC:    csr_data = {stvec_base, stvec_mode};
         `SEPC:     csr_data = SEPC;
         `SSCRATCH: csr_data = SSCRATCH;
+        `SATP    : csr_data = SATP;
         default: csr_data = 32'b0;
     endcase
 end

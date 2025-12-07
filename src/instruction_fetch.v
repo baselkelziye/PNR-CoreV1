@@ -68,6 +68,9 @@ module instruction_fetch #(
   input icache_resp_valid_if_i,
   input ram_response_id_if_i,
 
+  //itlb signals
+  output reg itlb_miss_if_o,
+
   input wire periheral_stall_if_i,
   input wire mem_stage_stall_i
 );
@@ -90,7 +93,7 @@ module instruction_fetch #(
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
-      pc_reg <=  32'h80004000 - 32'h4;
+      pc_reg <=  32'h80004000;
     else if((!if_stage_stall & !icache_stall) || branching_i || trap_en_if_i || sret_trap_wb_i)
       pc_reg <= pc_next;
   end
@@ -117,6 +120,9 @@ module instruction_fetch #(
 	end
 //    assign pc_next = (branch_is_taken_prediction) ? btb_predicted_pc : pc_reg + 32'd4;
   wire icache_fill_req;
+  wire itlb_miss;
+  wire kill_icache;
+  assign kill_icache = branching_i | trap_en_if_i | sret_trap_wb_i;
   imem_subsystem imem_subsystem_u(
     .clk_i                    (       clk_i                 ),
     .rst_i                    (       rst_i                 ),
@@ -133,7 +139,9 @@ module instruction_fetch #(
     //RAM-icache interface
     .icache_resp_valid_i      (     icache_resp_valid_if_i  ),
     .ram_response_id_i        (     ram_response_id_if_i    ),
-    .branch_ex_i              (     branching_i             )
+    .branch_ex_i              (     kill_icache             ),
+    .itlb_miss_o              (     itlb_miss               ),
+    .execution_mode_i         (   current_execution_mode_if_i)
 
   );
 
@@ -164,6 +172,7 @@ module instruction_fetch #(
         pc_incremented_if_o             <= 32'h80000000;
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
+        itlb_miss_if_o                  <= 1'b0;
       end
     else if((if_flush  | icache_stall) & !if_stage_stall) // If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
       begin //Flush Sadece Branchte olur simdilik
@@ -172,6 +181,7 @@ module instruction_fetch #(
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
         fetched_instruction_if_o        <= 32'h13;
+        itlb_miss_if_o                  <= 1'b0;
       end
     else if(!if_stage_stall & !icache_stall)
       begin
@@ -179,6 +189,7 @@ module instruction_fetch #(
         pc_incremented_if_o             <=  pc_reg;
         branch_is_taken_prediction_if_o <= branch_is_taken_prediction;
         btb_predicted_pc_if_o           <= btb_predicted_pc;
+        itlb_miss_if_o                  <= itlb_miss;
       end //If There is stall, Latch the last values (No Change)
   end
 

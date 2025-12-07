@@ -31,6 +31,10 @@ module imem_subsystem #(
     output icache_fill_req_o,
     input branch_ex_i,
 
+    //itlb signals
+    output itlb_miss_o,
+    input [1:0] execution_mode_i,
+
     output [INSTRUCTION_WIDTH-1:0] icache_fetched_instr_o
 );
 
@@ -38,7 +42,8 @@ localparam I_INDEX_BITS    = $clog2(I_ENTRIES);
 localparam I_WORD_OFF_BITS = $clog2(I_WORDS_PER_LINE);
 localparam I_BYTE_OFF_BITS = 2;
 localparam I_TAG_SIZE = INSTRUCTION_WIDTH - (I_INDEX_BITS + I_WORD_OFF_BITS + I_BYTE_OFF_BITS);
-
+localparam ITLB_ENTRIES = 32;
+localparam DATA_WIDTH =32;
 wire [I_INDEX_BITS-1   :0] icache_index_bits;
 wire [I_WORD_OFF_BITS-1:0] icache_word_off_bits;
 wire [I_TAG_SIZE-1     :0] icache_tag_bits, icache_indexed_tag;
@@ -92,7 +97,27 @@ l1_icache_controller l1_icache_controller_u(
     .icache_hit_i           (   icache_hit            ),
     .branch_ex_i            (   branch_ex_i           )
 );
+wire itlb_miss;
+wire [31:0] itlb_data;
 
+itlb #(
+    .ITLB_ENTRIES(ITLB_ENTRIES),
+    .DATA_WIDTH(DATA_WIDTH)
+) itlb_u(
+    .clk_i(clk_i),
+    .rst_i(rst_i),
+    //Write Signals
+    .itlb_wr_en_i(1'b0),
+    .rs1_i('1),
+    .rs2_i('1),
+    .execution_mode_i(execution_mode_i),
+    //Lookup signals
+    .pc_i(icache_pc_i),
+    .itlb_miss_o(itlb_miss),
+    .itlb_data_o(itlb_data)
+);
+
+assign itlb_miss_o = itlb_miss;
 
 `ifdef CORE_VERBOSITY
 

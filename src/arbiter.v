@@ -31,7 +31,8 @@ module arbiter (
     output  cache_ready_o, // Drives RAM.cache_ready_i
 
     output  dcache_resp_valid_o,
-    output  icache_resp_valid_o
+    output  icache_resp_valid_o,
+    input exception_raised_i
 );
 
 localparam DC_ID = 1'b1;
@@ -48,7 +49,7 @@ always @(posedge clk_i, posedge rst_i) begin
         served_id_reg          <= IC_ID;
     end else begin
         // 1. Transaction Active Update
-        if (ram_data_valid_i | (branching_i && served_id_reg == IC_ID)) begin
+        if (ram_data_valid_i | (branching_i && served_id_reg == IC_ID) | exception_raised_i) begin
             // RAM signaled completion (Valid high), clear active flag
             transaction_active_reg <= 1'b0;
         end else if (dcache_req_ready_o | icache_req_ready_o) begin
@@ -71,7 +72,7 @@ end
 // Request is accepted only if the RAM is IDLE AND no transaction is currently active
 // We use transaction_active_reg to cover the case where RAM is busy but ram_ready_i is still high 
 // (which can happen in some RAM designs, but here we simplify)
-wire can_grant = ram_ready_i & ~transaction_active_reg;
+wire can_grant = ram_ready_i & ~transaction_active_reg & ~exception_raised_i;
 
 // 2. Priority Logic (DCache > ICache)
 // DCache wins if valid and RAM grant is possible

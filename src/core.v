@@ -31,6 +31,7 @@ wire [31:0] pc_incremented_if_o;
 wire [31:0] fetched_instruction_if_o;
 wire [31:0] btb_predicted_pc_if_o;
 wire branch_is_taken_prediction_if_o;
+wire itlb_miss_if_o;
 //--------------------------------------------
 
 
@@ -52,6 +53,7 @@ wire branch_is_taken_prediction_id_o;
 wire ex_unit_sel_id_o;
 wire [7:0] sb_id_o;
 wire [11:0] csr_addr_id_o;
+wire itlb_miss_id_o;
 //CSR Signals
 wire csr_wr_en_id_o;
 wire csr_wr_en_mem_o;
@@ -88,6 +90,7 @@ wire [31:0] csr_rd_value_ex_o;
 wire ecall_trap_ex_o, ebreak_trap_ex_o;
 wire sret_trap_ex_o;
 wire update_btb_address_ex_o;
+wire itlb_miss_ex_o;
 //--------------------------------------------
 
 //Instruction Memory Stage Variable Declarations
@@ -104,6 +107,7 @@ wire [11:0] csr_addr_mem_o;
 wire [31:0] csr_rd_value_mem_o;
 wire ecall_trap_mem_o, ebreak_trap_mem_o;
 wire sret_trap_mem_o;
+wire itlb_miss_mem_o;
 //Wishbone + Peripherals
 wire peripheral_stall_mem_o;
 wire mem_stage_stall;
@@ -207,7 +211,9 @@ instruction_fetch if_u
   .icache_req_ready_if_i          (icache_req_ready_o),
   .icache_data_ready_if_o         (icache_data_ready_if_o),
   .periheral_stall_if_i           (   peripheral_stall_mem_o            ),
-  .mem_stage_stall_i              (   mem_stage_stall                   )
+  .mem_stage_stall_i              (   mem_stage_stall                   ),
+  //itlb
+  .itlb_miss_if_o(itlb_miss_if_o)
 );
 
 instruction_decode id_u
@@ -281,6 +287,8 @@ instruction_decode id_u
   .s_trap_tval_wb_i               (   stval                             ),
   .stvec_id_o                     (   stvec_id_o                        ),
   .sepc_id_o                      (   sepc_id_o                         ),
+  .itlb_miss_id_i                 (   itlb_miss_if_o                    ),
+  .itlb_miss_id_o                 (   itlb_miss_id_o                    ),
   //Pipeline Control Signals
   .branching_id_i                 (   branching_ex_o                    ),
   .peripheral_stall_id_i          (   peripheral_stall_mem_o            ),
@@ -358,6 +366,9 @@ instruction_execution ex_u
   .sret_trap_ex_i                 (   sret_trap_id_o                    ),
   .sret_trap_ex_o                 (   sret_trap_ex_o                    ),
   .trap_en_ex_i                   (   exception_raised                  ),
+  .itlb_miss_ex_i                 (   itlb_miss_id_o                    ),
+  .itlb_miss_ex_o                 (   itlb_miss_ex_o                    ),
+
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
   .branch_address_ex_o            (   branch_address_ex_o               ),
@@ -411,6 +422,8 @@ instruction_memory_stage mem_u
   .csr_addr_mem_o              (   csr_addr_mem_o                 ),
   .csr_rd_value_mem_i          (   csr_rd_value_ex_o              ),
   .csr_rd_value_mem_o          (   csr_rd_value_mem_o             ),
+  .itlb_miss_mem_i             (itlb_miss_ex_o                    ),
+  .itlb_miss_mem_o             (itlb_miss_mem_o                   ),
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
@@ -449,7 +462,12 @@ always @* begin
       `M_MODE: scause = {1'b0, 31'd11}; //Probably, should assign mcause, TODO
       default: scause = 32'b0;
     endcase
-  end else begin //Later add
+  end else if(itlb_miss_mem_o) begin //itlb miss
+    exception_raised = 1'b1;
+    scause = {1'b0, 31'd12}; //instruction page fault
+    stval  = pc_mem_o;
+  end //load page fault = 13, store page fault =  15
+   else begin //Later add
     exception_raised = 1'b0;
     scause           = 32'b0;
     stval            = 32'b0;
@@ -486,7 +504,8 @@ arbiter arbiter_u(
   .cache_ready_o(cache_ready_o), //Requester cache is ready to receieve
   .dcache_resp_valid_o(dcache_resp_valid_o), //When RAM is valid, Check the request ID and fires the corresponding one
   .icache_resp_valid_o(icache_resp_valid_o),
-  .branching_i(branching_ex_o)
+  .branching_i(branching_ex_o),
+  .exception_raised_i(sret_trap_mem_o | exception_raised)
   );
 
 
@@ -512,7 +531,8 @@ RAM_u(
   .icache_line_fill_data_o  ( icache_line_fill_data ), //icache line read from RAM (Allocate)
   .dcache_line_fill_data_o  ( dcache_line_fill_data_o ), //dcache line read from RAM (Allocate)
   .dcache_line_evict_mem_i (dcache_line_evict_mem_o),// dcache line written to RAM (Writeback)
-  .branching_i              ( branching_ex_o        ) // If we have branch, Abort the request
+  .branching_i              ( branching_ex_o        ), // If we have branch, Abort the request
+  .exception_raised_i(sret_trap_mem_o | exception_raised) //SRET and Exception Raised clears RAM
   
 );
 

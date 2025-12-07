@@ -16,6 +16,8 @@ class MemoryModel:
     SHIFT_TAG      = INDEX_BITS + WORD_OFF_BITS + BYTE_OFF_BITS
     SHIFT_INDEX    = WORD_OFF_BITS + BYTE_OFF_BITS
     SHIFT_WORD_OFF = BYTE_OFF_BITS
+    SATP            = 0x00005000
+    TRANSLATION_BASE = 0x00410000
 
     def __init__(self, dut, size=None):
         self.dut = dut
@@ -27,7 +29,7 @@ class MemoryModel:
             self.log.info("Linked to Unified Physical Memory")
         except AttributeError:
             self.log.error("Could not find Unified RAM. check hierarchy.")
-            raise
+            # raise
 
         # 2. Determine Memory Size (Safely)
         if size:
@@ -41,8 +43,10 @@ class MemoryModel:
         self.vm_enabled = False
 
     def virt_to_phys(self, va):
-        """Identity mapping for now."""
-        return va 
+        # pa = va + self.TRANSLATION_BASE
+        pa = va
+        return pa
+
 
     def write_byte(self, va, value):
         pa = self.virt_to_phys(va)
@@ -186,3 +190,10 @@ class MemoryModel:
             tag_arr[index].value = 0
         
         self.log.info("Cache arrays cleared.")
+
+def main():
+    mem = MemoryModel(None)
+    print(f"PA: 0X{mem.virt_to_phys(0x00000000):08X}")
+
+if __name__ == "__main__":
+    main()

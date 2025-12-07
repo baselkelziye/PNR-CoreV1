@@ -1,0 +1,85 @@
+
+trap_handler.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <trap_handler>:
+   0:	14029073          	csrrw	zero,sscratch,t0
+   4:	000102b7          	lui	t0,0x10
+   8:	0002a023          	sw	zero,0(t0) # 10000 <trap_handler+0x10000>
+   c:	0012a223          	sw	ra,4(t0)
+  10:	0022a423          	sw	sp,8(t0)
+  14:	0032a623          	sw	gp,12(t0)
+  18:	0042a823          	sw	tp,16(t0)
+  1c:	0062ac23          	sw	t1,24(t0)
+  20:	0072ae23          	sw	t2,28(t0)
+  24:	0282a023          	sw	s0,32(t0)
+  28:	0292a223          	sw	s1,36(t0)
+  2c:	02a2a423          	sw	a0,40(t0)
+  30:	02b2a623          	sw	a1,44(t0)
+  34:	02c2a823          	sw	a2,48(t0)
+  38:	02d2aa23          	sw	a3,52(t0)
+  3c:	02e2ac23          	sw	a4,56(t0)
+  40:	02f2ae23          	sw	a5,60(t0)
+  44:	0502a023          	sw	a6,64(t0)
+  48:	0512a223          	sw	a7,68(t0)
+  4c:	0522a423          	sw	s2,72(t0)
+  50:	0532a623          	sw	s3,76(t0)
+  54:	0542a823          	sw	s4,80(t0)
+  58:	0552aa23          	sw	s5,84(t0)
+  5c:	0562ac23          	sw	s6,88(t0)
+  60:	0572ae23          	sw	s7,92(t0)
+  64:	0782a023          	sw	s8,96(t0)
+  68:	0792a223          	sw	s9,100(t0)
+  6c:	07a2a423          	sw	s10,104(t0)
+  70:	07b2a623          	sw	s11,108(t0)
+  74:	07c2a823          	sw	t3,112(t0)
+  78:	07d2aa23          	sw	t4,116(t0)
+  7c:	07e2ac23          	sw	t5,120(t0)
+  80:	07f2ae23          	sw	t6,124(t0)
+  84:	14102373          	csrrs	t1,sepc,zero
+  88:	00430313          	addi	t1,t1,4
+  8c:	14131073          	csrrw	zero,sepc,t1
+  90:	00000093          	addi	ra,zero,0
+  94:	00000113          	addi	sp,zero,0
+  98:	00000193          	addi	gp,zero,0
+  9c:	00000213          	addi	tp,zero,0
+  a0:	00000293          	addi	t0,zero,0
+  a4:	00000313          	addi	t1,zero,0
+  a8:	00000393          	addi	t2,zero,0
+  ac:	00000413          	addi	s0,zero,0
+  b0:	000102b7          	lui	t0,0x10
+  b4:	0002a003          	lw	zero,0(t0) # 10000 <trap_handler+0x10000>
+  b8:	0042a083          	lw	ra,4(t0)
+  bc:	0082a103          	lw	sp,8(t0)
+  c0:	00c2a183          	lw	gp,12(t0)
+  c4:	0102a203          	lw	tp,16(t0)
+  c8:	0182a303          	lw	t1,24(t0)
+  cc:	01c2a383          	lw	t2,28(t0)
+  d0:	0202a403          	lw	s0,32(t0)
+  d4:	0242a483          	lw	s1,36(t0)
+  d8:	0282a503          	lw	a0,40(t0)
+  dc:	02c2a583          	lw	a1,44(t0)
+  e0:	0302a603          	lw	a2,48(t0)
+  e4:	0342a683          	lw	a3,52(t0)
+  e8:	0382a703          	lw	a4,56(t0)
+  ec:	03c2a783          	lw	a5,60(t0)
+  f0:	0402a803          	lw	a6,64(t0)
+  f4:	0442a883          	lw	a7,68(t0)
+  f8:	0482a903          	lw	s2,72(t0)
+  fc:	04c2a983          	lw	s3,76(t0)
+ 100:	0502aa03          	lw	s4,80(t0)
+ 104:	0542aa83          	lw	s5,84(t0)
+ 108:	0582ab03          	lw	s6,88(t0)
+ 10c:	05c2ab83          	lw	s7,92(t0)
+ 110:	0602ac03          	lw	s8,96(t0)
+ 114:	0642ac83          	lw	s9,100(t0)
+ 118:	0682ad03          	lw	s10,104(t0)
+ 11c:	06c2ad83          	lw	s11,108(t0)
+ 120:	0702ae03          	lw	t3,112(t0)
+ 124:	0742ae83          	lw	t4,116(t0)
+ 128:	0782af03          	lw	t5,120(t0)
+ 12c:	07c2af83          	lw	t6,124(t0)
+ 130:	140022f3          	csrrs	t0,sscratch,zero
+ 134:	10200073          	sret
