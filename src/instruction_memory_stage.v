@@ -40,7 +40,10 @@ module instruction_memory_stage
   input is_store_mem_i, is_load_mem_i,
   input [31:0] fetched_instruction_mem_i,
   //Value to Store in mem
+  input [31:0] rs1_mem_i,
   input [31:0] latest_rs2_value_mem_i,
+  output reg [31:0] rs1_mem_o,
+  output reg [31:0] rs2_mem_o,
   input [7:0] sb_id_mem_i,
 
   //CSR Unit Inputs
@@ -53,6 +56,10 @@ module instruction_memory_stage
   output reg sret_trap_mem_o,
   input itlb_miss_mem_i,
   output reg itlb_miss_mem_o,
+  input itlb_wr_en_mem_i,
+  input dtlb_wr_en_mem_i,
+  output reg itlb_wr_en_mem_o,
+  output reg dtlb_wr_en_mem_o,
   //Outputs to WriteBack Stage
   output reg [31:0] load_value_mem_o,
   output reg [31:0] rd_value_mem_ro,
@@ -234,6 +241,11 @@ always @(posedge clk_i, posedge rst_i)
       pc_mem_o             <= 32'hDEADC0DE;
       sret_trap_mem_o      <= 1'b0;
       itlb_miss_mem_o      <= 1'b0;
+      itlb_wr_en_mem_o     <= 1'b0;
+      dtlb_wr_en_mem_o     <= 1'b0;
+      rs1_mem_o            <= '1;
+      rs2_mem_o            <= '1;
+
     end
   else //if(!mem_stage_stall)
     begin
@@ -252,6 +264,11 @@ always @(posedge clk_i, posedge rst_i)
       pc_mem_o             <= pc_mem_i;
       sret_trap_mem_o      <= sret_trap_mem_i;
       itlb_miss_mem_o      <= itlb_miss_mem_i;
+      itlb_wr_en_mem_o     <= itlb_wr_en_mem_i;
+      dtlb_wr_en_mem_o     <= dtlb_wr_en_mem_i;
+      rs1_mem_o            <= rs1_mem_i;
+      rs2_mem_o            <= latest_rs2_value_mem_i;
+
     end
   end
 

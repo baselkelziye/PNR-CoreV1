@@ -41,7 +41,9 @@ module control_unit(
     output       ebreak_trap_o,
     output       ecall_trap_o,
     output       sret_trap_o,
-    output       csr_wr_en_o              //Write To CSR
+    output       csr_wr_en_o,              //Write To CSR
+    output       itlb_wr_en_o,
+    output       dtlb_wr_en_o
     );
 
 `include "encodings.vh"
@@ -95,7 +97,7 @@ rs2_pc_csr_sel [1:0]
 
 
 reg [9:0] control_signals;
-localparam [7:0] ILLEGAL = 10'b0_XX_XX_XX_XXX;
+localparam [9:0] ILLEGAL = 10'b0_XX_XX_XX_XXX;
 
 
 reg is_load_instr, is_store_instr, is_branch_instr, unconditional_branch;
@@ -109,6 +111,7 @@ reg ex_unit_select;
 reg csr_wr_en;
 reg ebreak_trap, ecall_trap;
 reg sret_trap;
+reg itlb_wr_en, dtlb_wr_en;
 always @(*)
 begin
   //defualt values to not infer latch
@@ -122,6 +125,9 @@ begin
   ebreak_trap          = 1'b0   ;
   ecall_trap           = 1'b0   ;
   sret_trap            = 1'b0   ;
+  itlb_wr_en           = 1'b0   ;
+  dtlb_wr_en           = 1'b0   ;
+  control_signals = '0;
   case(opcode_i)
     `LOAD_OPCODE   : 
     begin
@@ -262,6 +268,20 @@ begin
             end
           endcase
     end 
+    `TLB_OPCODE: begin
+      case (funct3_i)
+        `ITLB_FUNCT3: begin
+            itlb_wr_en = 1'b1;
+        end
+        `DTLB_FUNCT3: begin
+            dtlb_wr_en = 1'b1;
+        end 
+        default: begin
+            itlb_wr_en = 1'b0;
+            dtlb_wr_en = 1'b0;
+        end 
+      endcase
+    end
     default       : control_signals = ILLEGAL;
   endcase
 end
@@ -283,4 +303,6 @@ assign csr_wr_en_o = csr_wr_en;
 assign ebreak_trap_o = ebreak_trap;
 assign ecall_trap_o = ecall_trap;
 assign sret_trap_o = sret_trap;
+assign itlb_wr_en_o = itlb_wr_en;
+assign dtlb_wr_en_o = dtlb_wr_en;
 endmodule

@@ -34,6 +34,9 @@ module imem_subsystem #(
     //itlb signals
     output itlb_miss_o,
     input [1:0] execution_mode_i,
+    input itlb_wr_en_i,
+    input [31:0] rs1_i,
+    input [31:0] rs2_i,
 
     output [INSTRUCTION_WIDTH-1:0] icache_fetched_instr_o
 );
@@ -107,9 +110,9 @@ itlb #(
     .clk_i(clk_i),
     .rst_i(rst_i),
     //Write Signals
-    .itlb_wr_en_i(1'b0),
-    .rs1_i('1),
-    .rs2_i('1),
+    .itlb_wr_en_i(itlb_wr_en_i),
+    .rs1_i(rs1_i),
+    .rs2_i(rs2_i),
     .execution_mode_i(execution_mode_i),
     //Lookup signals
     .pc_i(icache_pc_i),
@@ -134,6 +137,7 @@ $fwrite(file, "\nTime: %0t, IMEM: pc: %h, stall: %b, fill_done: %b, fill_req: %b
             icache_hit, 
             icache_fetched_instr_o
         );
+    itlb_u.itlb_trace_log(file);
 endfunction
 
 `endif 

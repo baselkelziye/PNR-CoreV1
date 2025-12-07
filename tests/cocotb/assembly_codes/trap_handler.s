@@ -48,7 +48,7 @@ trap_handler:
     # addi t1,t1,4
     # csrw sepc,t1
     csrr x6, scause #Cause of Exception
-    addi x7,0,12 #Instruction Page Fault (TLB miss in our case)
+    addi x7,x0,12 #Instruction Page Fault (TLB miss in our case)
     
     beq x7, x6, itlb_miss #SCAUSE = instruction page fault
 
@@ -158,3 +158,4 @@ trap_handler:
     csrr x5, sscratch
 
     sret
+    

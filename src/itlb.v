@@ -75,5 +75,47 @@ module itlb
     assign stored_tag     = tag_arr[lookup_index];
     assign itlb_data_o    = data_arr[lookup_index];
     assign itlb_miss_o    = ((~stored_valid) || (stored_tag != lookup_tag)) && execution_mode_i == `U_MODE;
+`ifdef CORE_VERBOSITY
+    function void itlb_trace_log(int file);
+    integer idx;
+    
+    // 1. Log the current Interface State (Lookup and Write status)
+    // We log pc_i (lookup source), the extracted index/tag, and the result (miss/hit).
+    // We also log write signals (rs1, rs2) to see updates happening in real-time.
+    $fwrite(file, "\nTime: %1t, ITLB, PC: %08h, L_Idx: %3d, L_Tag: %x, Miss: %b, WrEn: %b, WrAddr: %08h, WrData: %08h", 
+            $time, 
+            pc_i, 
+            lookup_index, 
+            lookup_tag, 
+            itlb_miss_o, 
+            itlb_wr_en_i, 
+            rs1_i, 
+            rs2_i
+    );
 
+    // 2. Log the Array Contents (controlled by Verbosity)
+    if(`CORE_VERBOSITY >= 500) begin
+      $fwrite(file, "\n\tITLB Array Content Dump:");
+      // Header for the table
+      // We display the stored Tag and the Data (PTE)
+      $fwrite(file, "\n\tIndex \t V \t Tag  \t\t PTE Content (PPN+Flags)");
+      $fwrite(file, "\n\t-----------------------------------------------------");
+      
+      for (idx = 0; idx < ITLB_ENTRIES; idx = idx + 1) begin  
+        // Formatting:
+        // Index: Decimal
+        // Valid: Binary
+        // Tag: Hex (sized to TAG_SIZE)
+        // Data: Hex (32-bit PTE)
+        $fwrite(file, "\n\t%3d \t %1b \t 0x%x \t 0x%08h", 
+                idx, 
+                valid_bit[idx], 
+                tag_arr[idx], 
+                data_arr[idx]
+        );
+      end
+      $fwrite(file, "\n");
+    end
+  endfunction
+`endif
 endmodule

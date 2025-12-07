@@ -59,6 +59,10 @@ module instruction_execution(
   input wire trap_en_ex_i,
   input itlb_miss_ex_i,
   output reg itlb_miss_ex_o,
+  input itlb_wr_en_ex_i,
+  input dtlb_wr_en_ex_i,
+  output reg itlb_wr_en_ex_o,
+  output reg dtlb_wr_en_ex_o,
   //Inputs to Decode Stage
   output wire [31:0] ex_stage_result_o,
   output wire mdu_stall_ex_o,
@@ -204,6 +208,8 @@ always @(posedge clk_i, posedge rst_i) begin
       ecall_trap_ex_o             <= 1'b0  ;
       sret_trap_ex_o              <= 1'b0  ;
       itlb_miss_ex_o              <= 1'b0  ;
+      itlb_wr_en_ex_o             <= 1'b0  ;
+      dtlb_wr_en_ex_o             <= 1'b0  ;
   end else if(ex_stage_flush & !ex_stage_stall) begin 
       reg_write_en_ex_o           <= 1'b0   ;
       fetched_instruction_ex_o    <= 32'h13 ;
@@ -214,7 +220,10 @@ always @(posedge clk_i, posedge rst_i) begin
       ebreak_trap_ex_o            <= 1'b0   ;
       ecall_trap_ex_o             <= 1'b0   ;
       sret_trap_ex_o              <= 1'b0   ;
-      itlb_miss_ex_o              <= 1'b0  ;
+      itlb_miss_ex_o              <= 1'b0   ;
+      itlb_wr_en_ex_o             <= 1'b0   ;
+      dtlb_wr_en_ex_o             <= 1'b0   ;
+
   end else if (!ex_stage_stall) begin
       alu_result_ex_o             <= ex_stage_result_o          ;
       load_store_forward_sel_ex_o <= load_store_forward_sel_ex_i;
@@ -237,6 +246,8 @@ always @(posedge clk_i, posedge rst_i) begin
       ecall_trap_ex_o             <= ecall_trap_ex_i            ;
       sret_trap_ex_o              <= sret_trap_ex_i             ;
       itlb_miss_ex_o              <= itlb_miss_ex_i             ;
+      itlb_wr_en_ex_o             <= itlb_wr_en_ex_i            ;
+      dtlb_wr_en_ex_o             <= dtlb_wr_en_ex_i            ;
   end
 end
 

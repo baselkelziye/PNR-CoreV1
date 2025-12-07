@@ -15,7 +15,8 @@ echo "Step 4: Extracting binary sections..."
 riscv32-unknown-elf-objcopy -O binary --only-section=.text trap_handler.elf text_section.bin
 
 echo "Step 5: Converting to readmemh format..."
-hexdump -v -e '1/4 "%08x\n"' text_section.bin > trap_handler.hex
+hexdump -v -e '4/1 "%02x " "\n"' text_section.bin > trap_handler.hex
+
 
 
 echo "Step 6: Verification"

@@ -70,6 +70,9 @@ module instruction_fetch #(
 
   //itlb signals
   output reg itlb_miss_if_o,
+  input itlb_wr_en_if_i, //Comes from WB
+  input [31:0] rs1_if_i,
+  input [31:0] rs2_if_i,
 
   input wire periheral_stall_if_i,
   input wire mem_stage_stall_i
@@ -141,6 +144,9 @@ module instruction_fetch #(
     .ram_response_id_i        (     ram_response_id_if_i    ),
     .branch_ex_i              (     kill_icache             ),
     .itlb_miss_o              (     itlb_miss               ),
+    .itlb_wr_en_i             (     itlb_wr_en_if_i         ),
+    .rs1_i                    (     rs1_if_i                ),
+    .rs2_i                    (     rs2_if_i                ),
     .execution_mode_i         (   current_execution_mode_if_i)
 
   );

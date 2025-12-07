@@ -11,7 +11,7 @@
 `define JAL_OPCODE       5'b11011
 `define AUIPC_OPCODE     5'b00101
 `define LUI_OPCODE       5'b01101
-
+`define TLB_OPCODE       5'b00010
 
 // I-Type Funct3 definitions
 `define ADDI_FUNCT3          3'b000
@@ -23,7 +23,8 @@
 `define SLLI_FUNCT3          3'b001 
 `define BMU_SHAMT_A_FUNCT3   3'b001
 `define BMU_SHAMT_B_FUNCT3   3'b101
-
+`define ITLB_FUNCT3          3'b000
+`define DTLB_FUNCT3          3'b001
 
 // JALR Funct3 definition
 `define JALR_FUNCT3          3'b000
