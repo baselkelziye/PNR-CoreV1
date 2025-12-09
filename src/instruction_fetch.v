@@ -87,7 +87,7 @@ module instruction_fetch #(
   wire if_stage_stall;
   wire if_flush;
   wire icache_stall;
-
+  wire [31:0] physical_pc;
 
   assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_if_i;
   assign if_flush = branching_i | trap_en_if_i | sret_trap_wb_i;
@@ -96,13 +96,13 @@ module instruction_fetch #(
   always @(posedge clk_i, posedge rst_i)
   begin
     if(rst_i) 
-      pc_reg <=  32'h80004000;
+      pc_reg <=  32'h80000000;
     else if((!if_stage_stall & !icache_stall) || branching_i || trap_en_if_i || sret_trap_wb_i)
       pc_reg <= pc_next;
   end
 
 
-  assign icache_fill_rd_addr_if_o = pc_reg[31:2];
+  assign icache_fill_rd_addr_if_o = physical_pc[31:2];
     
 	always @*
   begin
@@ -147,6 +147,7 @@ module instruction_fetch #(
     .itlb_wr_en_i             (     itlb_wr_en_if_i         ),
     .rs1_i                    (     rs1_if_i                ),
     .rs2_i                    (     rs2_if_i                ),
+    .physical_pc_o            (     physical_pc             ),
     .execution_mode_i         (   current_execution_mode_if_i)
 
   );
@@ -207,9 +208,9 @@ module instruction_fetch #(
       if(`CORE_VERBOSITY >= 600) begin
         // branch_predictor_u.branch_predictor_trace_log(file);
         // branch_predictor_u.BTB_trace_log(file);
-        imem_subsystem_u.imem_subsystem_trace_log(file);
-        // imem_subsystem_u.l1_icache_array_u.l1_icache_array_trace_log(file);
-        imem_subsystem_u.l1_icache_controller_u.icache_controller_trace_log(file);
+        // imem_subsystem_u.imem_subsystem_trace_log(file);
+        imem_subsystem_u.l1_icache_array_u.l1_icache_array_trace_log(file);
+        // imem_subsystem_u.l1_icache_controller_u.icache_controller_trace_log(file);
       end
     endfunction
   `endif

@@ -37,7 +37,7 @@ module RAM #
 );
 
     // Memory configuration
-    localparam MEM_SIZE = 32'h200000;  // 2MB (adjust as needed)
+    localparam MEM_SIZE = 32'h2000000;  // 2MB (adjust as needed)
     
     // States
 localparam  [2:0]
@@ -70,7 +70,7 @@ localparam  [2:0]
         // Update path to your hex file
         $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/spike/trap_handler.hex", MEMORY,32'h0000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h4000);
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);

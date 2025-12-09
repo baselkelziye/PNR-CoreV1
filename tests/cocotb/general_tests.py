@@ -27,13 +27,14 @@ WORD_OFF_BITS  = 2        # $clog2(4) = 2
 BYTE_OFF_BITS  = 2        # $clog2(4) = 2, but typically fixed at 2 for 32-bit words
 TAG_SIZE       = ADDRESS_WIDTH - (INDEX_BITS + WORD_OFF_BITS + BYTE_OFF_BITS)
 ADDR_TRAP_BASE  = 0x0000
-ADDR_INSTR_BASE = 0x4000
+ADDR_INSTR_BASE = 0x0
 ADDR_DATA_BASE  = 0x16000
 
 filepath = "machine_codes/"
 period_ns = 4
 datum_cache_size = 0x20000
 instruction_cache_size = 0x2000
+trap_handler = "trap_handler.hex"
 
 async def get_register_file(dut):
     return dut.id_u.register_file_u.registers
@@ -109,9 +110,11 @@ async def check_register_values(dut, expected_dict):
 async def basel_bubblesort(dut):
     filename = "basel_bubblesort.hex"
     mem = MemoryModel(dut)
+    instr_pa_addr = mem.virt_to_phys(ADDR_INSTR_BASE)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath + filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0)
+    await mem.load_file(filepath + filename,instr_pa_addr)
     num_cycles = 10000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     await mem.write_cache_to_memory()
@@ -128,7 +131,8 @@ async def branch_flush_test(dut):
     mem = MemoryModel(dut)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=True) #VA
     # await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
@@ -148,7 +152,8 @@ async def load_hazard_test(dut):
     mem = MemoryModel(dut)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=True)
     # await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
@@ -169,7 +174,8 @@ async def forwarding_test(dut):
     mem = MemoryModel(dut)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE, is_va=True)
     # await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
@@ -193,7 +199,8 @@ async def loop_test(dut):
     mem = MemoryModel(dut)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE, is_va=True)
     num_cycles = 4000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     expected_values = {

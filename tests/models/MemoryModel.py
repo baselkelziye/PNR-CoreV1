@@ -43,39 +43,47 @@ class MemoryModel:
         self.vm_enabled = False
 
     def virt_to_phys(self, va):
-        # pa = va + self.TRANSLATION_BASE
-        pa = va
+        pa = va + self.TRANSLATION_BASE
+        # pa = va
         return pa
 
 
-    def write_byte(self, va, value):
-        pa = self.virt_to_phys(va)
+    def write_byte(self, addr, value, is_va=True):
+        if is_va:
+            pa = self.virt_to_phys(addr)
+        else:
+            pa = addr
+
         if pa >= self.mem_size:
-            # Optional: Catch out of bounds here if you want
+            # Optional: Catch out of bounds here
             pass
+        
         self.phys_ram[pa].value = value
 
-    def read_byte(self, va):
-        pa = self.virt_to_phys(va)
+    def read_byte(self, addr, is_va=True):
+        if is_va:
+            pa = self.virt_to_phys(addr)
+        else:
+            pa = addr
+            
         return self.phys_ram[pa].value.integer
 
     # --- Word Access Helpers (Little Endian) ---
-    def write_word(self, va, value):
-        """Writes a 32-bit integer."""
-        self.write_byte(va,   value & 0xFF)
-        self.write_byte(va+1, (value >> 8) & 0xFF)
-        self.write_byte(va+2, (value >> 16) & 0xFF)
-        self.write_byte(va+3, (value >> 24) & 0xFF)
+    def write_word(self, addr, value, is_va=True):
+        self.write_byte(addr,   value & 0xFF,        is_va)
+        self.write_byte(addr+1, (value >> 8) & 0xFF, is_va)
+        self.write_byte(addr+2, (value >> 16) & 0xFF, is_va)
+        self.write_byte(addr+3, (value >> 24) & 0xFF, is_va)
 
-    def read_word(self, va):
+    def read_word(self, addr, is_va=True):
         """Reads a 32-bit integer."""
-        b0 = self.read_byte(va)
-        b1 = self.read_byte(va+1)
-        b2 = self.read_byte(va+2)
-        b3 = self.read_byte(va+3)
+        b0 = self.read_byte(addr,   is_va)
+        b1 = self.read_byte(addr+1, is_va)
+        b2 = self.read_byte(addr+2, is_va)
+        b3 = self.read_byte(addr+3, is_va)
         return (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
 
-    async def load_file(self, filename, target_base_va):
+    async def load_file(self, filename, target_base_va,is_va = True):
         self.log.info(f"Loading {filename} at Virtual Base {hex(target_base_va)}")
         with open(filename, "r") as f:
             lines = f.readlines()
@@ -88,7 +96,7 @@ class MemoryModel:
             for byte_str in byte_strings:
                 if byte_str.startswith('@'): continue # Skip address markers if present
                 val = int(byte_str, 16)
-                self.write_byte(current_va, val)
+                self.write_byte(current_va, val,is_va)
                 current_va += 1
 
     async def reset_memory(self):

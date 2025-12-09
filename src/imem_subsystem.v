@@ -37,6 +37,7 @@ module imem_subsystem #(
     input itlb_wr_en_i,
     input [31:0] rs1_i,
     input [31:0] rs2_i,
+    output [31:0] physical_pc_o,
 
     output [INSTRUCTION_WIDTH-1:0] icache_fetched_instr_o
 );
@@ -51,12 +52,12 @@ wire [I_INDEX_BITS-1   :0] icache_index_bits;
 wire [I_WORD_OFF_BITS-1:0] icache_word_off_bits;
 wire [I_TAG_SIZE-1     :0] icache_tag_bits, icache_indexed_tag;
 wire [INSTRUCTION_WIDTH-1:0] icache_indexed_line[0:I_WORDS_PER_LINE-1];
-
+wire [31:0] physical_pc;
 wire icache_hit, icache_indexed_valid;
 
-assign icache_index_bits    = icache_pc_i[`I_INDEX];
-assign icache_word_off_bits = icache_pc_i[`I_WORD_OFF];
-assign icache_tag_bits      = icache_pc_i[`I_TAG];
+assign icache_index_bits    = physical_pc_o[`I_INDEX];
+assign icache_word_off_bits = physical_pc_o[`I_WORD_OFF];
+assign icache_tag_bits      = physical_pc_o[`I_TAG];
 
 assign icache_hit = (icache_tag_bits == icache_indexed_tag) & icache_indexed_valid;
 assign icache_fetched_instr_o = icache_indexed_line[icache_word_off_bits];
@@ -117,7 +118,8 @@ itlb #(
     //Lookup signals
     .pc_i(icache_pc_i),
     .itlb_miss_o(itlb_miss),
-    .itlb_data_o(itlb_data)
+    .itlb_data_o(itlb_data),
+    .pa_pc_o(physical_pc_o)
 );
 
 assign itlb_miss_o = itlb_miss;
@@ -125,9 +127,10 @@ assign itlb_miss_o = itlb_miss;
 `ifdef CORE_VERBOSITY
 
 function void imem_subsystem_trace_log(int file);
-$fwrite(file, "\nTime: %0t, IMEM: pc: %h, stall: %b, fill_done: %b, fill_req: %b, index: %h, word_off: %h, tag: %h, hit: %b, instr: %h", 
+$fwrite(file, "\nTime: %0t, IMEM: va_pc: %h, pa_pc: %h, stall: %b, fill_done: %b, fill_req: %b, index: %h, word_off: %h, tag: %h, hit: %b, instr: %h", 
             $time, 
             icache_pc_i, 
+            physical_pc_o,
             icache_fill_stall_o, 
             icache_fill_done_i, 
             icache_fill_req_o, 

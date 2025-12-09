@@ -29,7 +29,8 @@ module itlb
     //Lookup signals
     input [31:0]               pc_i,          
     output                     itlb_miss_o,  
-    output [DATA_WIDTH-1:0]    itlb_data_o    // The full PTE
+    output [DATA_WIDTH-1:0]    itlb_data_o,    // The full PTE
+    output [31:0]              pa_pc_o
 );
 
 
@@ -69,12 +70,17 @@ module itlb
 
     wire [TAG_SIZE-1:0]   stored_tag;
     wire                  stored_valid;
+    wire [21:0] ppn;
 
 
     assign stored_valid   = valid_bit[lookup_index];
     assign stored_tag     = tag_arr[lookup_index];
     assign itlb_data_o    = data_arr[lookup_index];
+    assign ppn = itlb_data_o[31:10];
     assign itlb_miss_o    = ((~stored_valid) || (stored_tag != lookup_tag)) && execution_mode_i == `U_MODE;
+    assign pa_pc_o = (execution_mode_i == `S_MODE) ? pc_i : //If Supervisor, Stop Translation
+                      {ppn,pc_i[11:0]};
+
 `ifdef CORE_VERBOSITY
     function void itlb_trace_log(int file);
     integer idx;
