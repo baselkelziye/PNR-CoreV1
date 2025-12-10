@@ -45,6 +45,7 @@ module instruction_memory_stage
   output reg [31:0] rs1_mem_o,
   output reg [31:0] rs2_mem_o,
   input [7:0] sb_id_mem_i,
+  output reg [31:0] alu_result_mem_o,
 
   //CSR Unit Inputs
   input csr_wr_en_mem_i,
@@ -60,6 +61,8 @@ module instruction_memory_stage
   input dtlb_wr_en_mem_i,
   output reg itlb_wr_en_mem_o,
   output reg dtlb_wr_en_mem_o,
+  output reg load_page_fault_mem_o,
+  output reg store_page_fault_mem_o,
   //Outputs to WriteBack Stage
   output reg [31:0] load_value_mem_o,
   output reg [31:0] rd_value_mem_ro,
@@ -80,6 +83,7 @@ module instruction_memory_stage
   input [31:0] csr_rd_value_mem_i,
   output reg [31:0] csr_rd_value_mem_o,
   input trap_en_mem_i, //This is a trap from WB
+  input [1:0] execution_mode_mem_i,
   
   //Wishbone + Peripherals
   output wire peripheral_stall_o,
@@ -133,19 +137,48 @@ module instruction_memory_stage
 
   //CSR values
   wire [31:0] csr_rd_value;
+  wire load_page_fault, store_page_fault;
+  wire [31:0] dtlb_data, pa_dtlb;
 
+  //dtlb signals
+  wire dtlb_hit_o;
   //If read from peripheral assign wishbone value
   assign loaded_data = (o_wbs_ack) ? o_wbs_data : data_read_from_mem;
+  localparam DTLB_ENTRIES = 32;
+  
+  dtlb #(
+    .DTLB_ENTRIES(DTLB_ENTRIES),
+    .DATA_WIDTH(DATA_WIDTH)
+  )
+  dtlb_u(
+    .clk_i              (   clk_i                  ),
+    .rst_i              (   rst_i                  ),
+    //DTLB Write Signals
+    .dtlb_wr_en_i       (   dtlb_wr_en_mem_i       ),
+    .rs1_i              (   rs1_mem_i              ),
+    .rs2_i              (   latest_rs2_value_mem_i ),
+    //Translation Signals
+    .alu_result_i       (   alu_result_mem_i       ), //Virtual Address
+    .is_load_mem_i      (   is_load_mem_i          ),
+    .is_store_mem_i     (   is_store_mem_i         ),
+    .execution_mode_i   (   execution_mode_mem_i   ),
+    //Outputs
+    .load_page_fault_o  (   load_page_fault        ),
+    .store_page_fault_o (   store_page_fault       ),
+    .dtlb_data_o        (   dtlb_data              ),
+    .pa_dtlb_o          (   pa_dtlb                ),
+    .dtlb_hit_o         (   dtlb_hit_o             )
+  );
 
   data_mem_subsystem data_mem_subsystem_u
   (
       .clk_i                      (   clk_i                   ),
       .rst_i                      (   rst_i                   ),
-      .address_i                  (   alu_result_mem_i        ),
+      .address_i                  (   pa_dtlb                 ),
       .write_data_i               (   latest_rs2_value_mem_i  ),
       .is_load_instr              (   is_load_mem_i           ),
       .is_store_instr             (   is_store_mem_i          ),
-      .trap_en_mem_i              (ebreak_trap_mem_i | ecall_trap_mem_i | itlb_miss_mem_i), // If we have Exception, Don't Do mem op
+      .trap_en_mem_i              (ebreak_trap_mem_i | ecall_trap_mem_i | itlb_miss_mem_i | load_page_fault | store_page_fault), // If we have Exception, Don't Do mem op
       .trap_en_wb_i               (   trap_en_mem_i           ), //This signal comes from WB to MEM stage,
       .funct3_i                   (   funct3_mem_i            ),
       .sb_id_i                    (   sb_id_mem_i             ),
@@ -162,7 +195,9 @@ module instruction_memory_stage
       .ram_response_id_i(ram_response_id_mem_i),
       .dcache_data_ready_o(dcache_data_ready_mem_o),
       .dcache_line_fill_i(dcache_line_fill_mem_i),
-      .dcache_line_evit_o(dcache_line_evict_mem_o)
+      .dcache_line_evit_o(dcache_line_evict_mem_o),
+      //dtlb interface
+      .dtlb_hit_i(dtlb_hit_o)
   );
 
 
@@ -245,30 +280,34 @@ always @(posedge clk_i, posedge rst_i)
       dtlb_wr_en_mem_o     <= 1'b0;
       rs1_mem_o            <= '1;
       rs2_mem_o            <= '1;
-
+      load_page_fault_mem_o  <= 1'b0;
+      store_page_fault_mem_o <= 1'b0;
+      alu_result_mem_o       <= 32'b0;
     end
   else //if(!mem_stage_stall)
     begin
-      load_value_mem_o   <= loaded_data       ;
-      rd_label_mem_o     <= rd_label_mem_i    ;
-      reg_write_en_mem_o <= reg_write_en_mem_i;
-      wb_sel_mem_o       <= wb_sel_mem_i      ;
-      is_load_mem_o      <= is_load_mem_i     ;
-      rd_value_mem_ro    <= rd_value_mem_wo   ;
+      load_value_mem_o       <= loaded_data       ;
+      rd_label_mem_o         <= rd_label_mem_i    ;
+      reg_write_en_mem_o     <= reg_write_en_mem_i;
+      wb_sel_mem_o           <= wb_sel_mem_i      ;
+      is_load_mem_o          <= is_load_mem_i     ;
+      rd_value_mem_ro        <= rd_value_mem_wo   ;
       fetched_instruction_mem_o <= fetched_instruction_mem_i;
-      csr_wr_en_mem_o     <= csr_wr_en_mem_i;
-      csr_addr_mem_o      <= csr_addr_mem_i;
-      csr_rd_value_mem_o  <= csr_rd_value_mem_i;
-      ebreak_trap_mem_o    <= ebreak_trap_mem_i;
-      ecall_trap_mem_o     <= ecall_trap_mem_i;
-      pc_mem_o             <= pc_mem_i;
-      sret_trap_mem_o      <= sret_trap_mem_i;
-      itlb_miss_mem_o      <= itlb_miss_mem_i;
-      itlb_wr_en_mem_o     <= itlb_wr_en_mem_i;
-      dtlb_wr_en_mem_o     <= dtlb_wr_en_mem_i;
-      rs1_mem_o            <= rs1_mem_i;
-      rs2_mem_o            <= latest_rs2_value_mem_i;
-
+      csr_wr_en_mem_o        <= csr_wr_en_mem_i;
+      csr_addr_mem_o         <= csr_addr_mem_i;
+      csr_rd_value_mem_o     <= csr_rd_value_mem_i;
+      ebreak_trap_mem_o      <= ebreak_trap_mem_i;
+      ecall_trap_mem_o       <= ecall_trap_mem_i;
+      pc_mem_o               <= pc_mem_i;
+      sret_trap_mem_o        <= sret_trap_mem_i;
+      itlb_miss_mem_o        <= itlb_miss_mem_i;
+      itlb_wr_en_mem_o       <= itlb_wr_en_mem_i;
+      dtlb_wr_en_mem_o       <= dtlb_wr_en_mem_i;
+      rs1_mem_o              <= rs1_mem_i;
+      rs2_mem_o              <= latest_rs2_value_mem_i;
+      load_page_fault_mem_o  <= load_page_fault;
+      store_page_fault_mem_o <= store_page_fault;
+      alu_result_mem_o       <= alu_result_mem_i;
     end
   end
 
@@ -284,6 +323,7 @@ always @(posedge clk_i, posedge rst_i)
     end
     if(`CORE_VERBOSITY >= 400)begin
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
+      dtlb_u.dtlb_trace_log(file);
     end
     // `ifdef MEM_DUMP
     // if(cycle == 30000 || cycle == 1) begin

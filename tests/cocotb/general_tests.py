@@ -110,18 +110,18 @@ async def check_register_values(dut, expected_dict):
 async def basel_bubblesort(dut):
     filename = "basel_bubblesort.hex"
     mem = MemoryModel(dut)
-    instr_pa_addr = mem.virt_to_phys(ADDR_INSTR_BASE)
+    # instr_pa_addr = mem.virt_to_phys(ADDR_INSTR_BASE)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0)
-    await mem.load_file(filepath + filename,instr_pa_addr)
+    await mem.load_file(filepath +trap_handler ,0x0,is_va=False)
+    await mem.load_file(filepath + filename,ADDR_INSTR_BASE,is_va=True)
     num_cycles = 10000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     await mem.write_cache_to_memory()
     await ClockCycles(dut.clk_i,1, rising=False) #If we don't wait sometimes the cache update doesn't occur
     expected_data_values = ["0x01", "0x02", "0x03", "0x04", "0x05", "0x06", "0x07", "0x08", "0x09", "0x0b"]
     for i in range(10):
-        mem_byte = mem.read_byte(ADDR_DATA_BASE+i)
+        mem_byte = mem.read_byte(ADDR_DATA_BASE+i,is_va=True)
         assert mem_byte == int(expected_data_values[i],16), f"Data memory value mismatch at index {i}. Expected: {int(expected_data_values[i],16)}, Got: {mem_byte}"
     get_CPI(dut)
 
@@ -220,10 +220,11 @@ async def buffer_sum_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
     #Load Instructions at 0x4000
-    await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE, is_va=True)
     #Load Data at 0x16000
-    await mem.load_file(performance_filepath+data_mem_filename,ADDR_DATA_BASE)
-    num_cycles =5000
+    await mem.load_file(performance_filepath+data_mem_filename,ADDR_DATA_BASE,is_va=True)
+    num_cycles =10000
     #Assign Base Array Addres to avoid recompiling
     # dut.id_u.register_file_u.registers[1].value = ADDR_DATA_BASE
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
@@ -244,8 +245,9 @@ async def mem_copy_test(dut):
     CONST_VALUE = 5
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE)
-    num_cycles = 7000
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE,is_va=True)
+    num_cycles = 10000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await mem.write_cache_to_memory()
     await ClockCycles(dut.clk_i,1, rising=False) #If we don't wait sometimes the cache update doesn't occur
@@ -256,11 +258,11 @@ async def mem_copy_test(dut):
         addr_b = B_ARR_ADDR + i
 
         # Check Source (A)
-        val_a = mem.read_word(addr_a)
+        val_a = mem.read_word(addr_a,is_va=True)
         assert val_a == CONST_VALUE, f"Data Memory Mismatch at ARR A (Addr: {hex(addr_a)}): Expected {CONST_VALUE}, got {val_a}"
 
         # Check Destination (B)
-        val_b = mem.read_word(addr_b)
+        val_b = mem.read_word(addr_b,is_va=True)
         assert val_b == CONST_VALUE, f"Data Memory Mismatch at ARR B (Addr: {hex(addr_b)}): Expected {CONST_VALUE}, got {val_b}"
     get_CPI(dut)
 
@@ -278,10 +280,11 @@ async def matrix_mul_small(dut):
     mem = MemoryModel(dut)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE)
-    await mem.load_file(performance_filepath+data_mem_filenameA,A_MATRIX_BASE_ADDR)
-    await mem.load_file(performance_filepath+data_mem_filenameB,B_MATRIX_BASE_ADDR)
-    num_cycles = 10000
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE,is_va=True)
+    await mem.load_file(performance_filepath+data_mem_filenameA,A_MATRIX_BASE_ADDR,is_va=True)
+    await mem.load_file(performance_filepath+data_mem_filenameB,B_MATRIX_BASE_ADDR,is_va=True)
+    num_cycles = 20000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await mem.write_cache_to_memory()
     await ClockCycles(dut.clk_i,1, rising=False) #If we don't wait sometimes the cache update doesn't occur
@@ -319,7 +322,7 @@ async def matrix_mul_small(dut):
 
         # Read Memory Word (MemoryModel.read_word is already Little Endian)
         addr = RESULT_MATRIX_BASE_ADDR + i
-        memory_word = mem.read_word(addr)
+        memory_word = mem.read_word(addr,is_va=True)
         
         assert memory_word == expected_word, (
             f"Matrix Result Word mismatch at address {hex(addr)}: "
@@ -332,7 +335,8 @@ async def store_buffer_test(dut):
     mem = MemoryModel(dut)
     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE, is_va=True)
     num_cycles = 4000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     expected_values = {

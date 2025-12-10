@@ -40,14 +40,16 @@ module l1_dcache_controller
     output                 dcache_cntrl_update_entry_mem_o, 
 
     // --- RAM/Arbiter Master Interface (Handshake) ---
-    output logic dcache_req_valid_o,           
-    input  logic dcache_req_ready_i,           
-    output [29:0] dcache_address_o,            
-    output logic dcache_rd_wr_o,               
+    output logic dcache_req_valid_o,
+    input  logic dcache_req_ready_i,
+    output [29:0] dcache_address_o,
+    output logic dcache_rd_wr_o,
     
-    input  logic dcache_resp_valid_i,             
-    input  logic ram_response_id_i,            
-    output logic dcache_data_ready_o           
+    input  logic dcache_resp_valid_i,
+    input  logic ram_response_id_i,
+    output logic dcache_data_ready_o,
+    //---------DTLB-----------
+    input dtlb_hit_i
 );
 
 `include "encodings.vh" 
@@ -138,7 +140,7 @@ always @(*) begin
                 cache_access_stall_next = 1'b1;
                 trans_is_sb_next = 1'b1; 
             end 
-            else if (is_load_instr_i & ~sb_load_hit_i) begin
+            else if (is_load_instr_i & ~sb_load_hit_i & dtlb_hit_i) begin
                 state_next = COMPARE_TAG;
                 cache_access_stall_next = 1'b1;
                 trans_is_sb_next = 1'b0; 

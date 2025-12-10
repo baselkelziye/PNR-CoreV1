@@ -166,10 +166,10 @@ class MemoryModel:
                     flat_index = index * self.WORDS_PER_LINE + widx
                     data_val = int(data_cache_arr[flat_index].value)
                 
-                # self.log.info(
-                #     f"Flushing line idx={index}, tag=0x{tag:X}, word[{widx}] = 0x{data_val:08X} "
-                #     f"→ base addr 0x{addr_word:08X}"
-                #     )
+                self.log.info(
+                    f"Flushing line idx={index}, tag=0x{tag:X}, word[{widx}] = 0x{data_val:08X} "
+                    f"→ base addr 0x{addr_word:08X}"
+                    )
                 # Write each byte separately (little-endian)
                 for byte_i in range(4):  # 32-bit = 4 bytes
                     byte_val = (data_val >> (8 * byte_i)) & 0xFF
@@ -201,7 +201,7 @@ class MemoryModel:
 
 def main():
     mem = MemoryModel(None)
-    print(f"PA: 0X{mem.virt_to_phys(0x00000000):08X}")
+    print(f"PA: 0X{mem.virt_to_phys(0x16000):08X}")
 
 if __name__ == "__main__":
     main()

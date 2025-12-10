@@ -209,7 +209,7 @@ module instruction_fetch #(
         // branch_predictor_u.branch_predictor_trace_log(file);
         // branch_predictor_u.BTB_trace_log(file);
         // imem_subsystem_u.imem_subsystem_trace_log(file);
-        imem_subsystem_u.l1_icache_array_u.l1_icache_array_trace_log(file);
+        // imem_subsystem_u.l1_icache_array_u.l1_icache_array_trace_log(file);
         // imem_subsystem_u.l1_icache_controller_u.icache_controller_trace_log(file);
       end
     endfunction

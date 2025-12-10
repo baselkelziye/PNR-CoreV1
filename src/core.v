@@ -1,8 +1,7 @@
 `timescale 1ns / 1ps
 /*
 NOTES:
-The wishbone slave is tested on the simulation, TX FIFO is filled on Store instructions and A Tmp value is read from UART_RD_REG on load instruction
-The Hardware shall be tested on the FPGA
+When To Commit DTLB? Since its in Supervisor,  we are sure no exceptions will happen? Can i just commit directly?
 */
 
 
@@ -122,6 +121,7 @@ wire [31:0] rd_value_wb_mem_o;
 wire reg_write_en_wb_o;
 wire [31:0] alu_result_wb_o, load_data_wb_o, pc_wb_o;
 wire [31:0] fetched_instruction_wb;
+wire load_page_fault_mem_o, store_page_fault_mem_o;
 // wire [31:0] pc_mem_o;
 reg exception_raised;
 reg [31:0] scause;
@@ -415,6 +415,7 @@ instruction_memory_stage mem_u
   .rs1_mem_o                   (   rs1_mem_o                      ), //Used for ITLB
   .rs2_mem_o                   (   rs2_mem_o                      ), //Used for ITLB
   .csr_wr_en_mem_i             (   csr_wr_en_ex_o                 ),
+  .alu_result_mem_o            (   alu_result_mem_o               ),
   //Inputs for CSR
   .ecall_trap_mem_i            (   ecall_trap_ex_o                ),
   .ebreak_trap_mem_i           (   ebreak_trap_ex_o               ),
@@ -427,6 +428,9 @@ instruction_memory_stage mem_u
   .dtlb_wr_en_mem_i            (   dtlb_wr_en_ex_o                ),
   .itlb_wr_en_mem_o            (   itlb_wr_en_mem_o               ),
   .dtlb_wr_en_mem_o            (   dtlb_wr_en_mem_o               ),
+  .load_page_fault_mem_o       (   load_page_fault_mem_o          ),
+  .store_page_fault_mem_o      (   store_page_fault_mem_o         ),
+  .execution_mode_mem_i        (   current_execution_mode         ),
   //Outputs To WriteBack Stage
   .load_value_mem_o            (   load_value_mem_o               ),
   .rd_label_mem_o              (   rd_label_mem_o                 ),
@@ -487,7 +491,15 @@ always @* begin
     exception_raised = 1'b1;
     scause = {1'b0, 31'd12}; //instruction page fault
     stval  = pc_mem_o;
-  end //load page fault = 13, store page fault =  15
+  end else if(store_page_fault_mem_o) begin //load page fault = 13, store page fault =  15
+    exception_raised = 1'b1;
+    scause = {1'b0, 31'd13};
+    stval = alu_result_mem_o;
+  end else if(load_page_fault_mem_o) begin
+    exception_raised = 1'b1;
+    scause = {1'b0, 31'd15};
+    stval = alu_result_mem_o;
+  end
 end
 
 

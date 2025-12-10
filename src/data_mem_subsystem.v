@@ -34,7 +34,9 @@ module data_mem_subsystem #(
     input ram_response_id_i, //icache =0, dcache = 1
     output dcache_data_ready_o, //dcache is ready to accept respond
     input [DATA_WIDTH-1:0] dcache_line_fill_i [0:D_WORDS_PER_LINE-1],
-    output [DATA_WIDTH-1:0] dcache_line_evit_o [0:D_WORDS_PER_LINE-1]
+    output [DATA_WIDTH-1:0] dcache_line_evit_o [0:D_WORDS_PER_LINE-1],
+    //dtlb signals
+    input dtlb_hit_i
 );
 
 `include "encodings.vh"
@@ -209,7 +211,8 @@ l1_dcache_controller l1_dcache_controller_u
     //-----------------------------------------------------
     .dcache_resp_valid_i(dcache_resp_valid_i),
     .ram_response_id_i(ram_response_id_i),
-    .dcache_data_ready_o(dcache_data_ready_o)
+    .dcache_data_ready_o(dcache_data_ready_o),
+    .dtlb_hit_i(dtlb_hit_i)
 );
 
 store_buffer #(
@@ -257,7 +260,7 @@ function void data_mem_subsystem_trace_log(int file);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
-    // l1_dcache_array_u.l1_dcache_array_trace_log(file);
+    l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
     // DATA_RAM_u.DATA_RAM_trace_log(file);
     // $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);
