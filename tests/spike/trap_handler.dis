@@ -1,0 +1,133 @@
+
+trap_handler.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <trap_handler>:
+   0:	14029073          	csrrw	zero,sscratch,t0
+   4:	000102b7          	lui	t0,0x10
+   8:	0002a023          	sw	zero,0(t0) # 10000 <exit+0xfec0>
+   c:	0012a223          	sw	ra,4(t0)
+  10:	0022a423          	sw	sp,8(t0)
+  14:	0032a623          	sw	gp,12(t0)
+  18:	0042a823          	sw	tp,16(t0)
+  1c:	0062ac23          	sw	t1,24(t0)
+  20:	0072ae23          	sw	t2,28(t0)
+  24:	0282a023          	sw	s0,32(t0)
+  28:	0292a223          	sw	s1,36(t0)
+  2c:	02a2a423          	sw	a0,40(t0)
+  30:	02b2a623          	sw	a1,44(t0)
+  34:	02c2a823          	sw	a2,48(t0)
+  38:	02d2aa23          	sw	a3,52(t0)
+  3c:	02e2ac23          	sw	a4,56(t0)
+  40:	02f2ae23          	sw	a5,60(t0)
+  44:	0502a023          	sw	a6,64(t0)
+  48:	0512a223          	sw	a7,68(t0)
+  4c:	0522a423          	sw	s2,72(t0)
+  50:	0532a623          	sw	s3,76(t0)
+  54:	0542a823          	sw	s4,80(t0)
+  58:	0552aa23          	sw	s5,84(t0)
+  5c:	0562ac23          	sw	s6,88(t0)
+  60:	0572ae23          	sw	s7,92(t0)
+  64:	0782a023          	sw	s8,96(t0)
+  68:	0792a223          	sw	s9,100(t0)
+  6c:	07a2a423          	sw	s10,104(t0)
+  70:	07b2a623          	sw	s11,108(t0)
+  74:	07c2a823          	sw	t3,112(t0)
+  78:	07d2aa23          	sw	t4,116(t0)
+  7c:	07e2ac23          	sw	t5,120(t0)
+  80:	07f2ae23          	sw	t6,124(t0)
+  84:	14202373          	csrrs	t1,scause,zero
+  88:	00c00393          	addi	t2,zero,12
+  8c:	00730c63          	beq	t1,t2,a4 <start_walk>
+  90:	00d00393          	addi	t2,zero,13
+  94:	00730863          	beq	t1,t2,a4 <start_walk>
+  98:	00f00393          	addi	t2,zero,15
+  9c:	00730463          	beq	t1,t2,a4 <start_walk>
+  a0:	0a00006f          	jal	zero,140 <exit>
+
+000000a4 <start_walk>:
+  a4:	14302373          	csrrs	t1,stval,zero
+  a8:	180023f3          	csrrs	t2,satp,zero
+  ac:	00c39393          	slli	t2,t2,0xc
+  b0:	01635413          	srli	s0,t1,0x16
+  b4:	00241493          	slli	s1,s0,0x2
+  b8:	009384b3          	add	s1,t2,s1
+  bc:	0004a503          	lw	a0,0(s1)
+  c0:	00157593          	andi	a1,a0,1
+  c4:	02059263          	bne	a1,zero,e8 <root_hit>
+  c8:	00140613          	addi	a2,s0,1
+  cc:	00c61613          	slli	a2,a2,0xc
+  d0:	00c386b3          	add	a3,t2,a2
+  d4:	00c6d713          	srli	a4,a3,0xc
+  d8:	00a71713          	slli	a4,a4,0xa
+  dc:	00176713          	ori	a4,a4,1
+  e0:	00e4a023          	sw	a4,0(s1)
+  e4:	00070513          	addi	a0,a4,0
+
+000000e8 <root_hit>:
+  e8:	00a55693          	srli	a3,a0,0xa
+  ec:	00c69693          	slli	a3,a3,0xc
+  f0:	00c35713          	srli	a4,t1,0xc
+  f4:	3ff77713          	andi	a4,a4,1023
+  f8:	00271793          	slli	a5,a4,0x2
+  fc:	00f687b3          	add	a5,a3,a5
+ 100:	0007a803          	lw	a6,0(a5)
+ 104:	00187893          	andi	a7,a6,1
+ 108:	02089063          	bne	a7,zero,128 <l2_hit>
+ 10c:	00410937          	lui	s2,0x410
+ 110:	012309b3          	add	s3,t1,s2
+ 114:	00c9da13          	srli	s4,s3,0xc
+ 118:	00aa1a13          	slli	s4,s4,0xa
+ 11c:	0cfa6a13          	ori	s4,s4,207
+ 120:	0147a023          	sw	s4,0(a5)
+ 124:	000a0813          	addi	a6,s4,0
+
+00000128 <l2_hit>:
+ 128:	142022f3          	csrrs	t0,scause,zero
+ 12c:	00c00393          	addi	t2,zero,12
+ 130:	00728663          	beq	t0,t2,13c <do_itlb_write>
+
+00000134 <do_dtlb_write>:
+ 134:	0103100b          	.word	0x0103100b
+ 138:	0080006f          	jal	zero,140 <exit>
+
+0000013c <do_itlb_write>:
+ 13c:	0103000b          	.word	0x0103000b
+
+00000140 <exit>:
+ 140:	000102b7          	lui	t0,0x10
+ 144:	0002a003          	lw	zero,0(t0) # 10000 <exit+0xfec0>
+ 148:	0042a083          	lw	ra,4(t0)
+ 14c:	0082a103          	lw	sp,8(t0)
+ 150:	00c2a183          	lw	gp,12(t0)
+ 154:	0102a203          	lw	tp,16(t0)
+ 158:	0182a303          	lw	t1,24(t0)
+ 15c:	01c2a383          	lw	t2,28(t0)
+ 160:	0202a403          	lw	s0,32(t0)
+ 164:	0242a483          	lw	s1,36(t0)
+ 168:	0282a503          	lw	a0,40(t0)
+ 16c:	02c2a583          	lw	a1,44(t0)
+ 170:	0302a603          	lw	a2,48(t0)
+ 174:	0342a683          	lw	a3,52(t0)
+ 178:	0382a703          	lw	a4,56(t0)
+ 17c:	03c2a783          	lw	a5,60(t0)
+ 180:	0402a803          	lw	a6,64(t0)
+ 184:	0442a883          	lw	a7,68(t0)
+ 188:	0482a903          	lw	s2,72(t0)
+ 18c:	04c2a983          	lw	s3,76(t0)
+ 190:	0502aa03          	lw	s4,80(t0)
+ 194:	0542aa83          	lw	s5,84(t0)
+ 198:	0582ab03          	lw	s6,88(t0)
+ 19c:	05c2ab83          	lw	s7,92(t0)
+ 1a0:	0602ac03          	lw	s8,96(t0)
+ 1a4:	0642ac83          	lw	s9,100(t0)
+ 1a8:	0682ad03          	lw	s10,104(t0)
+ 1ac:	06c2ad83          	lw	s11,108(t0)
+ 1b0:	0702ae03          	lw	t3,112(t0)
+ 1b4:	0742ae83          	lw	t4,116(t0)
+ 1b8:	0782af03          	lw	t5,120(t0)
+ 1bc:	07c2af83          	lw	t6,124(t0)
+ 1c0:	140022f3          	csrrs	t0,sscratch,zero
+ 1c4:	10200073          	sret

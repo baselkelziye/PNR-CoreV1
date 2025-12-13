@@ -47,6 +47,8 @@ module instruction_decode(
   output reg [3:0] alu_op_id_o,
   output reg unconditional_branch_id_o,
   output reg ex_unit_sel_o,
+  output reg itlb_wr_en_id_o,
+  output reg dtlb_wr_en_id_o,
 
   //Program Counter
   output reg [31:0] pc_id_o,
@@ -94,6 +96,8 @@ module instruction_decode(
   output wire [31:0] stvec_id_o,
   output wire [31:0] sepc_id_o,
   input wire trap_en_id_i, //Exception Raised in WB
+  input itlb_miss_id_i,
+  output reg itlb_miss_id_o,
   //Outputs to EX
   output reg [11:0] csr_addr_id_o,
   output reg csr_wr_en_o,
@@ -250,7 +254,7 @@ mux_4x1 #(
   .load_store_forward_sel_o   (   load_store_forward_sel  )
 );
 
-
+wire itlb_wr_en, dtlb_wr_en;
   control_unit control_unit_u(
   .opcode_i               (   opcode[6:2]           ), //dismiss lower 2 bits
   .funct3_i               (   funct3                ),
@@ -270,7 +274,9 @@ mux_4x1 #(
   .csr_wr_en_o            (   csr_wr_en             ),
   .ebreak_trap_o          (   ebreak_trap           ),
   .ecall_trap_o           (   ecall_trap            ),
-  .sret_trap_o            (   sret_trap             )
+  .sret_trap_o            (   sret_trap             ),
+  .itlb_wr_en_o           (   itlb_wr_en            ),
+  .dtlb_wr_en_o           (   dtlb_wr_en            )
 );
    
 always @(posedge clk_i, posedge rst_i) begin
@@ -317,6 +323,9 @@ begin
         ecall_trap_id_o                  <= 1'b0;
         ebreak_trap_id_o                 <= 1'b0;
         sret_trap_id_o                   <= 1'b0;
+        itlb_miss_id_o                   <= 1'b0;
+        itlb_wr_en_id_o                  <= 1'b0;
+        dtlb_wr_en_id_o                  <= 1'b0;
     end 
     else if(id_flush & !id_stage_stall) //If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
     begin // Komutu NOP'A cevirmek icin bunlar ytrli
@@ -332,6 +341,9 @@ begin
         ecall_trap_id_o                  <= 1'b0;
         ebreak_trap_id_o                 <= 1'b0;
         sret_trap_id_o                   <= 1'b0;
+        itlb_miss_id_o                   <= 1'b0;
+        itlb_wr_en_id_o                  <= 1'b0;
+        dtlb_wr_en_id_o                  <= 1'b0;
     end
     else if(!id_stage_stall)
     begin // If stall generated else where (Peripheral Etc, Don't insert NOP)
@@ -364,7 +376,10 @@ begin
         ecall_trap_id_o                 <= ecall_trap                     ;
         ebreak_trap_id_o                <= ebreak_trap                    ;
         sret_trap_id_o                  <= sret_trap                      ;
-  end 
+        itlb_miss_id_o                  <= itlb_miss_id_i                 ;
+        itlb_wr_en_id_o                 <= itlb_wr_en                     ;
+        dtlb_wr_en_id_o                 <= dtlb_wr_en                     ;
+      end
   end
 
 wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_id_i, pc_id_i);

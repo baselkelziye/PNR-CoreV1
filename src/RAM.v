@@ -32,11 +32,12 @@ module RAM #
     output logic [WORD_WIDTH-1:0] dcache_line_fill_data_o[0:D_WORDS_PER_LINE-1], 
     
     // --- Control ---
-    input logic branching_i
+    input logic branching_i,
+    input exception_raised_i
 );
 
     // Memory configuration
-    localparam MEM_SIZE = 32'h200000;  // 2MB (adjust as needed)
+    localparam MEM_SIZE = 32'h2000000;  // 2MB (adjust as needed)
     
     // States
 localparam  [2:0]
@@ -67,10 +68,11 @@ localparam  [2:0]
     // Initialization
     initial begin
         // Update path to your hex file
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/spike/trap_handler.hex", MEMORY,32'h0000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h4000);
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h00426000); //PA Mapping for VA = 0x16000
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
         // $readmemh("artifacts/program_test.hex", MEMORY, 32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/program_test.hex", MEMORY,32'h4000);
@@ -146,7 +148,7 @@ localparam  [2:0]
 
         // Reset logic on branch (Flush ICache fill if in progress)
         //Even if we are in IDLE, We check so we don't instantiate a Request
-        if(branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE || mem_state_reg == IDLE)) begin
+        if((branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE || mem_state_reg == IDLE)) || exception_raised_i) begin
             mem_state_next = IDLE;
             op_done_next = 1'b0;
             icache_word_counter_next = '0;

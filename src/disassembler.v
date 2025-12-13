@@ -239,7 +239,14 @@
           $swrite(s,"SYSTEM");
       endcase
    end
-
+   7'b0001011: begin
+      case (instr[14:12])
+        3'b000: $swrite(s, "itlb write x%0d, x%0d",instr[19:15], instr[24:20]); 
+        3'b001: $swrite(s, "dtlb write x%0d, x%0d",instr[19:15], instr[24:20]); 
+        
+        default: $swrite(s,"????");
+      endcase
+   end
     default:
       $swrite(s,"?????");
       endcase
