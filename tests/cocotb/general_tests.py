@@ -347,6 +347,46 @@ async def store_buffer_test(dut):
     await check_register_values(dut,expected_values)
     get_CPI(dut)
 
+@cocotb.test()
+async def rob_0_test(dut):
+    filename = "rob_0.hex"
+    mem = MemoryModel(dut)
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut, mem_model=mem)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=False)
+    num_cycles = 1500
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
+    expected_values = {
+        1: "0x1",
+        2: "0x2",
+        3: "0x3",
+        4: "0x4",
+        5: "0x5",
+        6: "0x6",
+        7: "0x7",
+        8: "0x8",
+        9: "0x9",
+    }
+    await check_register_values(dut,expected_values)
+    get_CPI(dut)
+
+@cocotb.test()
+async def rob_1_test(dut):
+    filename = "rob_1.hex"
+    mem = MemoryModel(dut)
+    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    await reset(dut, mem_model=mem)
+    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=False)
+    num_cycles = 1500
+    await ClockCycles(dut.clk_i,num_cycles, rising=False)
+    expected_values = {
+        10: "0xa",
+        11: "0xf"
+    }
+    await check_register_values(dut,expected_values)
+    get_CPI(dut)
 #Works but takes forever
 # @cocotb.test()
 # async def matrix_mul_large(dut):
