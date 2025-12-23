@@ -74,6 +74,9 @@ module instruction_fetch #(
   input [31:0] rs1_if_i,
   input [31:0] rs2_if_i,
 
+  //ROB signals
+  output reg instr_valid_if_o, //Indicates its valid instruction and not a Bubble
+
   input wire periheral_stall_if_i,
   input wire mem_stage_stall_i
 );
@@ -88,6 +91,7 @@ module instruction_fetch #(
   wire if_flush;
   wire icache_stall;
   wire [31:0] physical_pc;
+
 
   assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_if_i;
   assign if_flush = branching_i | trap_en_if_i | sret_trap_wb_i;
@@ -180,6 +184,7 @@ module instruction_fetch #(
         branch_is_taken_prediction_if_o <= 1'b0;
         btb_predicted_pc_if_o           <= 32'h0;
         itlb_miss_if_o                  <= 1'b0;
+        instr_valid_if_o                <= 1'b0;
       end
     else if((if_flush  | icache_stall) & !if_stage_stall) // If later Pipe is stalling, we shouldn't NOP otherwise we will lose the instruction in the next stage!
       begin //Flush Sadece Branchte olur simdilik
@@ -189,6 +194,7 @@ module instruction_fetch #(
         btb_predicted_pc_if_o           <= 32'h0;
         fetched_instruction_if_o        <= 32'h13;
         itlb_miss_if_o                  <= 1'b0;
+        instr_valid_if_o                <= 1'b0;
       end
     else if(!if_stage_stall & !icache_stall)
       begin
@@ -197,6 +203,7 @@ module instruction_fetch #(
         branch_is_taken_prediction_if_o <= branch_is_taken_prediction;
         btb_predicted_pc_if_o           <= btb_predicted_pc;
         itlb_miss_if_o                  <= itlb_miss;
+        instr_valid_if_o                <= 1'b1; //Check this signal when itlb goes high
       end //If There is stall, Latch the last values (No Change)
   end
 

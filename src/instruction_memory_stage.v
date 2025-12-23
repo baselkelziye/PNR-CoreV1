@@ -84,6 +84,12 @@ module instruction_memory_stage
   output reg [31:0] csr_rd_value_mem_o,
   input trap_en_mem_i, //This is a trap from WB
   input [1:0] execution_mode_mem_i,
+
+  //ROB signals
+  input [3:0] rob_tag_mem_i,
+  output reg [3:0] rob_tag_mem_o,
+  input instr_valid_mem_i,
+  output reg instr_valid_mem_o,
   
   //Wishbone + Peripherals
   output wire peripheral_stall_o,
@@ -283,6 +289,7 @@ always @(posedge clk_i, posedge rst_i)
       load_page_fault_mem_o  <= 1'b0;
       store_page_fault_mem_o <= 1'b0;
       alu_result_mem_o       <= 32'b0;
+      rob_tag_mem_o          <= '1;
     end
   else //if(!mem_stage_stall)
     begin
@@ -308,6 +315,7 @@ always @(posedge clk_i, posedge rst_i)
       load_page_fault_mem_o  <= load_page_fault;
       store_page_fault_mem_o <= store_page_fault;
       alu_result_mem_o       <= alu_result_mem_i;
+      rob_tag_mem_o          <= rob_tag_mem_i;
     end
   end
 
@@ -317,14 +325,14 @@ always @(posedge clk_i, posedge rst_i)
   function void mem_trace_log(int file, int mem_dump_file,int cycle);
     $fwrite(file,"\n***********Memory Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, Instruction(x): 0x%8h", $time, disasm_str,pc_mem_i,fetched_instruction_mem_i);
-    if(`CORE_VERBOSITY >= 200)begin
-      mem_op_trace(file);
-      // csr_u.csr_trace_log(file);
-    end
-    if(`CORE_VERBOSITY >= 400)begin
-      data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
-      dtlb_u.dtlb_trace_log(file);
-    end
+    // if(`CORE_VERBOSITY >= 200)begin
+    //   mem_op_trace(file);
+    //   // csr_u.csr_trace_log(file);
+    // end
+    // if(`CORE_VERBOSITY >= 400)begin
+    //   data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
+    //   dtlb_u.dtlb_trace_log(file);
+    // end
     // `ifdef MEM_DUMP
     // if(cycle == 30000 || cycle == 1) begin
     //   data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  

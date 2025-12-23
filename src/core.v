@@ -177,6 +177,19 @@ wire dcache_req_valid_mem_o, dcache_req_valid_mem_i;
 wire [29:0] dcache_address_mem_o;
 wire dcache_rd_wr_mem_o,dcache_req_ready_o,dcache_data_ready_mem_o;
 
+//ROB
+wire instr_valid_if_o;
+wire o_rob_full,alloc_en_id_o;
+wire [4:0] alloc_rd_id_o;
+wire alloc_wr_en_id_o;
+wire [3:0] o_alloc_tag;
+wire [3:0] rs1_rob_tag_id_o, rs2_rob_tag_id_o;
+wire [31:0] rs1_rob_value_id_i, rs2_rob_value_id_i;
+wire [3:0] rob_tag_id_o, rob_tag_ex_o, rob_tag_mem_o;
+wire instr_valid_id_o, instr_valid_ex_o, instr_valid_mem_o;
+wire rob_commit_alu_done_ex_o, mem_done_ex_o;
+wire [3:0] rob_commit_tag_ex_o, rob_commit_tag_mem_o;
+wire [31:0] rob_commit_data_ex_o, rob_commit_data_mem_o;
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -221,7 +234,9 @@ instruction_fetch if_u
   .itlb_miss_if_o                 ( itlb_miss_if_o              ),
   .itlb_wr_en_if_i                ( itlb_wr_en_mem_o            ),
   .rs1_if_i                       ( rs1_mem_o                   ),
-  .rs2_if_i                       ( rs2_mem_o                   )
+  .rs2_if_i                       ( rs2_mem_o                   ),
+  //ROB
+  .instr_valid_if_o               (instr_valid_if_o)
 );
 
 instruction_decode id_u
@@ -299,6 +314,27 @@ instruction_decode id_u
   .sepc_id_o                      (   sepc_id_o                         ),
   .itlb_miss_id_i                 (   itlb_miss_if_o                    ),
   .itlb_miss_id_o                 (   itlb_miss_id_o                    ),
+  //ROB
+  .instr_valid_id_i(instr_valid_if_o),
+  .rob_full_id_i(o_rob_full),
+  .alloc_en_id_o(alloc_en_id_o),
+  .alloc_rd_id_o(alloc_rd_id_o),
+  .alloc_wr_en_id_o(alloc_wr_en_id_o),
+  .rob_tag_id_i(o_alloc_tag),
+  .rs1_rob_tag_id_o(rs1_rob_tag_id_o), //Dependency check
+  .rs2_rob_tag_id_o(rs2_rob_tag_id_o),
+  .rs1_rob_valid_id_i(rs1_rob_valid),
+  .rs2_rob_valid_id_i(rs2_rob_valid),
+  .rs1_rob_value_id_i(rs1_rob_value_id_i),
+  .rs2_rob_value_id_i(rs2_rob_value_id_i),
+  .rob_tag_id_o(rob_tag_id_o),
+  .instr_valid_id_o(instr_valid_id_o),
+  //ROB COMMIT
+  .rob_commit_we_id_i(rob_commit_we),
+  .rob_commit_rd_label_id_i(rob_commit_rd_label),
+  .rob_commit_data_id_i(rob_commit_data),
+  .rob_commit_valid_id_i(rob_commit_valid),
+  .rob_commit_tag_id_i(rob_commit_tag),
   //Pipeline Control Signals
   .branching_id_i                 (   branching_ex_o                    ),
   .peripheral_stall_id_i          (   peripheral_stall_mem_o            ),
@@ -382,7 +418,14 @@ instruction_execution ex_u
   .trap_en_ex_i                   (   exception_raised                  ),
   .itlb_miss_ex_i                 (   itlb_miss_id_o                    ),
   .itlb_miss_ex_o                 (   itlb_miss_ex_o                    ),
-
+  //ROB
+  .rob_tag_ex_i(rob_tag_id_o),
+  .rob_tag_ex_o(rob_tag_ex_o),
+  .instr_valid_ex_i(instr_valid_id_o),
+  .instr_valid_ex_o(instr_valid_ex_o),
+  .rob_commit_alu_done_ex_o(rob_commit_alu_done_ex_o),
+  .rob_commit_tag_ex_o(rob_commit_tag_ex_o),
+  .rob_commit_data_ex_o(rob_commit_data_ex_o),
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
   .branch_address_ex_o            (   branch_address_ex_o               ),
@@ -449,6 +492,11 @@ instruction_memory_stage mem_u
   .csr_rd_value_mem_o          (   csr_rd_value_mem_o             ),
   .itlb_miss_mem_i             (itlb_miss_ex_o                    ),
   .itlb_miss_mem_o             (itlb_miss_mem_o                   ),
+  //ROB Signals
+  .rob_tag_mem_i(rob_tag_ex_o),
+  .rob_tag_mem_o(rob_tag_ex_o),
+  .instr_valid_mem_i(instr_valid_ex_o),
+  .instr_valid_mem_o(instr_valid_mem_o),
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
@@ -564,6 +612,69 @@ RAM_u(
   
 );
 
+//ROB entry arbitration between MEM, ALU
+wire mem_request, alu_request;
+reg cdb_valid, cdb_exc;
+reg [3:0] cdb_tag;
+reg [31:0] cdb_data;
+
+assign alu_request = rob_commit_alu_done_ex_o;
+
+always @* begin
+  cdb_valid = 1'b0;
+  cdb_tag   = 1'b0;
+  cdb_exc   = 1'b0;
+  if(alu_request) begin //Need to add scause, and exception raised
+    cdb_valid = 1'b1;
+    cdb_tag   = rob_commit_tag_ex_o;
+    cdb_data  = rob_commit_data_ex_o;
+  end
+end
+wire rob_commit_we;
+wire [4:0] rob_commit_rd_label;
+wire [31:0] rob_commit_data;
+wire [31:0] rob_commit_pc, rob_commit_instr;
+wire rob_commit_valid;
+wire [3:0] rob_commit_tag;
+rob #(
+  .ROB_SIZE(16),
+  .DATA_WIDTH(32),
+  .ADDR_WIDTH(5)
+)
+rob_u(
+  .i_clk(clk_i),
+  .i_rst(rst_i),
+  //Instruction Allocation Signals
+  .i_alloc_en(alloc_en_id_o),
+  .i_alloc_rd(alloc_rd_id_o), //ID rd label
+  .i_alloc_we(alloc_wr_en_id_o), // ID reg wr en
+  .i_alloc_pc(pc_incremented_if_o),
+  .i_alloc_instr(fetched_instruction_if_o), //For debug
+  .o_alloc_tag(o_alloc_tag), //index assign to this instruction
+  .o_rob_full(o_rob_full),
+
+  //Forwarding Signals
+  .i_rs1_rob_tag(rs1_rob_tag_id_o),
+  .i_rs2_rob_tag(rs2_rob_tag_id_o),
+  .o_rs1_valid(rs1_rob_valid),
+  .o_rs2_valid(rs2_rob_valid),
+  .o_rs1_value(rs1_rob_value_id_i),
+  .o_rs2_value(rs2_rob_value_id_i),
+  //ALU Interface
+  .i_cdb_valid(cdb_valid), //ALU op Done
+  .i_cdb_tag(cdb_tag), // which ROB entry
+  .i_cdb_result(cdb_data), // Result
+  .i_cdb_exc(1'b0), //Exceptions
+
+  //Commit interface
+  .o_commit_we(rob_commit_we), //Register Reg Wr En
+  .o_commit_rd(rob_commit_rd_label), //Register Label
+  .o_commit_data(rob_commit_data), //Data written
+  .o_commit_pc(rob_commit_pc), //PC of retiring instr
+  .o_commit_valid(rob_commit_valid),
+  .o_commit_rob_tag(rob_commit_tag)
+);
+
 `ifdef COCOTB_SIM
     initial begin
         $dumpfile("waves.vcd");
@@ -613,12 +724,13 @@ RAM_u(
     $fwrite(trace_file,"\n");
     $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
     if_u.if_trace_log(trace_file);
-    RAM_u.ram_trace_log(trace_file);
-    arbiter_u.arbiter_trace_log(trace_file);
-    // id_u.id_trace_log(trace_file);
-    // ex_u.ex_trace_log(trace_file);
+    // RAM_u.ram_trace_log(trace_file);
+    // arbiter_u.arbiter_trace_log(trace_file);
+    id_u.id_trace_log(trace_file);
+    ex_u.ex_trace_log(trace_file);
     mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    rob_u.rob_trace_log(trace_file);
   end
 
   `ifdef MEM_DUMP
