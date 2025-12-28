@@ -9,7 +9,7 @@ module arbiter (
     input  dcache_rd_wr_i, // 0=Read, 1=Write
     input  logic dcache_data_ready_i, 
     
-    input branching_i,
+    // input branching_i,
     // --- ICache Interface (Request) ---
     input  icache_req_valid_i,
     output icache_req_ready_o,
@@ -49,7 +49,7 @@ always @(posedge clk_i, posedge rst_i) begin
         served_id_reg          <= IC_ID;
     end else begin
         // 1. Transaction Active Update
-        if (ram_data_valid_i | (branching_i && served_id_reg == IC_ID) | exception_raised_i) begin
+        if (ram_data_valid_i /*| (branching_i && served_id_reg == IC_ID)*/ | exception_raised_i) begin
             // RAM signaled completion (Valid high), clear active flag
             transaction_active_reg <= 1'b0;
         end else if (dcache_req_ready_o | icache_req_ready_o) begin
@@ -81,7 +81,7 @@ wire dcache_wins = dcache_req_valid_i & can_grant;
 // ICache wins if valid, RAM grant is possible, AND DCache is not requesting
 //If we Branch on Grant, Transaction will still be active, the CPU will stall, Because new transaction comes from icache controller
 //But the aribter can't accept
-wire icache_wins = icache_req_valid_i & can_grant & ~dcache_req_valid_i & ~branching_i; 
+wire icache_wins = icache_req_valid_i & can_grant & ~dcache_req_valid_i; 
 
 // 3. Grant Signals (Cache Ready Outputs)
 assign dcache_req_ready_o = dcache_wins;

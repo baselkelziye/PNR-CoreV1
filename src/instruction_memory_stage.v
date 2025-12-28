@@ -90,8 +90,21 @@ module instruction_memory_stage
   output reg [3:0] rob_tag_mem_o,
   input instr_valid_mem_i,
   output reg instr_valid_mem_o,
+  //ROB ALLOC
+  output [3:0] rob_commit_tag_mem_o,
+  output rob_commit_mem_done_mem_o,
+  output rob_commit_exception_mem_o,
+  output [31:0] rob_commit_scause_mem_o,
+  output [31:0] rob_commit_stval_mem_o,
+  input rob_drain_req_mem_i,
+  output sb_resp_done_mem_o,
+
   
   //Wishbone + Peripherals
+  input rob_flush_mem_i,
+  input rob_exception_mem_i,
+  input rob_sret_mem_i,
+
   output wire peripheral_stall_o,
 
   output reg [31:0] fetched_instruction_mem_o,
@@ -175,7 +188,7 @@ module instruction_memory_stage
     .pa_dtlb_o          (   pa_dtlb                ),
     .dtlb_hit_o         (   dtlb_hit_o             )
   );
-
+wire sb_full_o,dcache_done_o;
   data_mem_subsystem data_mem_subsystem_u
   (
       .clk_i                      (   clk_i                   ),
@@ -184,12 +197,18 @@ module instruction_memory_stage
       .write_data_i               (   latest_rs2_value_mem_i  ),
       .is_load_instr              (   is_load_mem_i           ),
       .is_store_instr             (   is_store_mem_i          ),
-      .trap_en_mem_i              (ebreak_trap_mem_i | ecall_trap_mem_i | itlb_miss_mem_i | load_page_fault | store_page_fault), // If we have Exception, Don't Do mem op
+      .trap_en_mem_i              ( load_page_fault | store_page_fault), // If we have Exception, Don't Do mem op
       .trap_en_wb_i               (   trap_en_mem_i           ), //This signal comes from WB to MEM stage,
       .funct3_i                   (   funct3_mem_i            ),
       .sb_id_i                    (   sb_id_mem_i             ),
       .data_mem_subsystem_stall_o (   data_subsystem_stall    ),
+      .dcache_done_o(dcache_done_o),
+      .rob_drain_req_mem_i(rob_drain_req_mem_i),
+      .sb_full_o(sb_full_o),
       .read_data_o                (   data_read_from_mem      ),
+      .rob_flush_i(rob_flush_mem_i),
+      .rob_exception_i(rob_exception_mem_i),
+      .rob_sret_i(rob_sret_mem_i),
       //dcache request handshake
       .dcache_req_valid_o(dcache_req_valid_mem_o),
       .dcache_req_ready_i(dcache_req_valid_mem_i),
@@ -202,11 +221,38 @@ module instruction_memory_stage
       .dcache_data_ready_o(dcache_data_ready_mem_o),
       .dcache_line_fill_i(dcache_line_fill_mem_i),
       .dcache_line_evit_o(dcache_line_evict_mem_o),
+      .sb_resp_done_mem_o(sb_resp_done_mem_o),
       //dtlb interface
       .dtlb_hit_i(dtlb_hit_o)
   );
 
+  wire mem_stage_done;
+  reg exception_raised_mem;
+  reg [31:0] scause_mem, stval_mem;
 
+  assign mem_stage_done = (instr_valid_mem_i & ((is_store_mem_i & ~sb_full_o) || (is_load_mem_i & dcache_done_o)));
+
+  always @* begin
+    exception_raised_mem = 1'b0;
+    scause_mem = 32'b0;
+    stval_mem = 32'b0;
+    if(load_page_fault) begin
+       exception_raised_mem = 1'b1;
+       scause_mem = {1'b0, 31'd15};
+       stval_mem  = alu_result_mem_i;
+    end else if(store_page_fault) begin
+       exception_raised_mem = 1'b1;
+       scause_mem = {1'b0, 31'd13};
+       stval_mem  = alu_result_mem_i;
+    end
+  end
+
+
+  assign rob_commit_mem_done_mem_o = mem_stage_done;
+  assign rob_commit_exception_mem_o = exception_raised_mem;
+  assign rob_commit_scause_mem_o = scause_mem;
+  assign rob_commit_stval_mem_o  = stval_mem;
+  assign rob_commit_tag_mem_o = rob_tag_mem_i;
   mux_4x1 #(.DATA_WIDTH(32))
   rd_value_selector_u
   (
@@ -330,7 +376,7 @@ always @(posedge clk_i, posedge rst_i)
     //   // csr_u.csr_trace_log(file);
     // end
     // if(`CORE_VERBOSITY >= 400)begin
-    //   data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
+      data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
     //   dtlb_u.dtlb_trace_log(file);
     // end
     // `ifdef MEM_DUMP

@@ -13,7 +13,10 @@ Assertions to be Added:
 */
 
 /*
-I need to transfer to IDLE stage in cache/Ram controllers on Trap
+STATUS: Now Store Buffer seems to stall the processor when its full. Check Commiting Stores
+1- RESET RAT ON EXCEPTIONS
+2- CHECK IF CSR INSTRUCTIONS ARE WORKING
+3- ADD CSR WR EN and ITLB WR EN AND DTLB WR EN TO ROB.
 */
 
 module core(
@@ -156,7 +159,7 @@ always @(posedge clk_i, posedge rst_i) begin
   if(rst_i) begin
     current_execution_mode <= `U_MODE;
   end else begin
-    if(exception_raised) begin
+    if(rob_exception) begin
       //If Trap Happens go to higher privilege
       //Now i only go from U to S mode
       case (current_execution_mode)
@@ -165,7 +168,7 @@ always @(posedge clk_i, posedge rst_i) begin
         `M_MODE: current_execution_mode <= `M_MODE;
         default: current_execution_mode <= `U_MODE;
       endcase
-    end else if(sret_trap_mem_o) begin // Return to U-MODE
+    end else if(rob_sret) begin // Return to U-MODE
           current_execution_mode <= `U_MODE;
     end
   end
@@ -182,6 +185,7 @@ wire instr_valid_if_o;
 wire o_rob_full,alloc_en_id_o;
 wire [4:0] alloc_rd_id_o;
 wire alloc_wr_en_id_o;
+wire alloc_is_store_id_o;
 wire [3:0] o_alloc_tag;
 wire [3:0] rs1_rob_tag_id_o, rs2_rob_tag_id_o;
 wire [31:0] rs1_rob_value_id_i, rs2_rob_value_id_i;
@@ -190,6 +194,14 @@ wire instr_valid_id_o, instr_valid_ex_o, instr_valid_mem_o;
 wire rob_commit_alu_done_ex_o, mem_done_ex_o;
 wire [3:0] rob_commit_tag_ex_o, rob_commit_tag_mem_o;
 wire [31:0] rob_commit_data_ex_o, rob_commit_data_mem_o;
+wire rob_commit_exception_ex_o;
+wire [31:0] rob_commit_scause_ex_o,rob_commit_stval_ex_o;
+wire [31:0] rob_commit_branch_address_ex_o;
+wire rob_commit_branch_ex_o;
+
+wire rob_commit_mem_done_mem_o,rob_commit_exception_mem_o;
+wire [31:0] rob_commit_scause_mem_o,rob_commit_stval_mem_o;
+
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -199,8 +211,8 @@ instruction_fetch if_u
   //Inputs From  Instruction Decode Stage For Load Hazard
   .load_stall_if_i                (   load_stall_id_o                   ),
   //Inputs From Execution Stage For Branching,
-  .branching_i                    (   branching_ex_o                    ),
-  .branching_address_i            (   branch_address_ex_o               ),
+  .branching_i                    (   rob_flush                         ), //Branch Occurs from ROB
+  .branching_address_i            (   rob_flush_pc                      ), // Branching Address is also from ROB
   //Inputs From Execution Stage For Branch Prediction
   .is_branch_instr_ex_i           (   is_branch_instr_id_o              ), // The output reg of id =  is equal to ex_wire
   .decrement_counter_i            (   decrement_counter_ex_o            ),
@@ -208,10 +220,11 @@ instruction_fetch if_u
   .update_btb_address_i           (   update_btb_address_ex_o           ),
   .pc_ex_i                        (   pc_id_o                           ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
+  .rob_arbiter_stall_if_i(alu_arbiter_stall),
   //Trap Signals
   .stvec_csr_i                    (   stvec_id_o                       ),
-  .trap_en_if_i                   (   exception_raised                  ),
-  .sret_trap_wb_i                 (   sret_trap_mem_o                   ),
+  .trap_en_if_i                   (   rob_exception                    ),
+  .sret_trap_wb_i                 (   rob_sret                   ),
   .trap_return_pc_i               (   sepc_id_o                         ),
   .current_execution_mode_if_i    (   current_execution_mode            ),
   //Outputs For Branch Prediction
@@ -268,7 +281,7 @@ instruction_decode id_u
   .alu_op_id_o                    (   alu_op_id_o                       ),
   .unconditional_branch_id_o      (   unconditional_branch_id_o         ),
   .ex_unit_sel_o                  (   ex_unit_sel_id_o                  ),
-  .trap_en_id_i                   (   exception_raised                  ),
+  .trap_en_id_i                   (   rob_exception                     ),
   .itlb_wr_en_id_o                (   itlb_wr_en_id_o                   ),
   .dtlb_wr_en_id_o                (   dtlb_wr_en_id_o                   ),
   //Program Counter
@@ -288,6 +301,7 @@ instruction_decode id_u
   .rd_label_ex_i                  (   rd_label_id_o                     ),
   .rd_value_ex_i                  (   rd_value_ex_o                     ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
+  .rob_arbiter_stall_id_i(alu_arbiter_stall),
   //Inputs From Memory Stages
   .reg_write_en_mem_i             (   reg_write_en_ex_o                 ),
   .rd_label_mem_i                 (   rd_label_ex_o                     ),
@@ -307,9 +321,9 @@ instruction_decode id_u
   .ecall_trap_id_o                (   ecall_trap_id_o                   ),
   .ebreak_trap_id_o               (   ebreak_trap_id_o                  ),
   .sret_trap_id_o                 (   sret_trap_id_o                    ),
-  .s_trap_cause_wb_i              (   scause                            ),
-  .s_trap_pc_wb_i                 (   pc_mem_o                          ),
-  .s_trap_tval_wb_i               (   stval                             ),
+  .s_trap_cause_wb_i              (   o_scause_rob                            ),
+  .s_trap_pc_wb_i                 (   rob_flush_pc                          ),
+  .s_trap_tval_wb_i               (   o_stval_rob                             ),
   .stvec_id_o                     (   stvec_id_o                        ),
   .sepc_id_o                      (   sepc_id_o                         ),
   .itlb_miss_id_i                 (   itlb_miss_if_o                    ),
@@ -320,6 +334,7 @@ instruction_decode id_u
   .alloc_en_id_o(alloc_en_id_o),
   .alloc_rd_id_o(alloc_rd_id_o),
   .alloc_wr_en_id_o(alloc_wr_en_id_o),
+  .alloc_is_store_id_o(alloc_is_store_id_o),
   .rob_tag_id_i(o_alloc_tag),
   .rs1_rob_tag_id_o(rs1_rob_tag_id_o), //Dependency check
   .rs2_rob_tag_id_o(rs2_rob_tag_id_o),
@@ -327,6 +342,8 @@ instruction_decode id_u
   .rs2_rob_valid_id_i(rs2_rob_valid),
   .rs1_rob_value_id_i(rs1_rob_value_id_i),
   .rs2_rob_value_id_i(rs2_rob_value_id_i),
+  .rs1_rob_busy_id_i(rs1_rob_busy),
+  .rs2_rob_busy_id_i(rs2_rob_busy),
   .rob_tag_id_o(rob_tag_id_o),
   .instr_valid_id_o(instr_valid_id_o),
   //ROB COMMIT
@@ -336,6 +353,7 @@ instruction_decode id_u
   .rob_commit_valid_id_i(rob_commit_valid),
   .rob_commit_tag_id_i(rob_commit_tag),
   //Pipeline Control Signals
+  .rob_flush_id_i(rob_flush),
   .branching_id_i                 (   branching_ex_o                    ),
   .peripheral_stall_id_i          (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
@@ -353,6 +371,7 @@ instruction_execution ex_u
   .rs2_label_ex_i                 (   rs2_label_id_o                    ),
   .imm_value_ex_i                 (   imm_value_id_o                    ),
   .load_stall_ex_i                (   load_stall_id_o                   ),
+  .rob_arbiter_stall_ex_i(alu_arbiter_stall),
   .load_store_forward_sel_ex_i    (   load_store_forward_sel_id_o       ),
   .reg_write_en_ex_i              (   reg_write_en_id_o                 ),
   .rs1_pc_imm_sel_ex_i            (   rs1_pc_imm_sel_id_o               ),
@@ -415,7 +434,7 @@ instruction_execution ex_u
   .ebreak_trap_ex_o               (   ebreak_trap_ex_o                  ),
   .sret_trap_ex_i                 (   sret_trap_id_o                    ),
   .sret_trap_ex_o                 (   sret_trap_ex_o                    ),
-  .trap_en_ex_i                   (   exception_raised                  ),
+  .trap_en_ex_i                   (   rob_exception                     ),
   .itlb_miss_ex_i                 (   itlb_miss_id_o                    ),
   .itlb_miss_ex_o                 (   itlb_miss_ex_o                    ),
   //ROB
@@ -426,6 +445,12 @@ instruction_execution ex_u
   .rob_commit_alu_done_ex_o(rob_commit_alu_done_ex_o),
   .rob_commit_tag_ex_o(rob_commit_tag_ex_o),
   .rob_commit_data_ex_o(rob_commit_data_ex_o),
+  .rob_commit_exception_ex_o(rob_commit_exception_ex_o),
+  .rob_commit_scause_ex_o(rob_commit_scause_ex_o),
+  .rob_commit_stval_ex_o(rob_commit_stval_ex_o),
+  .rob_commit_branch_ex_o(rob_commit_branch_ex_o),
+  .rob_commit_branch_address_ex_o(rob_commit_branch_address_ex_o),
+  // .rob_flush_ex_i(rob_flush),
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
   .branch_address_ex_o            (   branch_address_ex_o               ),
@@ -466,7 +491,7 @@ instruction_memory_stage mem_u
   .ebreak_trap_mem_o           (   ebreak_trap_mem_o              ),
   .sret_trap_mem_i             (   sret_trap_ex_o                 ),
   .sret_trap_mem_o             (   sret_trap_mem_o                ),
-  .trap_en_mem_i               (   exception_raised               ),
+  .trap_en_mem_i               (   rob_exception                  ),
   .itlb_wr_en_mem_i            (   itlb_wr_en_ex_o                ),
   .dtlb_wr_en_mem_i            (   dtlb_wr_en_ex_o                ),
   .itlb_wr_en_mem_o            (   itlb_wr_en_mem_o               ),
@@ -494,9 +519,19 @@ instruction_memory_stage mem_u
   .itlb_miss_mem_o             (itlb_miss_mem_o                   ),
   //ROB Signals
   .rob_tag_mem_i(rob_tag_ex_o),
-  .rob_tag_mem_o(rob_tag_ex_o),
+  .rob_tag_mem_o(rob_tag_mem_o),
   .instr_valid_mem_i(instr_valid_ex_o),
   .instr_valid_mem_o(instr_valid_mem_o),
+  .rob_flush_mem_i(rob_flush),
+  .rob_exception_mem_i(rob_exception),
+  .rob_sret_mem_i(rob_sret),
+  .rob_commit_mem_done_mem_o(rob_commit_mem_done_mem_o),
+  .rob_commit_exception_mem_o(rob_commit_exception_mem_o),
+  .rob_commit_scause_mem_o(rob_commit_scause_mem_o),
+  .rob_commit_stval_mem_o(rob_commit_stval_mem_o),
+  .rob_commit_tag_mem_o(rob_commit_tag_mem_o),
+  .rob_drain_req_mem_i(o_rob_sb_drain),
+  .sb_resp_done_mem_o(sb_resp_done_mem_o),
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
@@ -519,15 +554,15 @@ instruction_memory_stage mem_u
 
 //This block generates *cause, *tval 
 always @* begin
-  exception_raised = 1'b0;
+  // exception_raised = 1'b0;
   scause           = 32'b0;
   stval            = 32'b0;
   if(ebreak_trap_mem_o) begin
     scause = {1'b0, 31'd3}; //Breakpoint Has Trap Code = 3
-    exception_raised = 1'b1;
+    // exception_raised = 1'b1;
     stval            = 32'b0;
   end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
-    exception_raised = 1'b1;
+    // exception_raised = 1'b1;
     stval            = 32'b0;
     case (current_execution_mode)
       `U_MODE: scause = {1'b0, 31'd8}; //ecall from UMODE has cause 8 
@@ -536,15 +571,15 @@ always @* begin
       default: scause = 32'b0;
     endcase
   end else if(itlb_miss_mem_o) begin //itlb miss
-    exception_raised = 1'b1;
+    // exception_raised = 1'b1;
     scause = {1'b0, 31'd12}; //instruction page fault
     stval  = pc_mem_o;
   end else if(store_page_fault_mem_o) begin //load page fault = 13, store page fault =  15
-    exception_raised = 1'b1;
+    // exception_raised = 1'b1;
     scause = {1'b0, 31'd13};
     stval = alu_result_mem_o;
   end else if(load_page_fault_mem_o) begin
-    exception_raised = 1'b1;
+    // exception_raised = 1'b1;
     scause = {1'b0, 31'd15};
     stval = alu_result_mem_o;
   end
@@ -580,8 +615,8 @@ arbiter arbiter_u(
   .cache_ready_o(cache_ready_o), //Requester cache is ready to receieve
   .dcache_resp_valid_o(dcache_resp_valid_o), //When RAM is valid, Check the request ID and fires the corresponding one
   .icache_resp_valid_o(icache_resp_valid_o),
-  .branching_i(branching_ex_o),
-  .exception_raised_i(sret_trap_mem_o | exception_raised)
+  // .branching_i(branching_ex_o),
+  .exception_raised_i(rob_sret | rob_exception | rob_flush)
   );
 
 
@@ -607,8 +642,8 @@ RAM_u(
   .icache_line_fill_data_o  ( icache_line_fill_data ), //icache line read from RAM (Allocate)
   .dcache_line_fill_data_o  ( dcache_line_fill_data_o ), //dcache line read from RAM (Allocate)
   .dcache_line_evict_mem_i (dcache_line_evict_mem_o),// dcache line written to RAM (Writeback)
-  .branching_i              ( branching_ex_o        ), // If we have branch, Abort the request
-  .exception_raised_i(sret_trap_mem_o | exception_raised) //SRET and Exception Raised clears RAM
+  // .branching_i              ( branching_ex_o        ), // If we have branch, Abort the request
+  .exception_raised_i(rob_sret | rob_exception | rob_flush) //SRET and Exception Raised clears RAM
   
 );
 
@@ -617,25 +652,57 @@ wire mem_request, alu_request;
 reg cdb_valid, cdb_exc;
 reg [3:0] cdb_tag;
 reg [31:0] cdb_data;
-
+reg [31:0] cdb_scause, cdb_stval;
+reg [31:0]  cdb_branch_address;
+reg cdb_branch;
+reg alu_arbiter_stall;
+reg cdb_is_store;
 assign alu_request = rob_commit_alu_done_ex_o;
-
+assign mem_request = rob_commit_mem_done_mem_o;
 always @* begin
   cdb_valid = 1'b0;
   cdb_tag   = 1'b0;
   cdb_exc   = 1'b0;
-  if(alu_request) begin //Need to add scause, and exception raised
+  cdb_data  = 32'b0;
+  cdb_scause = 32'b0;
+  cdb_stval  = 32'b0;
+  cdb_branch = 1'b0;
+  cdb_branch_address  = 32'b0;
+  alu_arbiter_stall  = 1'b0;
+  if(mem_request) begin
     cdb_valid = 1'b1;
-    cdb_tag   = rob_commit_tag_ex_o;
-    cdb_data  = rob_commit_data_ex_o;
+    cdb_tag = rob_commit_tag_mem_o;
+    //cdb_tag DATA
+    cdb_exc = rob_commit_exception_mem_o;
+    cdb_scause = rob_commit_scause_mem_o;
+    cdb_stval  = rob_commit_stval_mem_o;
+    if(alu_request) begin //We have contention for the BUS, Priority to MEM
+      alu_arbiter_stall = 1'b1;
+    end
+  end else if(alu_request) begin
+    cdb_valid  = 1'b1;
+    cdb_tag    = rob_commit_tag_ex_o;
+    cdb_data   = rob_commit_data_ex_o;
+    cdb_exc    = rob_commit_exception_ex_o;
+    cdb_scause = rob_commit_scause_ex_o;
+    cdb_stval  = rob_commit_stval_ex_o;
+    cdb_branch = rob_commit_branch_ex_o;
+    cdb_branch_address = rob_commit_branch_address_ex_o;
   end
 end
+
 wire rob_commit_we;
 wire [4:0] rob_commit_rd_label;
 wire [31:0] rob_commit_data;
 wire [31:0] rob_commit_pc, rob_commit_instr;
 wire rob_commit_valid;
 wire [3:0] rob_commit_tag;
+wire rob_flush;
+wire [31:0] rob_flush_pc;
+wire rob_exception,rob_sret;
+wire [31:0] o_stval_rob, o_scause_rob;
+wire rs1_rob_busy, rs2_rob_busy;
+wire o_rob_sb_drain;
 rob #(
   .ROB_SIZE(16),
   .DATA_WIDTH(32),
@@ -650,6 +717,7 @@ rob_u(
   .i_alloc_we(alloc_wr_en_id_o), // ID reg wr en
   .i_alloc_pc(pc_incremented_if_o),
   .i_alloc_instr(fetched_instruction_if_o), //For debug
+  .i_alloc_is_store(alloc_is_store_id_o),
   .o_alloc_tag(o_alloc_tag), //index assign to this instruction
   .o_rob_full(o_rob_full),
 
@@ -658,13 +726,21 @@ rob_u(
   .i_rs2_rob_tag(rs2_rob_tag_id_o),
   .o_rs1_valid(rs1_rob_valid),
   .o_rs2_valid(rs2_rob_valid),
+  .o_rs1_busy(rs1_rob_busy),
+  .o_rs2_busy(rs2_rob_busy),
   .o_rs1_value(rs1_rob_value_id_i),
   .o_rs2_value(rs2_rob_value_id_i),
-  //ALU Interface
-  .i_cdb_valid(cdb_valid), //ALU op Done
-  .i_cdb_tag(cdb_tag), // which ROB entry
-  .i_cdb_result(cdb_data), // Result
-  .i_cdb_exc(1'b0), //Exceptions
+  //CDB
+  .i_cdb_valid  (cdb_valid  ), //ALU op Done
+  .i_cdb_tag    (cdb_tag    ), // which ROB entry
+  .i_cdb_result (cdb_data   ), // Result
+  .i_cdb_exc    (cdb_exc    ), //Exceptions
+  .i_cdb_scause (cdb_scause ),
+  .i_cdb_stval  (cdb_stval  ),
+  .i_cdb_branch(cdb_branch),
+  .i_cdb_branch_address(cdb_branch_address),
+  .i_sb_drain_done(sb_resp_done_mem_o),
+
 
   //Commit interface
   .o_commit_we(rob_commit_we), //Register Reg Wr En
@@ -672,7 +748,14 @@ rob_u(
   .o_commit_data(rob_commit_data), //Data written
   .o_commit_pc(rob_commit_pc), //PC of retiring instr
   .o_commit_valid(rob_commit_valid),
-  .o_commit_rob_tag(rob_commit_tag)
+  .o_commit_rob_tag(rob_commit_tag),
+  .o_flush(rob_flush),
+  .o_exception(rob_exception),
+  .o_sret(rob_sret),
+  .o_flush_pc(rob_flush_pc),
+  .o_scause_rob(o_scause_rob),
+  .o_stval_rob(o_stval_rob),
+  .o_rob_sb_drain(o_rob_sb_drain)
 );
 
 `ifdef COCOTB_SIM

@@ -20,8 +20,15 @@ module data_mem_subsystem #(
     input      [7:0 ]  sb_id_i,
     input              trap_en_mem_i,
     input              trap_en_wb_i,
+    input rob_drain_req_mem_i,
+    output sb_resp_done_mem_o,
     output             data_mem_subsystem_stall_o,
+    output             sb_full_o,
+    output             dcache_done_o,
     output     [31:0]  read_data_o,
+    input rob_flush_i,
+    input rob_exception_i,
+    input rob_sret_i,
 
     //dcache request handshake
     output dcache_req_valid_o, //request access
@@ -121,6 +128,8 @@ assign tag            = sb_drain ? sb_entry_rd_addr[`TAG]        : address_i[`TA
 assign tag_arr_data   = sb_drain ? sb_entry_rd_data              : write_data_i;
 assign tag_arr_funct3 = sb_drain ? sb_entry_rd_funct3            : funct3_i;
 assign data_mem_subsystem_stall_o = dcache_stall | sb_is_full;
+assign sb_full_o = sb_is_full;
+assign sb_resp_done_mem_o = sb_resp_done_o;
 
 assign cache_line_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; //Address gathered from tag array
 assign cache_line_rd_addr = {latched_line_addr[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
@@ -212,6 +221,7 @@ l1_dcache_controller l1_dcache_controller_u
     .dcache_resp_valid_i(dcache_resp_valid_i),
     .ram_response_id_i(ram_response_id_i),
     .dcache_data_ready_o(dcache_data_ready_o),
+    .dcache_done_o(dcache_done_o),
     .dtlb_hit_i(dtlb_hit_i)
 );
 
@@ -236,8 +246,12 @@ store_buffer_u(
     .sb_entry_rd_o          (   sb_entry_rd                 ),
     .sb_stall_o             (   sb_is_full                  ),
     .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
+    .rob_drain_req_i(rob_drain_req_mem_i),
     // .sb_cache_wr_o          (   sb_cache_wr                 ),
     .sb_id_i                (   sb_id_i                     ),
+    .rob_flush_i(rob_flush_i),
+    .rob_exception_i(rob_exception_i),
+    .rob_sret_i(rob_sret_i),
     //Interrupt Inputs to prevent writing, when ROB is added those are not needed
     //Because SB will not be an architectural state
     .trap_en_mem_i          (   trap_en_mem_i               ),
@@ -258,8 +272,8 @@ function void data_mem_subsystem_trace_log(int file);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, address: %b, word_off: %b, index_bits: %b, tag_i: %b, byte_off: %b ",$time,address_i,word_off,index_bits,tag_i,byte_off);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, word_addr_dcache: %b",$time,word_addr_dcache);
 if(`CORE_VERBOSITY >= 500)begin
-    l1_dcache_controller_u.dcache_controller_trace_log(file);
-    // store_buffer_u.store_buffer_trace_log(file);
+    // l1_dcache_controller_u.dcache_controller_trace_log(file);
+    store_buffer_u.store_buffer_trace_log(file);
     l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
     // DATA_RAM_u.DATA_RAM_trace_log(file);

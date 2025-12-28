@@ -48,6 +48,7 @@ module l1_dcache_controller
     input  logic dcache_resp_valid_i,
     input  logic ram_response_id_i,
     output logic dcache_data_ready_o,
+    output dcache_done_o,
     //---------DTLB-----------
     input dtlb_hit_i
 );
@@ -145,6 +146,7 @@ always @(*) begin
                 cache_access_stall_next = 1'b1;
                 trans_is_sb_next = 1'b0; 
             end
+        
         end
         
         COMPARE_TAG: begin
@@ -265,6 +267,7 @@ assign dcache_rd_wr_o = dcache_rd_wr_reg;
 // Done Signal for Store Buffer (Only pulse if SB initiated transaction)
 wire generic_access_done = cache_access_stall_reg & ~cache_access_stall_next;
 assign sb_resp_done_o    = generic_access_done & trans_is_sb_reg;
+assign dcache_done_o     = generic_access_done | ~dtlb_hit_i;
 `ifdef CORE_VERBOSITY
 
 // String representation of the current state

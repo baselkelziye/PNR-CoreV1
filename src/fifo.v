@@ -58,7 +58,7 @@ assign rd_en = rd & ~empty_reg;
 
 // --- FIFO Pointer Control Logic ---
 
-always @(posedge clk, posedge reset) begin
+always @(posedge clk) begin
     if(reset) begin
         w_ptr_reg <= 0;
         r_ptr_reg <= 0;

@@ -76,6 +76,7 @@ module instruction_fetch #(
 
   //ROB signals
   output reg instr_valid_if_o, //Indicates its valid instruction and not a Bubble
+  input rob_arbiter_stall_if_i,
 
   input wire periheral_stall_if_i,
   input wire mem_stage_stall_i
@@ -93,7 +94,7 @@ module instruction_fetch #(
   wire [31:0] physical_pc;
 
 
-  assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i) & ~trap_en_if_i;
+  assign if_stage_stall = (load_stall_if_i | periheral_stall_if_i | mem_stage_stall_i | mdu_stall_ex_i | rob_arbiter_stall_if_i) & ~trap_en_if_i;
   assign if_flush = branching_i | trap_en_if_i | sret_trap_wb_i;
 
 

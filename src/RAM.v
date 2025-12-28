@@ -32,7 +32,7 @@ module RAM #
     output logic [WORD_WIDTH-1:0] dcache_line_fill_data_o[0:D_WORDS_PER_LINE-1], 
     
     // --- Control ---
-    input logic branching_i,
+    // input logic branching_i,
     input exception_raised_i
 );
 
@@ -70,7 +70,7 @@ localparam  [2:0]
         // Update path to your hex file
         $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/spike/trap_handler.hex", MEMORY,32'h0000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
-        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/rob_2.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basic_store.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h00426000); //PA Mapping for VA = 0x16000
@@ -149,7 +149,7 @@ localparam  [2:0]
 
         // Reset logic on branch (Flush ICache fill if in progress)
         //Even if we are in IDLE, We check so we don't instantiate a Request
-        if((branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE || mem_state_reg == IDLE)) || exception_raised_i) begin
+        if(/*(branching_i && (mem_state_reg == ICACHE_READ_WORD || mem_state_reg == ICACHE_READ_DONE || mem_state_reg == IDLE)) ||*/ exception_raised_i) begin
             mem_state_next = IDLE;
             op_done_next = 1'b0;
             icache_word_counter_next = '0;

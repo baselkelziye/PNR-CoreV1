@@ -71,6 +71,7 @@ module instruction_decode(
   output alloc_wr_en_id_o,
   input [3:0] rob_tag_id_i, //ROB Tag For this instruction
   output reg [3:0] rob_tag_id_o,
+  output alloc_is_store_id_o,
   //Dependency Signals
   output [3:0] rs1_rob_tag_id_o,
   output [3:0] rs2_rob_tag_id_o,
@@ -78,6 +79,8 @@ module instruction_decode(
   input rs1_rob_valid_id_i,
   input rs2_rob_valid_id_i,
 
+  input rs1_rob_busy_id_i,
+  input rs2_rob_busy_id_i,
   input [31:0] rs1_rob_value_id_i,
   input [31:0] rs2_rob_value_id_i,
   //ROB Commit
@@ -127,6 +130,8 @@ module instruction_decode(
 
   //Pipeline Control Signals
   input wire branching_id_i,
+  input wire rob_flush_id_i, //When ROB fire a Branch or Exception!
+  input rob_arbiter_stall_id_i,
 
   //Inputs for Wishbone
   input wire peripheral_stall_id_i,
@@ -189,12 +194,13 @@ assign csr_addr  = fetched_instruction_id_i[31:20];
     
     
 assign load_stall_id_o = load_stall | rs1_rob_stall | rs2_rob_stall;
-assign id_stage_stall  =  (peripheral_stall_id_i | mem_stage_stall_i | mdu_stall_ex_i | rs1_rob_stall | rs2_rob_stall) & ~trap_en_id_i; //If we have a Trap, Cancel Stall to let Bubble
-assign id_flush        = load_stall | branching_id_i | trap_en_id_i;
+assign id_stage_stall  =  (peripheral_stall_id_i | mem_stage_stall_i | mdu_stall_ex_i | rs1_rob_stall | rs2_rob_stall | rob_arbiter_stall_id_i) & ~(trap_en_id_i | rob_flush_id_i); //If we have a Trap, Cancel Stall to let Bubble
+assign id_flush        = load_stall | rob_flush_id_i | trap_en_id_i;
 
 //If we have stall, Don't Allocate
 assign alloc_en_id_o = instr_valid_id_i & ~rob_full_id_i & ~id_stage_stall;
 assign alloc_rd_id_o = rd_label;
+assign alloc_is_store_id_o = is_store_instr;
 assign alloc_wr_en_id_o = reg_write_en;
 
 //CSR wr_en signal indicates that 
@@ -251,7 +257,7 @@ mux_4x1 #(
     .in1_i  (   rd_value_ex_i         ),
     .in2_i  (   rd_value_mem_i        ),
     .in3_i  (   rd_value_wb_i         ),
-    .sel_i  (   forwardA              ),
+    .sel_i  (   2'b00              ),
     .out_o  (   rs1_forwarded_value   )
 );
 
@@ -262,7 +268,7 @@ mux_4x1 #(
     .in1_i  (   rd_value_ex_i         ),
     .in2_i  (   rd_value_mem_i        ),
     .in3_i  (   rd_value_wb_i         ),
-    .sel_i  (   forwardB              ),
+    .sel_i  (   2'b00                 ),
     .out_o  (   rs2_forwarded_value   )
 );
         
@@ -316,8 +322,8 @@ assign rs1_rob_forward = rs1_in_rob ? rs1_rob_value_id_i : rs1_forwarded_value;
 assign rs2_rob_forward = rs2_in_rob ? rs2_rob_value_id_i : rs2_forwarded_value;
 
 //if rs1 is in ROB and the entry is not VAlid means we need to stall
-assign rs1_rob_stall = rs1_in_rob & ~rs1_rob_valid_id_i; 
-assign rs2_rob_stall = rs2_in_rob & ~rs2_rob_valid_id_i;
+assign rs1_rob_stall = rs1_in_rob &  rs1_rob_busy_id_i & ~rs1_rob_valid_id_i; 
+assign rs2_rob_stall = rs2_in_rob &  rs2_rob_busy_id_i & ~rs2_rob_valid_id_i;
 
 rat #(
   .ROB_TAG_WIDTH(4),
@@ -459,7 +465,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
     $fwrite(file,"\nTime, %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b\n", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
     // $fwrite(file,"\nTime, %1t, ");
-    rat_u.rat_trace_log(file);
+    // rat_u.rat_trace_log(file);
     // csr_u.csr_trace_log(file);
     // $fwrite(file, "\nTime: %1t, rs1_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs1_forwarded_value: 0x%h", $time,rs1_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardA,rs1_forwarded_value);
     // $fwrite(file, "\nTime: %1t, rs2_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs2_forwarded_value: 0x%h", $time,rs2_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardB,rs2_forwarded_value);
