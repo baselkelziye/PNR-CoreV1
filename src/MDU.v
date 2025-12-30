@@ -42,7 +42,7 @@ module MDU(
         end
     end
 
-    always @(posedge clk_i, posedge rst_i) begin
+    always @(posedge clk_i) begin
         if(rst_i) begin
             mdu_done <= 1'b0;
         end else if(mul_counter_reg == 3'b101 & ~mem_stall_i) begin
@@ -52,7 +52,7 @@ module MDU(
         end
     end
 
-    always @(posedge clk_i, posedge rst_i) begin
+    always @(posedge clk_i) begin
         if(rst_i | mdu_done) begin
             mul_counter_reg <= 3'b0;
         end else if(start_mdu_i) begin

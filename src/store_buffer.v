@@ -55,7 +55,7 @@ wire [SB_ENTRY_SIZE-1:0] sb_entry_wr, sb_entry_rd;
 // ----------------------------------------------------------------
 // FSM: Master Handshake Logic
 // ----------------------------------------------------------------
-always @(posedge clk_i or posedge rst_i) begin
+always @(posedge clk_i) begin
     if(rst_i) begin
         sb_state_reg     <= SB_IDLE;
         sb_req_valid_reg <= 1'b0;

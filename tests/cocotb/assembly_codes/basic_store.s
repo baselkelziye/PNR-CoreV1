@@ -1,3 +1,4 @@
+addi x5,x0,5
 lui x10, 0xABCD
 addi x10, x10, 0x555
 lui x11, 0xDDCC

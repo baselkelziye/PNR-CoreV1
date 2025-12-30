@@ -27,7 +27,7 @@ reg [I_TAG_SIZE-1       :0] icache_tag_arr[0:I_ENTRIES];
 reg [INSTRUCTION_WIDTH-1:0] icache_line [0:I_ENTRIES-1][0:I_WORDS_PER_LINE-1];
 
 integer i,j,y;
-always @(posedge clk_i, posedge rst_i) begin
+always @(posedge clk_i) begin
     if(rst_i) begin
         for(i = 0; i < I_ENTRIES; i = i +1) begin
             icache_valid_bit[i] = 1'b0;

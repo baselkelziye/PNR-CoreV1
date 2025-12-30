@@ -13,11 +13,20 @@ Assertions to be Added:
 */
 
 /*
-STATUS: Now Store Buffer seems to stall the processor when its full. Check Commiting Stores
-1- RESET RAT ON EXCEPTIONS
-2- CHECK IF CSR INSTRUCTIONS ARE WORKING
-3- ADD CSR WR EN and ITLB WR EN AND DTLB WR EN TO ROB.
+STATUS:
+in mem copy,it looks like there are unneccessary eviction, it happens like: Evict, write, Evict Write, Hence last line is always 0. 
+wierd bug to be solved. 
+
+Need to implement Multiplication!
 */
+
+/*
+Perfomance Bottlenecks
+1- itlb and dtlb can be written to Rob in ID stage, now its from EX
+2- Same as above for: ecall, sret, ebreak
+
+
+*/ 
 
 module core(
     input clk_i, rst_i
@@ -198,10 +207,14 @@ wire rob_commit_exception_ex_o;
 wire [31:0] rob_commit_scause_ex_o,rob_commit_stval_ex_o;
 wire [31:0] rob_commit_branch_address_ex_o;
 wire rob_commit_branch_ex_o;
-
+wire rob_commit_sret_ex_o;
+wire [11:0] rob_commit_csr_addr_ex_o;
 wire rob_commit_mem_done_mem_o,rob_commit_exception_mem_o;
 wire [31:0] rob_commit_scause_mem_o,rob_commit_stval_mem_o;
-
+wire rob_commit_csr_wr_en_ex_o;
+wire [31:0] rob_commit_rs1_ex_o,rob_commit_rs2_ex_o;
+wire rob_commit_itlb_wr_en_ex_o, rob_commit_dtlb_wr_en_ex_o;
+// wire [31:0] rob_commit_data_mem_o;
 instruction_fetch if_u
 (
   .clk_i                          (   clk_i                             ),
@@ -218,6 +231,7 @@ instruction_fetch if_u
   .decrement_counter_i            (   decrement_counter_ex_o            ),
   .increment_counter_i            (   increment_counter_ex_o            ),
   .update_btb_address_i           (   update_btb_address_ex_o           ),
+  .btb_branch_address_i           (   branch_address_ex_o               ), //BP is updated in EX, not when Branch is committed!!
   .pc_ex_i                        (   pc_id_o                           ),
   .mdu_stall_ex_i                 (   mdu_stall_ex                      ),
   .rob_arbiter_stall_if_i(alu_arbiter_stall),
@@ -245,9 +259,9 @@ instruction_fetch if_u
   .mem_stage_stall_i              (   mem_stage_stall                   ),
   //itlb
   .itlb_miss_if_o                 ( itlb_miss_if_o              ),
-  .itlb_wr_en_if_i                ( itlb_wr_en_mem_o            ),
-  .rs1_if_i                       ( rs1_mem_o                   ),
-  .rs2_if_i                       ( rs2_mem_o                   ),
+  .itlb_wr_en_if_i                ( rob_commit_itlb_wr_en            ),
+  .rs1_if_i                       ( rob_commit_rs1                   ),
+  .rs2_if_i                       ( rob_commit_rs2                   ),
   //ROB
   .instr_valid_if_o               (instr_valid_if_o)
 );
@@ -312,8 +326,8 @@ instruction_decode id_u
   .rd_label_wb_i                  (   rd_label_mem_o                    ),
   .rd_value_wb_i                  (   rd_value_mem_ro                   ),
   //Inputs To CSR/Trap Logic
-  .csr_wr_en_wb_i                 (   csr_wr_en_mem_o                   ),
-  .csr_wr_addr_wb_i               (   csr_addr_mem_o                    ),
+  .csr_wr_en_wb_i                 (   rob_commit_csr_wr_en              ),
+  .csr_wr_addr_wb_i               (   rob_commit_csr_addr               ),
   .csr_rd_value_wb_i              (   csr_rd_value_mem_o                ),
   .csr_wr_en_o                    (   csr_wr_en_id_o                    ),
   .csr_addr_id_o                  (   csr_addr_id_o                     ),
@@ -321,9 +335,9 @@ instruction_decode id_u
   .ecall_trap_id_o                (   ecall_trap_id_o                   ),
   .ebreak_trap_id_o               (   ebreak_trap_id_o                  ),
   .sret_trap_id_o                 (   sret_trap_id_o                    ),
-  .s_trap_cause_wb_i              (   o_scause_rob                            ),
-  .s_trap_pc_wb_i                 (   rob_flush_pc                          ),
-  .s_trap_tval_wb_i               (   o_stval_rob                             ),
+  .s_trap_cause_wb_i              (   o_scause_rob                      ),
+  .s_trap_pc_wb_i                 (   rob_instr_pc                      ),
+  .s_trap_tval_wb_i               (   o_stval_rob                       ),
   .stvec_id_o                     (   stvec_id_o                        ),
   .sepc_id_o                      (   sepc_id_o                         ),
   .itlb_miss_id_i                 (   itlb_miss_if_o                    ),
@@ -354,6 +368,8 @@ instruction_decode id_u
   .rob_commit_tag_id_i(rob_commit_tag),
   //Pipeline Control Signals
   .rob_flush_id_i(rob_flush),
+  .rob_exception_id_i(rob_exception),
+  .rob_sret_id_i(rob_sret),
   .branching_id_i                 (   branching_ex_o                    ),
   .peripheral_stall_id_i          (   peripheral_stall_mem_o            ),
   .mem_stage_stall_i              (   mem_stage_stall                   )
@@ -450,6 +466,13 @@ instruction_execution ex_u
   .rob_commit_stval_ex_o(rob_commit_stval_ex_o),
   .rob_commit_branch_ex_o(rob_commit_branch_ex_o),
   .rob_commit_branch_address_ex_o(rob_commit_branch_address_ex_o),
+  .rob_commit_sret_ex_o(rob_commit_sret_ex_o),
+  .rob_commit_csr_addr_ex_o(rob_commit_csr_addr_ex_o),
+  .rob_commit_csr_wr_en_ex_o(rob_commit_csr_wr_en_ex_o),
+  .rob_commit_rs1_ex_o(rob_commit_rs1_ex_o),
+  .rob_commit_rs2_ex_o(rob_commit_rs2_ex_o),
+  .rob_commit_itlb_wr_en_ex_o(rob_commit_itlb_wr_en_ex_o),
+  .rob_commit_dtlb_wr_en_ex_o(rob_commit_dtlb_wr_en_ex_o),
   // .rob_flush_ex_i(rob_flush),
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
@@ -476,7 +499,8 @@ instruction_memory_stage mem_u
   .funct3_mem_i                (   funct3_ex_o                    ),
   .is_store_mem_i              (   is_store_instr_ex_o            ),
   .is_load_mem_i               (   is_load_instr_ex_o             ),
-  .rs1_mem_i                   (   rs1_value_ex_o                 ),
+  .rs1_mem_i                   (   rob_commit_rs1                 ),
+  .rs2_mem_i                   (   rob_commit_rs2                 ),
   .latest_rs2_value_mem_i      (   latest_rs2_value_ex_o          ),
   .fetched_instruction_mem_i   (   fetched_instruction_ex_o       ),
   .sb_id_mem_i                 (   sb_id_ex_o                     ),
@@ -493,7 +517,7 @@ instruction_memory_stage mem_u
   .sret_trap_mem_o             (   sret_trap_mem_o                ),
   .trap_en_mem_i               (   rob_exception                  ),
   .itlb_wr_en_mem_i            (   itlb_wr_en_ex_o                ),
-  .dtlb_wr_en_mem_i            (   dtlb_wr_en_ex_o                ),
+  .dtlb_wr_en_mem_i            (   rob_commit_dtlb_wr_en                ),
   .itlb_wr_en_mem_o            (   itlb_wr_en_mem_o               ),
   .dtlb_wr_en_mem_o            (   dtlb_wr_en_mem_o               ),
   .load_page_fault_mem_o       (   load_page_fault_mem_o          ),
@@ -531,6 +555,7 @@ instruction_memory_stage mem_u
   .rob_commit_stval_mem_o(rob_commit_stval_mem_o),
   .rob_commit_tag_mem_o(rob_commit_tag_mem_o),
   .rob_drain_req_mem_i(o_rob_sb_drain),
+  .rob_commit_data_mem_o(rob_commit_data_mem_o),
   .sb_resp_done_mem_o(sb_resp_done_mem_o),
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
@@ -654,9 +679,14 @@ reg [3:0] cdb_tag;
 reg [31:0] cdb_data;
 reg [31:0] cdb_scause, cdb_stval;
 reg [31:0]  cdb_branch_address;
+reg cdb_sret;
 reg cdb_branch;
 reg alu_arbiter_stall;
 reg cdb_is_store;
+reg [11:0] cdb_csr_addr;
+reg cdb_csr_wr_en;
+reg [31:0] cdb_rs1, cdb_rs2;
+reg cdb_itlb_wr_en, cdb_dtlb_wr_en;
 assign alu_request = rob_commit_alu_done_ex_o;
 assign mem_request = rob_commit_mem_done_mem_o;
 always @* begin
@@ -669,6 +699,13 @@ always @* begin
   cdb_branch = 1'b0;
   cdb_branch_address  = 32'b0;
   alu_arbiter_stall  = 1'b0;
+  cdb_sret          = 1'b0;
+  cdb_csr_addr      = '1;
+  cdb_csr_wr_en = 1'b0;
+  cdb_rs1 = 0;
+  cdb_rs2 = 0;
+  cdb_itlb_wr_en = 1'b0;
+  cdb_dtlb_wr_en = 1'b0;
   if(mem_request) begin
     cdb_valid = 1'b1;
     cdb_tag = rob_commit_tag_mem_o;
@@ -676,6 +713,7 @@ always @* begin
     cdb_exc = rob_commit_exception_mem_o;
     cdb_scause = rob_commit_scause_mem_o;
     cdb_stval  = rob_commit_stval_mem_o;
+    cdb_data   = rob_commit_data_mem_o;
     if(alu_request) begin //We have contention for the BUS, Priority to MEM
       alu_arbiter_stall = 1'b1;
     end
@@ -688,6 +726,13 @@ always @* begin
     cdb_stval  = rob_commit_stval_ex_o;
     cdb_branch = rob_commit_branch_ex_o;
     cdb_branch_address = rob_commit_branch_address_ex_o;
+    cdb_sret = rob_commit_sret_ex_o;
+    cdb_csr_addr = rob_commit_csr_addr_ex_o;
+    cdb_csr_wr_en    = rob_commit_csr_wr_en_ex_o;
+    cdb_rs1 = rob_commit_rs1_ex_o;
+    cdb_rs2 = rob_commit_rs2_ex_o;
+    cdb_itlb_wr_en = rob_commit_itlb_wr_en_ex_o;
+    cdb_dtlb_wr_en = rob_commit_dtlb_wr_en_ex_o;
   end
 end
 
@@ -700,9 +745,13 @@ wire [3:0] rob_commit_tag;
 wire rob_flush;
 wire [31:0] rob_flush_pc;
 wire rob_exception,rob_sret;
-wire [31:0] o_stval_rob, o_scause_rob;
+wire [31:0] o_stval_rob, o_scause_rob,rob_instr_pc;
 wire rs1_rob_busy, rs2_rob_busy;
 wire o_rob_sb_drain;
+wire rob_commit_csr_wr_en;
+wire [11:0] rob_commit_csr_addr;
+wire [31:0] rob_commit_rs1, rob_commit_rs2;
+wire rob_commit_itlb_wr_en, rob_commit_dtlb_wr_en;
 rob #(
   .ROB_SIZE(16),
   .DATA_WIDTH(32),
@@ -735,10 +784,18 @@ rob_u(
   .i_cdb_tag    (cdb_tag    ), // which ROB entry
   .i_cdb_result (cdb_data   ), // Result
   .i_cdb_exc    (cdb_exc    ), //Exceptions
+  .i_cdb_sret   (cdb_sret   ),
   .i_cdb_scause (cdb_scause ),
   .i_cdb_stval  (cdb_stval  ),
   .i_cdb_branch(cdb_branch),
   .i_cdb_branch_address(cdb_branch_address),
+  .i_cdb_csr_addr(cdb_csr_addr),
+  .i_cdb_csr_wr(cdb_csr_wr_en),
+  .i_cdb_rs1(cdb_rs1),
+  .i_cdb_rs2(cdb_rs2),
+  .i_cdb_itlb_wr_en(cdb_itlb_wr_en),
+  .i_cdb_dtlb_wr_en(cdb_dtlb_wr_en),
+
   .i_sb_drain_done(sb_resp_done_mem_o),
 
 
@@ -749,10 +806,17 @@ rob_u(
   .o_commit_pc(rob_commit_pc), //PC of retiring instr
   .o_commit_valid(rob_commit_valid),
   .o_commit_rob_tag(rob_commit_tag),
+  .o_commit_csr_wr_en(rob_commit_csr_wr_en),
+  .o_commit_csr_addr(rob_commit_csr_addr),
+  .o_commit_rs1(rob_commit_rs1),//for TLB write instructions!!
+  .o_commit_rs2(rob_commit_rs2),
+  .o_commit_itlb_wr_en(rob_commit_itlb_wr_en),
+  .o_commit_dtlb_wr_en(rob_commit_dtlb_wr_en),
   .o_flush(rob_flush),
   .o_exception(rob_exception),
   .o_sret(rob_sret),
   .o_flush_pc(rob_flush_pc),
+  .o_instr_pc(rob_instr_pc),
   .o_scause_rob(o_scause_rob),
   .o_stval_rob(o_stval_rob),
   .o_rob_sb_drain(o_rob_sb_drain)

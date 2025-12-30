@@ -272,7 +272,7 @@ function void data_mem_subsystem_trace_log(int file);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, address: %b, word_off: %b, index_bits: %b, tag_i: %b, byte_off: %b ",$time,address_i,word_off,index_bits,tag_i,byte_off);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, word_addr_dcache: %b",$time,word_addr_dcache);
 if(`CORE_VERBOSITY >= 500)begin
-    // l1_dcache_controller_u.dcache_controller_trace_log(file);
+    l1_dcache_controller_u.dcache_controller_trace_log(file);
     store_buffer_u.store_buffer_trace_log(file);
     l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);

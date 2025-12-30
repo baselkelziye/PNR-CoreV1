@@ -58,7 +58,7 @@ wire update_entry;
 assign update_entry = update_entry_cpu_i | update_entry_mem_i;
 // Reset
 integer i,j,y;
-always @(posedge clk_i or posedge rst_i) begin
+always @(posedge clk_i) begin
   if (rst_i) begin
     for (i=0; i<ENTRIES; i=i+1) begin
       valid_bit[i] <= 1'b0;
@@ -124,6 +124,7 @@ end
   integer idx, widx;
   integer i;
   logic [INDEX_BITS-1:0] index_bits_iterator;
+  logic [WORD_OFF_BITS-1:0] BLOCK_ITERATOR;
   logic [WORD_OFF_BITS-1:0] WORD_OFF;
 
     $fwrite(file, "\nTime: %1t, Cache Array, index_bits: %d,  indexed_valid: %b, indexed_dirty: %b, indexed_tag: %x, update_entry_cpu_i: %b, update_entry_mem_i: %b, valid_bit_i: %b, dirty_bit_i: %b, tag_i: %x, write_data_i: %x",$time, index_bits_i,indexed_valid_bit_o,indexed_dirty_bit_o,indexed_tag_o, update_entry_cpu_i, update_entry_mem_i,valid_bit_i,dirty_bit_i,tag_i,write_data_i);
@@ -145,7 +146,7 @@ end
         $fwrite(file, "\t0x%08h", data_cache[idx][widx]);
     for (widx = 0; widx < D_WORDS_PER_LINE; widx = widx + 1) begin 
         WORD_OFF = widx;
-        $fwrite(file, "\t0x%08h", {tag_arr[i], index_bits_iterator,{WORD_OFF_BITS{1'b0}},WORD_OFF});
+        $fwrite(file, "\t0x%08h", {tag_arr[idx], index_bits_iterator,{WORD_OFF_BITS{1'b0}},WORD_OFF});
     end
     $fwrite(file, "\n");
     end

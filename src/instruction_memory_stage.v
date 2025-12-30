@@ -40,7 +40,8 @@ module instruction_memory_stage
   input is_store_mem_i, is_load_mem_i,
   input [31:0] fetched_instruction_mem_i,
   //Value to Store in mem
-  input [31:0] rs1_mem_i,
+  input [31:0] rs1_mem_i, //For DTLB WRITES FROM ROB
+  input [31:0] rs2_mem_i,
   input [31:0] latest_rs2_value_mem_i,
   output reg [31:0] rs1_mem_o,
   output reg [31:0] rs2_mem_o,
@@ -96,6 +97,7 @@ module instruction_memory_stage
   output rob_commit_exception_mem_o,
   output [31:0] rob_commit_scause_mem_o,
   output [31:0] rob_commit_stval_mem_o,
+  output [31:0] rob_commit_data_mem_o,
   input rob_drain_req_mem_i,
   output sb_resp_done_mem_o,
 
@@ -175,7 +177,7 @@ module instruction_memory_stage
     //DTLB Write Signals
     .dtlb_wr_en_i       (   dtlb_wr_en_mem_i       ),
     .rs1_i              (   rs1_mem_i              ),
-    .rs2_i              (   latest_rs2_value_mem_i ),
+    .rs2_i              (   rs2_mem_i              ),
     //Translation Signals
     .alu_result_i       (   alu_result_mem_i       ), //Virtual Address
     .is_load_mem_i      (   is_load_mem_i          ),
@@ -253,6 +255,7 @@ wire sb_full_o,dcache_done_o;
   assign rob_commit_scause_mem_o = scause_mem;
   assign rob_commit_stval_mem_o  = stval_mem;
   assign rob_commit_tag_mem_o = rob_tag_mem_i;
+  assign rob_commit_data_mem_o = loaded_data;
   mux_4x1 #(.DATA_WIDTH(32))
   rd_value_selector_u
   (
@@ -309,7 +312,7 @@ wire sb_full_o,dcache_done_o;
   //   .o_wb_data(o_wbs_data   )
   // );
 
-always @(posedge clk_i, posedge rst_i)
+always @(posedge clk_i)
   begin
   if(rst_i | peripheral_stall_o | mem_stage_stall | trap_en_mem_i)
     begin //Since Peripheral and Cache Stalls are generated in MEM we need to flush
@@ -377,7 +380,7 @@ always @(posedge clk_i, posedge rst_i)
     // end
     // if(`CORE_VERBOSITY >= 400)begin
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
-    //   dtlb_u.dtlb_trace_log(file);
+      // dtlb_u.dtlb_trace_log(file);
     // end
     // `ifdef MEM_DUMP
     // if(cycle == 30000 || cycle == 1) begin

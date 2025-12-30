@@ -50,6 +50,7 @@ module instruction_fetch #(
   input wire is_branch_instr_ex_i,
   input wire decrement_counter_i, increment_counter_i, //we need to 0 the counter on reset
   input wire update_btb_address_i,
+  input [31:0] btb_branch_address_i,
   //Outputs For Branch Prediction
   output reg [31:0] btb_predicted_pc_if_o,
   output reg branch_is_taken_prediction_if_o,
@@ -168,7 +169,7 @@ module instruction_fetch #(
     .rst_i                (   rst_i                               ),
     .pc_i                 (   pc_reg                              ),
     .pc_ex_i              (   pc_ex_i                             ),
-    .btb_address_value_i  (   branching_address_i                 ),
+    .btb_address_value_i  (   btb_branch_address_i                ),
     .update_btb_address_i (   update_btb_address_i                ),
     .btb_fetched_address_o(   btb_predicted_pc                    ),
     .increment_counter    (   increment_counter_i                 ),
@@ -176,7 +177,7 @@ module instruction_fetch #(
     .branch_is_taken      (   branch_is_taken_prediction          )
     );
 
-  always @(posedge clk_i, posedge rst_i)
+  always @(posedge clk_i)
   begin
     if(rst_i)
       begin

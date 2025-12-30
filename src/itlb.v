@@ -52,7 +52,7 @@ module itlb
 
     integer i;
 
-    always @(posedge clk_i or posedge rst_i) begin
+    always @(posedge clk_i) begin
         if (rst_i) begin
             // for (i = 0; i < ITLB_ENTRIES; i = i + 1) begin
             //     valid_bit[i] <= 1'b0;

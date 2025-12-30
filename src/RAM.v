@@ -70,8 +70,8 @@ localparam  [2:0]
         // Update path to your hex file
         $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/spike/trap_handler.hex", MEMORY,32'h0000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
-        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basic_store.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/buffer_sum.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/load_hazard.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h00426000); //PA Mapping for VA = 0x16000
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
@@ -83,7 +83,7 @@ localparam  [2:0]
     end
 
     // --- Sequential Logic: State & Counters ---
-    always @(posedge clk_i or posedge rst_i) begin
+    always @(posedge clk_i) begin
         if(rst_i) begin
             mem_state_reg           <= IDLE;
             icache_word_counter_reg <= '0;
@@ -100,7 +100,7 @@ localparam  [2:0]
     reg [29:0] arb_address_latched;
     reg arb_rd_wr_latched, arb_req_id_latched;
 
-    always @(posedge clk_i, posedge rst_i) begin
+    always @(posedge clk_i) begin
         if(rst_i) begin
             arb_address_latched <= '1;
             arb_rd_wr_latched <= 'X;
@@ -243,7 +243,7 @@ localparam  [2:0]
     wire [29:0] dcache_rd_wr_block_addr;
     wire [29:0] dcache_wr_addr;
     wire [29:0] dcache_current_rd_addr; // Current address for the DCache burst read
-
+    wire [31:0] dcache_wr_debug;
     // ICache: Extract block start word index (Word Address).
     // Assign icache_rd_block_addr = {arb_address_i[29:2], 2'b00}; // Original
     assign icache_rd_block_addr = {arb_address_latched[29:2],2'b00};
@@ -256,7 +256,7 @@ localparam  [2:0]
     
     // DCache Write Word Address: Base Word Address + Current Word Offset
     assign dcache_wr_addr = dcache_rd_wr_block_addr + dcache_word_counter_reg;
-    
+    assign dcache_wr_debug = {dcache_wr_addr,2'b00};
     // DCache Read Word Address: Base Word Address + Current Word Offset (for burst)
     assign dcache_current_rd_addr = dcache_rd_wr_block_addr + dcache_word_counter_reg;
     
@@ -332,7 +332,7 @@ localparam  [2:0]
     int i;
     $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
     $fwrite(mem_dump_file, "  Address \t \t   Word \t \t   Byte0 \t Byte1 \t Byte2 \t Byte3\n");
-    for (i = 32'h16000; i < (32'h16000 + 32'h4000); i = i + 4) begin
+    for (i = 32'h00426000; i < (32'h00426000 + 32'h4000); i = i + 4) begin
         // Print each memory location as "address: value"
         $fwrite(mem_dump_file, "0x%h \t \t  0x%h \t \t %h \t   %h \t   %h \t   %h \n", i, {MEMORY[i+3], MEMORY[i+2], MEMORY[i+1], MEMORY[i]}, MEMORY[i], MEMORY[i+1], MEMORY[i+2], MEMORY[i+3]);
     end

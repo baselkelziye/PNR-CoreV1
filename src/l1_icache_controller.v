@@ -39,7 +39,7 @@ reg icache_stall_reg, icache_stall_next;
 reg icache_fill_line;
 
 // Sequential Logic
-always @(posedge clk_i, posedge rst_i) begin
+always @(posedge clk_i) begin
     if(rst_i) begin
         icache_state_reg        <= I_IDLE;
         icache_req_valid_reg    <= 1'b0;

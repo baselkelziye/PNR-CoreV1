@@ -46,23 +46,23 @@ module instruction_execution(
   input [11:0] csr_addr_ex_i,
   input [31:0] csr_rd_value_ex_i,
   output reg [31:0] csr_rd_value_ex_o,
-  input wire ecall_trap_ex_i,
-  input wire ebreak_trap_ex_i,
-  output reg ecall_trap_ex_o,
-  output reg ebreak_trap_ex_o,
-  input wire sret_trap_ex_i,
-  output reg sret_trap_ex_o,
-  output reg csr_wr_en_ex_o,
+  input wire ecall_trap_ex_i, //DETE
+  input wire ebreak_trap_ex_i, // DELETE
+  output reg ecall_trap_ex_o, //DELETE
+  output reg ebreak_trap_ex_o, //DELETE
+  input wire sret_trap_ex_i, //DELETE
+  output reg sret_trap_ex_o, //DELETE
+  output reg csr_wr_en_ex_o, //DELETE
   output reg [31:0] imm_value_ex_o,
   output reg [31:0] rs1_value_ex_o,
-  output reg [11:0] csr_addr_ex_o,
+  output reg [11:0] csr_addr_ex_o, //DELETE
   input wire trap_en_ex_i,
   input itlb_miss_ex_i,
-  output reg itlb_miss_ex_o,
+  output reg itlb_miss_ex_o, //DELETE
   input itlb_wr_en_ex_i,
   input dtlb_wr_en_ex_i,
-  output reg itlb_wr_en_ex_o,
-  output reg dtlb_wr_en_ex_o,
+  output reg itlb_wr_en_ex_o, //DELETE
+  output reg dtlb_wr_en_ex_o, //DELETE
   //Inputs to Decode Stage
   output wire [31:0] ex_stage_result_o,
   output wire mdu_stall_ex_o,
@@ -94,7 +94,14 @@ module instruction_execution(
   output [31:0] rob_commit_scause_ex_o,
   output [31:0] rob_commit_stval_ex_o,
   output rob_commit_branch_ex_o,
+  output rob_commit_sret_ex_o,
+  output [11:0] rob_commit_csr_addr_ex_o,
   output [31:0] rob_commit_branch_address_ex_o,
+  output [31:0] rob_commit_rs1_ex_o,
+  output [31:0] rob_commit_rs2_ex_o,
+  output rob_commit_csr_wr_en_ex_o,
+  output rob_commit_itlb_wr_en_ex_o,
+  output rob_commit_dtlb_wr_en_ex_o,
   input rob_arbiter_stall_ex_i,
   // input rob_exception_ex_i,
   // input rob_sret_ex_i,
@@ -139,8 +146,8 @@ module instruction_execution(
   //ROB signals for Validation of ROB entry
   wire alu_stage_done; //If the operation is ALU, and its done.
 
-  assign ex_stage_stall = (periheral_stall_ex_i | mem_stage_stall_i | rob_arbiter_stall_ex_i) & ~trap_en_ex_i;
-  assign ex_stage_flush = mdu_busy | trap_en_ex_i;
+  assign ex_stage_stall = (periheral_stall_ex_i | mem_stage_stall_i) & ~trap_en_ex_i;
+  assign ex_stage_flush = mdu_busy | trap_en_ex_i | rob_arbiter_stall_ex_i;
   // assign branching
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
   assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
@@ -188,10 +195,19 @@ module instruction_execution(
   assign rob_commit_exception_ex_o = exception_raised_ex;
   assign rob_commit_scause_ex_o = scause_ex;
   assign rob_commit_stval_ex_o = stval_ex;
+  assign rob_commit_sret_ex_o = sret_trap_ex_i;
 
   assign rob_commit_branch_ex_o = branching_ex_o;
   assign rob_commit_branch_address_ex_o = branch_address_ex_o;
-  
+
+  assign rob_commit_csr_addr_ex_o = csr_addr_ex_i;
+  assign rob_commit_csr_wr_en_ex_o = csr_wr_en_ex_i;
+
+  assign rob_commit_rs1_ex_o = alu1_input;
+  assign rob_commit_rs2_ex_o = alu2_input;
+
+  assign rob_commit_itlb_wr_en_ex_o = itlb_wr_en_ex_i;
+  assign rob_commit_dtlb_wr_en_ex_o = dtlb_wr_en_ex_i;
   branch_jump branch_jump_u(
       .in1_i            (   rs1_data_ex_i       ),
       .in2_i            (   rs2_data_ex_i       ),

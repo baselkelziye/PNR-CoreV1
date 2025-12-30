@@ -4,7 +4,7 @@ module rat #(
 )(
     input i_clk,
     input i_rst,
-
+    input i_rat_clear,
     // --- Lookup (Decode Stage) ---
     input  [REG_ADDR_WIDTH-1:0] i_rs1_addr,
     input  [REG_ADDR_WIDTH-1:0] i_rs2_addr,
@@ -38,7 +38,7 @@ module rat #(
 
     integer i;
     always @(posedge i_clk or posedge i_rst) begin
-        if (i_rst) begin
+        if (i_rst | i_rat_clear) begin
             in_rob_bits <= 32'b0;
             for (i = 0; i < 32; i = i + 1) tag_table[i] <= 0;
         end else begin
@@ -50,7 +50,10 @@ module rat #(
 
             // 3. Commitment: If the instruction retiring is the one the RAT points to,
             // mark the register as "back in ARF" (0).
-            if (i_commit_en && i_commit_rd != 5'b0) begin
+            //Since i don't have register renaming, WAW is causing issue,
+            //I i commit and allocate same RD it will not be enabled, so we when clearing,
+            //I need to be sure that im not allocating to same register
+            if (i_commit_en && i_commit_rd != 5'b0 && (i_alloc_en && i_alloc_rd != i_commit_rd)) begin
                 if (tag_table[i_commit_rd] == i_commit_tag) begin
                     in_rob_bits[i_commit_rd] <= 1'b0;
                 end
