@@ -468,10 +468,10 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
     $fwrite(file,"\nTime, %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
-    $fwrite(file,"\nTime, %1t, rs1_rob_stall: %b, rs1_in_rob: %b, rs1_rob_busy_id_i: %b, rs1_rob_valid_id_i: %b",$time, rs1_rob_stall, rs1_in_rob,rs1_rob_busy_id_i, rs1_rob_valid_id_i);
-    $fwrite(file,"\nTime, %1t, rs2_rob_stall: %b, rs2_in_rob: %b, rs2_rob_busy_id_i: %b, rs2_rob_valid_id_i: %b",$time, rs2_rob_stall, rs2_in_rob,rs2_rob_busy_id_i, rs2_rob_valid_id_i);
+    $fwrite(file,"\nTime, %1t, rs1_rob_stall: %b, rs1_in_rob: %b, rs1_rob_busy_id_i: %b, rs1_rob_valid_id_i: %b, rs1_rob_value_id_i: 0x%08h, rs1_forwarded_value: 0x%08h, rs1_rob_forward: 0x%08h",$time, rs1_rob_stall, rs1_in_rob,rs1_rob_busy_id_i, rs1_rob_valid_id_i,rs1_rob_value_id_i,rs1_forwarded_value,rs1_rob_forward);
+    $fwrite(file,"\nTime, %1t, rs2_rob_stall: %b, rs2_in_rob: %b, rs2_rob_busy_id_i: %b, rs2_rob_valid_id_i: %b, rs2_rob_value_id_i: 0x%08h, rs2_forwarded_value: 0x%08h, rs2_rob_forward: 0x%08h",$time, rs2_rob_stall, rs2_in_rob,rs2_rob_busy_id_i, rs2_rob_valid_id_i,rs2_rob_value_id_i,rs2_forwarded_value,rs2_rob_forward);
     // $fwrite(file,"\nTime, %1t, ");
-    // rat_u.rat_trace_log(file);
+    rat_u.rat_trace_log(file);
     // csr_u.csr_trace_log(file);
     // $fwrite(file, "\nTime: %1t, rs1_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs1_forwarded_value: 0x%h", $time,rs1_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardA,rs1_forwarded_value);
     // $fwrite(file, "\nTime: %1t, rs2_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs2_forwarded_value: 0x%h", $time,rs2_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardB,rs2_forwarded_value);

@@ -73,9 +73,9 @@ async def reset(dut, mem_model=None):
 
     await ClockCycles(dut.clk_i, 2, rising=True)  # Allow cache clear to propagate
 def get_CPI(dut):
-    cycles = dut.cycle_reg.value.integer
-    finished_instructions = dut.executed_instructions_reg.value.integer
-    dut._log.info(f"Test: {cocotb.regression_manager._test.name}, Cycles = {cycles}, Issued Instructions = {finished_instructions}, CPI = {finished_instructions/cycles}")
+    cycles = dut.cycle_reg.value.to_unsigned()
+    finished_instructions = dut.executed_instructions_reg.value.to_unsigned()
+    dut._log.info(f"Test: {cocotb._regression_manager._test.name}, Cycles = {cycles}, Issued Instructions = {finished_instructions}, CPI = {finished_instructions/cycles}")
     # dut._log.info(f"Cycles = {cycles}, Issued Instructions = {finished_instructions}")
 
 async def check_register_values(dut, expected_dict):
@@ -96,7 +96,7 @@ async def check_register_values(dut, expected_dict):
         else:
             exp_int = expected_val
             
-        dut_val = reg_file[reg_idx].value.integer
+        dut_val = reg_file[reg_idx].value.to_unsigned()
         
         assert dut_val == exp_int, (
             f"Register x{reg_idx} Mismatch! "
@@ -111,7 +111,7 @@ async def basel_bubblesort(dut):
     filename = "basel_bubblesort.hex"
     mem = MemoryModel(dut)
     # instr_pa_addr = mem.virt_to_phys(ADDR_INSTR_BASE)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
     await mem.load_file(filepath +trap_handler ,0x0,is_va=False)
     await mem.load_file(filepath + filename,ADDR_INSTR_BASE,is_va=True)
@@ -129,9 +129,9 @@ async def basel_bubblesort(dut):
 async def branch_flush_test(dut):
     filename = "branch_flush.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=True) #VA
     # await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1000
@@ -150,9 +150,9 @@ async def branch_flush_test(dut):
 async def load_hazard_test(dut):
     filename = "load_hazard.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=True)
     # await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1000
@@ -172,9 +172,9 @@ async def load_hazard_test(dut):
 async def forwarding_test(dut):
     filename = "forwarding_test.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE, is_va=True)
     # await load_instruction_cache(dut, filepath + filename)
     num_cycles = 1000
@@ -197,9 +197,9 @@ async def forwarding_test(dut):
 async def loop_test(dut):
     filename = "loop.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE, is_va=True)
     num_cycles = 4000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
@@ -217,10 +217,10 @@ async def buffer_sum_test(dut):
     machine_code_filename = "machine_codes/buffer_sum.hex"
     data_mem_filename = "memory_files/buffer_sum.mem"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
     #Load Instructions at 0x4000
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE, is_va=True)
     #Load Data at 0x16000
     await mem.load_file(performance_filepath+data_mem_filename,ADDR_DATA_BASE,is_va=True)
@@ -243,11 +243,11 @@ async def mem_copy_test(dut):
     B_ARR_ADDR = 0x18000
     BUFFER_SIZE = 128
     CONST_VALUE = 5
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE,is_va=True)
-    num_cycles = 15000
+    num_cycles = 10000
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
     await mem.write_cache_to_memory()
     await ClockCycles(dut.clk_i,10, rising=False) #If we don't wait sometimes the cache update doesn't occur
@@ -263,8 +263,8 @@ async def mem_copy_test(dut):
 
         # Check Destination (B)
         val_b = mem.read_word(addr_b,is_va=True)
-        dut._log.info(f"Addr: 0x{addr_b:08x}, val_b: 0x{val_b:08x}")
-        # assert val_b == CONST_VALUE, f"Data Memory Mismatch at ARR B (Addr: {hex(addr_b)}): Expected {CONST_VALUE}, got {val_b}"
+        # dut._log.info(f"Addr: 0x{addr_b:08x}, val_b: 0x{val_b:08x}")
+        assert val_b == CONST_VALUE, f"Data Memory Mismatch at ARR B (Addr: {hex(addr_b)}): Expected {CONST_VALUE}, got {val_b}"
     get_CPI(dut)
 
 @cocotb.test()
@@ -279,9 +279,9 @@ async def matrix_mul_small(dut):
     B_MATRIX_BASE_ADDR = 0x18000
     MATRIX_SIZE = 3
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE,is_va=True)
     await mem.load_file(performance_filepath+data_mem_filenameA,A_MATRIX_BASE_ADDR,is_va=True)
     await mem.load_file(performance_filepath+data_mem_filenameB,B_MATRIX_BASE_ADDR,is_va=True)
@@ -334,9 +334,9 @@ async def matrix_mul_small(dut):
 async def store_buffer_test(dut):
     filename = "store_buffer.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE, is_va=True)
     num_cycles = 4000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
@@ -352,11 +352,11 @@ async def store_buffer_test(dut):
 async def rob_0_test(dut):
     filename = "rob_0.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=False)
-    num_cycles = 1500
+    num_cycles = 2000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     expected_values = {
         1: "0x1",
@@ -376,9 +376,9 @@ async def rob_0_test(dut):
 async def rob_1_test(dut):
     filename = "rob_1.hex"
     mem = MemoryModel(dut)
-    cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+    cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
-    await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
+    #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
     await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=False)
     num_cycles = 1500
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
@@ -402,7 +402,7 @@ async def rob_1_test(dut):
 #     MATRIX_SIZE = 128
 
     
-#     cocotb.start_soon(Clock(dut.clk_i, 2, units="ns").start())
+#     cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
 #     await reset(dut, mem_model=mem)
 #     await load_instruction_cache(dut, performance_filepath + machine_code_filename)
 #     await load_data_cache(dut, performance_filepath + data_mem_filenameA, A_MATRIX_BASE_ADDR)
@@ -434,7 +434,7 @@ async def rob_1_test(dut):
     
 #     # Verify each element
 #     for i in range(MATRIX_SIZE * MATRIX_SIZE):
-#         memory_int = data_memory[RESULT_MATRIX_BASE_ADDR + i].value.integer
+#         memory_int = data_memory[RESULT_MATRIX_BASE_ADDR + i].value.to_unsigned()
 #         expected_value = expected_values[i]
         
 #         assert memory_int == expected_value, (

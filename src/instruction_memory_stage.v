@@ -211,6 +211,8 @@ wire sb_full_o,dcache_done_o;
       .rob_flush_i(rob_flush_mem_i),
       .rob_exception_i(rob_exception_mem_i),
       .rob_sret_i(rob_sret_mem_i),
+      .rob_id_i(rob_tag_mem_i),
+      .sb_rob_id_o(sb_rob_id_o),
       //dcache request handshake
       .dcache_req_valid_o(dcache_req_valid_mem_o),
       .dcache_req_ready_i(dcache_req_valid_mem_i),
@@ -231,7 +233,7 @@ wire sb_full_o,dcache_done_o;
   wire mem_stage_done;
   reg exception_raised_mem;
   reg [31:0] scause_mem, stval_mem;
-
+ //This is for Validating the entry in the ROB, Not with committing,
   assign mem_stage_done = (instr_valid_mem_i & ((is_store_mem_i & ~sb_full_o) || (is_load_mem_i & dcache_done_o)));
 
   always @* begin

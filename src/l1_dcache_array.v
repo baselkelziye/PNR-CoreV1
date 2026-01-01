@@ -146,7 +146,7 @@ end
         $fwrite(file, "\t0x%08h", data_cache[idx][widx]);
     for (widx = 0; widx < D_WORDS_PER_LINE; widx = widx + 1) begin 
         WORD_OFF = widx;
-        $fwrite(file, "\t0x%08h", {tag_arr[idx], index_bits_iterator,{WORD_OFF_BITS{1'b0}},WORD_OFF});
+        $fwrite(file, "\t0x%08h", {tag_arr[index_bits_iterator], index_bits_iterator,{WORD_OFF_BITS{1'b0}},WORD_OFF});
     end
     $fwrite(file, "\n");
     end

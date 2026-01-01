@@ -42,21 +42,23 @@ module rat #(
             in_rob_bits <= 32'b0;
             for (i = 0; i < 32; i = i + 1) tag_table[i] <= 0;
         end else begin
-            // 2. Allocation: Update RAT to point to the NEW ROB tag
-            if (i_alloc_en && i_alloc_rd != 5'b0) begin
-                tag_table[i_alloc_rd]   <= i_alloc_tag;
-                in_rob_bits[i_alloc_rd] <= 1'b1;
-            end
-
-            // 3. Commitment: If the instruction retiring is the one the RAT points to,
-            // mark the register as "back in ARF" (0).
-            //Since i don't have register renaming, WAW is causing issue,
-            //I i commit and allocate same RD it will not be enabled, so we when clearing,
-            //I need to be sure that im not allocating to same register
-            if (i_commit_en && i_commit_rd != 5'b0 && (i_alloc_en && i_alloc_rd != i_commit_rd)) begin
+            
+            // 1. COMMITMENT LOGIC (Release register back to ARF)
+            if (i_commit_en && i_commit_rd != 5'b0) begin
+                // Only clear if the RAT still points to the tag we are retiring
                 if (tag_table[i_commit_rd] == i_commit_tag) begin
                     in_rob_bits[i_commit_rd] <= 1'b0;
                 end
+            end
+    
+            // 2. ALLOCATION LOGIC (Override/Update RAT with new tag)
+            // If Allocation and Commitment happen to the same RD in the same cycle:
+            // The Commitment logic (above) might set the bit to 0, 
+            // but this logic (below) will set it back to 1. 
+            // Allocation "Wins", which is correct for WAW.
+            if (i_alloc_en && i_alloc_rd != 5'b0) begin
+                tag_table[i_alloc_rd]   <= i_alloc_tag;
+                in_rob_bits[i_alloc_rd] <= 1'b1;
             end
         end
     end

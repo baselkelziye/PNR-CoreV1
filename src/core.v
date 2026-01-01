@@ -14,17 +14,19 @@ Assertions to be Added:
 
 /*
 STATUS:
-in mem copy,it looks like there are unneccessary eviction, it happens like: Evict, write, Evict Write, Hence last line is always 0. 
-wierd bug to be solved. 
+ROB captures load value correctly but then overwrites it again, When drain and Load are in mem!
 
 Need to implement Multiplication!
+reset memory in memory model is not sufficient hence tests are failing
 */
 
 /*
 Perfomance Bottlenecks
 1- itlb and dtlb can be written to Rob in ID stage, now its from EX
 2- Same as above for: ecall, sret, ebreak
-
+3- now ROB saves rs1  (VA) and rs2 (Content) for tlb writes, instead VA can be read from STVAL implicitly!
+4- matrix multiplication code is figihting for cache lines can be improved!!!
+  
 
 */ 
 
@@ -880,11 +882,11 @@ rob_u(
     rob_u.rob_trace_log(trace_file);
   end
 
-  `ifdef MEM_DUMP
+  // `ifdef MEM_DUMP
     if(cycle_reg == 1 || cycle_reg == 10000) begin
       RAM_u.memory_dump(memory_dump, cycle_reg);
     end
-  `endif
+  // `endif
 end
   
 `endif

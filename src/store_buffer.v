@@ -7,7 +7,8 @@ module store_buffer
     parameter VALID_BYTES   = 3,
     parameter SB_DEPTH      = 4, 
     parameter SB_ID_SIZE    = 8,
-    parameter SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1 + SB_ID_SIZE
+    parameter ROB_ID_SIZE   = 4,
+    parameter SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1 + SB_ID_SIZE + ROB_ID_SIZE
 )
 (
     input clk_i,
@@ -23,6 +24,8 @@ module store_buffer
     output drain_sb_o,
     input [2:0] funct3_i,
     input [SB_ID_SIZE-1:0] sb_id_i,
+    input [ROB_ID_SIZE-1:0] rob_id_i,
+    output [ROB_ID_SIZE-1:0] sb_rob_id_o,
     
     input trap_en_mem_i,
     input trap_en_wb_i,
@@ -155,6 +158,7 @@ fifo #(
     .W(SB_DEPTH),
     .ADDRESS_WIDTH(ADDRESS_WIDTH),
     .DATA_WIDTH(DATA_WIDTH),
+    .ROB_ID_SIZE(4),
     .VALID_BYTES(VALID_BYTES)
 ) sb_fifo_u (
     .clk            (   clk_i                   ),
@@ -163,6 +167,8 @@ fifo #(
     .wr             (   sb_wr_en                ),
     .w_data         (   sb_entry_wr             ),
     .load_address_i (   wr_addr_i               ),
+    .rob_id_i       (   rob_id_i                ),
+    .rob_id_o       (   sb_rob_id_o             ),
     .sb_hit         (   sb_addr_hit             ),
     .sb_hit_data    (   sb_forwarded_value_o    ),
     .empty          (   sb_empty                ),

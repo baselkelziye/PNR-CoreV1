@@ -66,7 +66,7 @@ class MemoryModel:
         else:
             pa = addr
             
-        return self.phys_ram[pa].value.integer
+        return self.phys_ram[pa].value.to_unsigned()
 
     # --- Word Access Helpers (Little Endian) ---
     def write_word(self, addr, value, is_va=True):
@@ -101,13 +101,22 @@ class MemoryModel:
 
     async def reset_memory(self):
         """
-        Zeros out memory using the explicit size to avoid GPI errors.
+        Zeros out 0x2000 bytes at specific memory regions.
         """
-        self.log.info(f"Zeroing out {self.mem_size} bytes of memory...")
-        # Only zero the first 1MB to save simulation time if memory is huge
-        limit = min(self.mem_size, 0x100000) 
-        for i in range(limit):
-            self.phys_ram[i].value = 0
+        regions = [
+            0x00410000,
+            0x00428000,
+        ]
+        size = 0x2000
+
+        for base in regions:
+            self.log.info(
+                f"Zeroing out {size:#x} bytes starting at address {base:#010x}..."
+            )
+            end = base + size
+            for addr in range(base, end):
+                self.phys_ram[addr].value = 0
+
 
     # --- Cache Backdoor Access ---
 
@@ -121,7 +130,10 @@ class MemoryModel:
             valid_bit_arr = self.dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.valid_bit
             dirty_bit_arr = self.dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.dirty_bit
             tag_arr = self.dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.tag_arr
+            
+            # Try to access data_cache as a 2D array
             data_cache_arr = self.dut.mem_u.data_mem_subsystem_u.l1_dcache_array_u.data_cache
+            
             return valid_bit_arr, dirty_bit_arr, tag_arr, data_cache_arr
         except AttributeError as e:
             self.log.error(f"Failed to find cache arrays in DUT hierarchy: {e}")
@@ -155,34 +167,51 @@ class MemoryModel:
                 # Construct physical byte address base for this word:
                 # {tag, index, word_offset, 2'b00}
                 addr_word = (tag << self.SHIFT_TAG) \
-                          | (index << self.SHIFT_INDEX) \
-                          | (WORD_OFF << self.SHIFT_WORD_OFF)
+                        | (index << self.SHIFT_INDEX) \
+                        | (WORD_OFF << self.SHIFT_WORD_OFF)
 
-                # Read 32-bit word from cache array
-                # Handle potential difference in unpacking (2D vs 1D array in Verilog/Cocotb)
+                # Try different methods to read the 2D array
+                data_val = 0
                 try:
+                    # Method 1: Direct 2D access
                     data_val = int(data_cache_arr[index][widx].value)
+                    self.log.debug(f"Read using 2D access: data_cache[{index}][{widx}]")
                 except:
-                    flat_index = index * self.WORDS_PER_LINE + widx
-                    data_val = int(data_cache_arr[flat_index].value)
+                    try:
+                        # Method 2: Access as a handle and use range
+                        handle = data_cache_arr[index]
+                        # Get the range/size of the second dimension
+                        if hasattr(handle, '__len__'):
+                            data_val = int(handle[widx].value)
+                            self.log.debug(f"Read using handle[{widx}]")
+                        else:
+                            # Method 3: Try to access as a flat array
+                            flat_index = index * self.WORDS_PER_LINE + widx
+                            data_val = int(data_cache_arr[flat_index].value)
+                            self.log.debug(f"Read using flat index {flat_index}")
+                    except Exception as e:
+                        self.log.error(f"Failed to read data_cache[{index}][{widx}]: {e}")
+                        continue
                 
                 self.log.info(
                     f"Flushing line idx={index}, tag=0x{tag:X}, word[{widx}] = 0x{data_val:08X} "
                     f"→ base addr 0x{addr_word:08X}"
                     )
+                
                 # Write each byte separately (little-endian)
                 for byte_i in range(4):  # 32-bit = 4 bytes
                     byte_val = (data_val >> (8 * byte_i)) & 0xFF
                     byte_addr = addr_word + byte_i
                     
                     # Direct backdoor write to physical RAM handle
-                    # We use the handle acquired in __init__
                     if byte_addr < self.mem_size:
                         self.phys_ram[byte_addr].value = byte_val
                     else:
                         self.log.warning(f"Cache flush out of bounds: {hex(byte_addr)}")
         
         self.log.info(f"Flush complete. {flush_count} dirty lines written back.")
+
+
     
     async def clear_cache(self):
         """

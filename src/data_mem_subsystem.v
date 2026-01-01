@@ -29,6 +29,8 @@ module data_mem_subsystem #(
     input rob_flush_i,
     input rob_exception_i,
     input rob_sret_i,
+    input [3:0] rob_id_i,
+    output [3:0] sb_rob_id_o,
 
     //dcache request handshake
     output dcache_req_valid_o, //request access
@@ -181,6 +183,8 @@ l1_dcache_array #(
 logic dcache_cntrl_update_entry_cpu,dcache_cntrl_update_entry_mem;
 wire sb_req_ready_o, sb_resp_done_o;
 wire sb_req_valid_o,sb_req_wr_o;
+wire dcache_access_done;
+
 l1_dcache_controller l1_dcache_controller_u
 (
     .clk_i                           (   clk_i                          ),
@@ -221,16 +225,20 @@ l1_dcache_controller l1_dcache_controller_u
     .dcache_resp_valid_i(dcache_resp_valid_i),
     .ram_response_id_i(ram_response_id_i),
     .dcache_data_ready_o(dcache_data_ready_o),
-    .dcache_done_o(dcache_done_o),
+    .dcache_done_o(dcache_access_done),
     .dtlb_hit_i(dtlb_hit_i)
 );
-
+//If we signal Done for each dcache access, This will validate the wrong instruction in ROB. 
+//Because Store buffer drain will also signal dcache done, but this has nothing with result validation in ROB,
+//Its related to result commitment (which is only to clear ROB ENTRY, So ROB handles this.)
+assign dcache_done_o = dcache_access_done & ~sb_req_valid_o;
 store_buffer #(
     .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
     .DATA_WIDTH     (   DATA_WIDTH      ),
     .VALID_BYTES    (   VALID_BYTES     ),
     .SB_DEPTH       (   SB_DEPTH        ),
     .SB_ID_SIZE     (   SB_ID_SIZE      ),
+    .ROB_ID_SIZE    (4),
     .SB_ENTRY_SIZE  (   SB_ENTRY_SIZE   )
 )
 store_buffer_u(
@@ -249,6 +257,8 @@ store_buffer_u(
     .rob_drain_req_i(rob_drain_req_mem_i),
     // .sb_cache_wr_o          (   sb_cache_wr                 ),
     .sb_id_i                (   sb_id_i                     ),
+    .rob_id_i(rob_id_i),
+    .sb_rob_id_o(sb_rob_id_o),
     .rob_flush_i(rob_flush_i),
     .rob_exception_i(rob_exception_i),
     .rob_sret_i(rob_sret_i),
@@ -274,7 +284,7 @@ function void data_mem_subsystem_trace_log(int file);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
     store_buffer_u.store_buffer_trace_log(file);
-    l1_dcache_array_u.l1_dcache_array_trace_log(file);
+    // l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
     // DATA_RAM_u.DATA_RAM_trace_log(file);
     // $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);

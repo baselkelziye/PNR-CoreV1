@@ -272,7 +272,7 @@ We have done transaction if:
 2- If we have a dtlb miss (Don't do anything and valid done)
 3- If we have a valid dtlb translation, we forward from store buffer.
 */
-assign dcache_done_o     = generic_access_done | ~dtlb_hit_i | (is_load_instr_i & sb_load_hit_i & dtlb_hit_i);
+assign dcache_done_o     = sb_resp_done_o | ~dtlb_hit_i | (generic_access_done & is_load_instr_i  & dtlb_hit_i & ~trans_is_sb_reg) | (sb_load_hit_i & ~trans_is_sb_reg);
 `ifdef CORE_VERBOSITY
 
 // String representation of the current state

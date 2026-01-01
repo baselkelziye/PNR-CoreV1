@@ -11,6 +11,7 @@ module fifo
   parameter DATA_WIDTH = 32,
   parameter VALID_BYTES = 3,
   parameter SB_ID_SIZE = 8,
+  parameter ROB_ID_SIZE = 4,
   localparam SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + SB_ID_SIZE + 1,
   localparam FIFO_DEPTH = 2**W
   )(
@@ -21,6 +22,9 @@ module fifo
     
     output wire empty, full,
     output wire [B-1:0] r_data,
+
+    input [3:0]  rob_id_i,
+    output [3:0] rob_id_o,
     
     // Forwarding outputs
     output reg sb_hit,
@@ -31,6 +35,7 @@ module fifo
 // --- FIFO State and Pointers ---
 
 reg [B-1:0] array_reg [FIFO_DEPTH-1:0];
+reg [3:0]   rob_id_array[FIFO_DEPTH-1:0];
 reg [W-1:0] w_ptr_reg, w_ptr_next, w_ptr_succ;
 reg [W-1:0] r_ptr_reg, r_ptr_next, r_ptr_succ;
 reg full_reg, empty_reg, full_next, empty_next;
@@ -43,16 +48,22 @@ always @(posedge clk) begin
     if(reset) begin
         for(k = 0;k < 2**W; k = k+1) begin
             array_reg[k] = '0;
+            rob_id_array[k] = '0;
         end
     end else begin
-        if(wr_en)
+        if(wr_en) begin
             array_reg[w_ptr_reg] <= w_data;
+            rob_id_array[w_ptr_reg] <= rob_id_i;
+        end
+            
         if(rd_en)  // Clear valid bit on read for the entry just read out (important for forwarding)
             array_reg[r_ptr_reg][`VALID_BIT_IDX] <= 1'b0;
     end
 end
 
 assign r_data = array_reg[r_ptr_reg];
+assign rob_id_o = rob_id_array[r_ptr_reg];
+
 assign wr_en = wr & ~full_reg;
 assign rd_en = rd & ~empty_reg;
 
@@ -193,7 +204,7 @@ for(i = 0; i < (2**W); i = i+1) begin
         end
     end
 
-    $fwrite(file, "SB[%1d]: sb_id: %d, valid_bit: %b, address: 0x%h, data: 0x%h valid_bytes: %b", i,array_reg[i][`SB_ID_IDX], array_reg[i][`VALID_BIT_IDX],array_reg[i][`ADDRESS_IDX],array_reg[i][`DATA_IDX], array_reg[i][`VALID_BYTES_IDX]);
+    $fwrite(file, "SB[%1d]: sb_id: %d, valid_bit: %b, address: 0x%h, data: 0x%h valid_bytes: %b, rob_id: %d", i,array_reg[i][`SB_ID_IDX], array_reg[i][`VALID_BIT_IDX],array_reg[i][`ADDRESS_IDX],array_reg[i][`DATA_IDX], array_reg[i][`VALID_BYTES_IDX],rob_id_array[i]);
 end
 
 endfunction
