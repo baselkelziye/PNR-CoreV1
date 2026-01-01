@@ -54,14 +54,14 @@ module itlb
 
     always @(posedge clk_i) begin
         if (rst_i) begin
-            // for (i = 0; i < ITLB_ENTRIES; i = i + 1) begin
-            //     valid_bit[i] <= 1'b0;
-            //     tag_arr[i]   <= {TAG_SIZE{1'b0}};
-            //     data_arr[i]  <= {DATA_WIDTH{1'b0}};
-            // end
-            valid_bit[0] = 1'b1;
-            tag_arr[0] = 'h4000;
-            data_arr[0] = 32'h201040cf;
+            for (i = 0; i < ITLB_ENTRIES; i = i + 1) begin
+                valid_bit[i] <= 1'b0;
+                tag_arr[i]   <= {TAG_SIZE{1'b0}};
+                data_arr[i]  <= {DATA_WIDTH{1'b0}};
+            end
+            // valid_bit[0] = 1'b1;
+            // tag_arr[0] = 'h4000;
+            // data_arr[0] = 32'h201040cf;
         end else if (itlb_wr_en_i) begin
             // Write using bits extracted from RS1 and RS2
             valid_bit[wr_index] <= 1'b1;
