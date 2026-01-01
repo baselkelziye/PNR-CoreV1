@@ -103,6 +103,11 @@ module instruction_execution(
   output rob_commit_itlb_wr_en_ex_o,
   output rob_commit_dtlb_wr_en_ex_o,
   input rob_arbiter_stall_ex_i,
+  //ROB MDU COMMIT
+  output rob_commit_mdu_done_ex_o,
+  output [3:0] rob_commit_mdu_tag_ex_o,
+  output [31:0] rob_commit_mdu_result_o,
+  input rob_arbiter_stall_mdu_ex_i,
   // input rob_exception_ex_i,
   // input rob_sret_ex_i,
   // input rob_flush_ex_i,
@@ -147,7 +152,7 @@ module instruction_execution(
   wire alu_stage_done; //If the operation is ALU, and its done.
 
   assign ex_stage_stall = (periheral_stall_ex_i | mem_stage_stall_i) & ~trap_en_ex_i;
-  assign ex_stage_flush = mdu_busy | trap_en_ex_i | rob_arbiter_stall_ex_i;
+  assign ex_stage_flush = mdu_busy | trap_en_ex_i | rob_arbiter_stall_ex_i; //If mdu has stall, then ex_would have? Write assertioN?
   // assign branching
   assign branch_is_taken = (branch_jump_unit_o & is_branch_instr_ex_i) | unconditional_branch_ex_i;
   assign wrong_prediction_NT_T = branch_is_taken & ~branch_is_taken_prediction_ex_i;// we guessed NT but it is T
@@ -244,11 +249,24 @@ ALU ALU_u(
     .result_o   (   alu_result    )
 );
 
+wire [3:0]  rob_commit_mdu_tag;
+wire [31:0] rob_commit_mdu_pc;
+
+
+assign rob_commit_mdu_done_ex_o = mdu_done;
+assign rob_commit_mdu_tag_ex_o = rob_commit_mdu_tag;
+assign rob_commit_mdu_result_o = mdu_result;
+
 MDU MDU_u(
   .clk_i        ( clk_i             ),
   .rst_i        ( rst_i             ),
-  .start_mdu_i  ( ex_unit_sel_ex_i  ), //This indicates a M extension OP
+  .start_mdu_i  ( ex_unit_sel_ex_i & instr_valid_ex_i  ), //This indicates a M extension OP
   .mem_stall_i  ( mem_stage_stall_i ),
+  .mdu_arbiter_stall_i(rob_arbiter_stall_mdu_ex_i),
+  .i_rob_tag(rob_tag_ex_i),
+  .i_pc(pc_ex_i),
+  .o_mdu_tag(rob_commit_mdu_tag),
+  .o_mdu_pc(rob_commit_mdu_pc), // Requiered?? 
   .MDU_op_i     ( funct3_ex_i       ),
   .MDU_op1_i    ( rs1_data_ex_i     ),
   .MDU_op2_i    ( rs2_data_ex_i     ),
@@ -336,6 +354,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
   function void ex_trace_log(int file);
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
+    mdu_op_trace(file);
     // if(`CORE_VERBOSITY >= 500 ) begin
     //   $fwrite(file, "\nTime: %1t, rs1_data_ex_i: 0x%h, pc_ex_i: 0x%h, imm_value_ex_i: 0x%h, rs1_pc_imm_sel: %b", $time,rs1_data_ex_i,pc_ex_i,imm_value_ex_i,rs1_pc_imm_sel_ex_i);
     //   $fwrite(file, "\nTime: %1t, rs2_data_ex_i: 0x%h, imm_value_ex_i: 0x%h, csr_rd_value_ex_i: 0x%h, rs2_imm_csr_sel_ex_i: %b", $time,rs2_data_ex_i,imm_value_ex_i,csr_rd_value_ex_i,rs2_imm_csr_sel_ex_i);
@@ -351,7 +370,7 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
   endfunction
 
   function void mdu_op_trace(int file);
-  $fwrite(file, "\nTime: %1t MDU, mdu1_input: 0x%8h, mdu2_input: 0x%8h, mdu_op_i: %b, mdu_result: 0x%8h", $time,alu1_input,alu2_input,funct3_ex_i,mdu_result);
+  MDU_u.mdu_trace_log(file);
   endfunction
 
   function void branch_op_trace(int file);

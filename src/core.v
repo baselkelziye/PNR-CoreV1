@@ -216,6 +216,9 @@ wire [31:0] rob_commit_scause_mem_o,rob_commit_stval_mem_o;
 wire rob_commit_csr_wr_en_ex_o;
 wire [31:0] rob_commit_rs1_ex_o,rob_commit_rs2_ex_o;
 wire rob_commit_itlb_wr_en_ex_o, rob_commit_dtlb_wr_en_ex_o;
+wire rob_commit_mdu_done_ex_o;
+wire [3:0] rob_commit_mdu_tag_ex_o;
+wire [31:0] rob_commit_mdu_result_o;
 // wire [31:0] rob_commit_data_mem_o;
 instruction_fetch if_u
 (
@@ -475,6 +478,10 @@ instruction_execution ex_u
   .rob_commit_rs2_ex_o(rob_commit_rs2_ex_o),
   .rob_commit_itlb_wr_en_ex_o(rob_commit_itlb_wr_en_ex_o),
   .rob_commit_dtlb_wr_en_ex_o(rob_commit_dtlb_wr_en_ex_o),
+  .rob_arbiter_stall_mdu_ex_i(mdu_arbiter_stall),
+  .rob_commit_mdu_done_ex_o(rob_commit_mdu_done_ex_o),
+  .rob_commit_mdu_tag_ex_o(rob_commit_mdu_tag_ex_o),
+  .rob_commit_mdu_result_o(rob_commit_mdu_result_o),
   // .rob_flush_ex_i(rob_flush),
   // Multi-Usage Output
   .branching_ex_o                 (   branching_ex_o                    ),
@@ -517,7 +524,7 @@ instruction_memory_stage mem_u
   .ebreak_trap_mem_o           (   ebreak_trap_mem_o              ),
   .sret_trap_mem_i             (   sret_trap_ex_o                 ),
   .sret_trap_mem_o             (   sret_trap_mem_o                ),
-  .trap_en_mem_i               (   rob_exception                  ),
+  .trap_en_mem_i               (   rob_exception | rob_flush | rob_sret ),
   .itlb_wr_en_mem_i            (   itlb_wr_en_ex_o                ),
   .dtlb_wr_en_mem_i            (   rob_commit_dtlb_wr_en                ),
   .itlb_wr_en_mem_o            (   itlb_wr_en_mem_o               ),
@@ -675,7 +682,7 @@ RAM_u(
 );
 
 //ROB entry arbitration between MEM, ALU
-wire mem_request, alu_request;
+wire mem_request, alu_request, mdu_request;
 reg cdb_valid, cdb_exc;
 reg [3:0] cdb_tag;
 reg [31:0] cdb_data;
@@ -689,7 +696,10 @@ reg [11:0] cdb_csr_addr;
 reg cdb_csr_wr_en;
 reg [31:0] cdb_rs1, cdb_rs2;
 reg cdb_itlb_wr_en, cdb_dtlb_wr_en;
+reg mdu_arbiter_stall;
+// reg mdu_request;
 assign alu_request = rob_commit_alu_done_ex_o;
+assign mdu_request = rob_commit_mdu_done_ex_o;
 assign mem_request = rob_commit_mem_done_mem_o;
 always @* begin
   cdb_valid = 1'b0;
@@ -708,6 +718,7 @@ always @* begin
   cdb_rs2 = 0;
   cdb_itlb_wr_en = 1'b0;
   cdb_dtlb_wr_en = 1'b0;
+  mdu_arbiter_stall = 1'b0;
   if(mem_request) begin
     cdb_valid = 1'b1;
     cdb_tag = rob_commit_tag_mem_o;
@@ -719,7 +730,17 @@ always @* begin
     if(alu_request) begin //We have contention for the BUS, Priority to MEM
       alu_arbiter_stall = 1'b1;
     end
-  end else if(alu_request) begin
+    if(mdu_request) begin
+      mdu_arbiter_stall = 1'b1;
+    end
+  end else if(mdu_request) begin
+    cdb_valid = 1'b1;
+    cdb_data = rob_commit_mdu_result_o;
+    cdb_tag = rob_commit_mdu_tag_ex_o;
+    if(alu_request) begin //We have contention for the BUS, Priority to MEM
+      alu_arbiter_stall = 1'b1;
+    end
+  end  else if(alu_request) begin
     cdb_valid  = 1'b1;
     cdb_tag    = rob_commit_tag_ex_o;
     cdb_data   = rob_commit_data_ex_o;

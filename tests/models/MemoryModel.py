@@ -175,7 +175,7 @@ class MemoryModel:
                 try:
                     # Method 1: Direct 2D access
                     data_val = int(data_cache_arr[index][widx].value)
-                    self.log.debug(f"Read using 2D access: data_cache[{index}][{widx}]")
+                    # self.log.debug(f"Read using 2D access: data_cache[{index}][{widx}]")
                 except:
                     try:
                         # Method 2: Access as a handle and use range
@@ -183,20 +183,20 @@ class MemoryModel:
                         # Get the range/size of the second dimension
                         if hasattr(handle, '__len__'):
                             data_val = int(handle[widx].value)
-                            self.log.debug(f"Read using handle[{widx}]")
+                            # self.log.debug(f"Read using handle[{widx}]")
                         else:
                             # Method 3: Try to access as a flat array
                             flat_index = index * self.WORDS_PER_LINE + widx
                             data_val = int(data_cache_arr[flat_index].value)
-                            self.log.debug(f"Read using flat index {flat_index}")
+                            # self.log.debug(f"Read using flat index {flat_index}")
                     except Exception as e:
                         self.log.error(f"Failed to read data_cache[{index}][{widx}]: {e}")
                         continue
                 
-                self.log.info(
-                    f"Flushing line idx={index}, tag=0x{tag:X}, word[{widx}] = 0x{data_val:08X} "
-                    f"→ base addr 0x{addr_word:08X}"
-                    )
+                # self.log.info(
+                #     f"Flushing line idx={index}, tag=0x{tag:X}, word[{widx}] = 0x{data_val:08X} "
+                #     f"→ base addr 0x{addr_word:08X}"
+                #     )
                 
                 # Write each byte separately (little-endian)
                 for byte_i in range(4):  # 32-bit = 4 bytes

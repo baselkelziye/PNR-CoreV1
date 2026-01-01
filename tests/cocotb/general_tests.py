@@ -355,7 +355,7 @@ async def rob_0_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
     #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=False)
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=True)
     num_cycles = 2000
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     expected_values = {
@@ -379,7 +379,7 @@ async def rob_1_test(dut):
     cocotb.start_soon(Clock(dut.clk_i, 2, unit="ns").start())
     await reset(dut, mem_model=mem)
     #await mem.load_file(filepath +trap_handler ,0x0, is_va=False) #PA
-    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=False)
+    await mem.load_file(filepath+filename,ADDR_INSTR_BASE,is_va=True)
     num_cycles = 1500
     await ClockCycles(dut.clk_i,num_cycles, rising=False)
     expected_values = {
