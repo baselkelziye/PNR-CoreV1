@@ -164,6 +164,7 @@ module instruction_fetch #(
     .pc_i                 (   pc_reg                              ),
     .pc_ex_i              (   pc_ex_i                             ),
     .btb_address_value_i  (   branching_address_i                 ),
+    .current_execution_mode_if_i(current_execution_mode_if_i),
     .update_btb_address_i (   update_btb_address_i                ),
     .btb_fetched_address_o(   btb_predicted_pc                    ),
     .increment_counter    (   increment_counter_i                 ),

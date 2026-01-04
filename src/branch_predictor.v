@@ -7,7 +7,7 @@ module branch_predictor
     input [31:0] pc_ex_i,         // PC in EX stage (where branch resolves)
     input [31:0] btb_address_value_i, // ALU result (target address) from EX
     input update_btb_address_i,       // Control signal to update BTB
-
+    input [1:0] current_execution_mode_if_i,
     // 2-Bit Predictor Signals
     input increment_counter,
     input decrement_counter,
@@ -74,7 +74,7 @@ always @(posedge clk_i, posedge rst_i) begin
         end
     end else begin
         // Only update on write signal
-        if(update_btb_address_i) begin
+        if(update_btb_address_i && current_execution_mode_if_i == 2'b00) begin
             BTB[ex_index]     <= btb_address_value_i; // Target address
             BTB_tag[ex_index] <= ex_tag;              // Tag
         end
@@ -94,10 +94,10 @@ begin
   else
   begin
     // Increment: branch taken, counter < STRONGLY_TAKEN (11)
-    if(increment_counter && (ex_pc_2bit_counter != STRONGLY_TAKEN))
+    if(increment_counter && (ex_pc_2bit_counter != STRONGLY_TAKEN) && current_execution_mode_if_i == 2'b00)
         branch_history_buffer[ex_index] <= branch_history_buffer[ex_index] + 2'b1;
     // Decrement: branch not taken, counter > STRONGLY_NOT_TAKEN (00)
-    else if(decrement_counter && (ex_pc_2bit_counter != STRONGLY_NOT_TAKEN))
+    else if(decrement_counter && (ex_pc_2bit_counter != STRONGLY_NOT_TAKEN)&& current_execution_mode_if_i == 2'b00)
         branch_history_buffer[ex_index] <= branch_history_buffer[ex_index] - 2'b1;
   end
 end
@@ -113,7 +113,7 @@ assign btb_fetched_address_o = BTB[if_index];
 assign BTB_hit = BTB_tag[if_index] == if_tag && BTB_tag[if_index] != 32'h0;
 
 // Branch Prediction: Taken if prediction is >= Weakly Taken (Bit 1 is high) AND BTB Hit
-assign branch_is_taken = if_pc_counter_2bit_counter[1] && BTB_hit;
+assign branch_is_taken = if_pc_counter_2bit_counter[1] && BTB_hit && current_execution_mode_if_i == 2'b00;
 
 `ifdef CORE_VERBOSITY
 

@@ -8,346 +8,180 @@
 #include <cstring>
 #include <unistd.h>
 #include <sstream>
-#include "Vcore___024root.h"  // For internal signals if needed
-
+#include "Vcore___024root.h" 
 
 // Global simulation time
 vluint64_t main_time = 0;
 
-// Called by $time in Verilog
 double sc_time_stamp() {
     return main_time;
 }
 
-
-// const uint32_t MEM_BASE = 0x00000000;
-const uint32_t MEM_BASE = 0x00000000;
-const uint32_t CACHE_SIZE = 0x200000;  // e.g., 2 MB, 2097152 bytes (Size of simulated main memory)
-
-// --- L1 Data Cache Geometry Assumptions ---
-// Assuming a 32KB cache with 32-byte lines (typical L1 structure)
-const uint32_t ENTRIES = 32;
+// --- Configuration Constants ---
+const uint32_t PA_OFFSET  = 0x00410000; // VA + OFFSET = PA
+const uint32_t MEM_SIZE   = 0x800000;   // 8MB Physical RAM
+const uint32_t ENTRIES    = 32;         // Cache Lines
 const uint32_t WORDS_PER_LINE = 4;
-const uint32_t LINE_SIZE_BYTES = WORDS_PER_LINE * 4; // 8 bytes per line
-const uint32_t BLOCK_OFFSET_BITS = 4;  // log2(LINE_SIZE_BYTES)
-const uint32_t TAG_SHIFT = 9;          // INDEX_BITS (6) + BLOCK_OFFSET_BITS (3)
-// ------------------------------------------
+const uint32_t BLOCK_OFFSET_BITS = 4;
+const uint32_t TAG_SHIFT = 9;
 
+// --- Helper to verify bounds ---
+bool is_valid_pa(uint32_t pa) {
+    return (pa < MEM_SIZE);
+}
+
+// 1. Load Virtual Hex into Physical RAM
 bool load_data_memory(const char* filename, Vcore* top) {
     std::ifstream mem_file(filename);
     if (!mem_file.is_open()) {
-        std::cerr << "ERROR: Cannot open " << filename << std::endl;
+        std::cerr << "ERROR: Could not open hex file: " << filename << std::endl;
         return false;
     }
 
+    // Create the trace log file
+    std::ofstream load_log("artifacts/load_memory_trace.txt");
+    load_log << "MDU/Core Memory Load Trace\n";
+    load_log << "PA_OFFSET: 0x" << std::hex << std::setw(8) << std::setfill('0') << PA_OFFSET << "\n";
+    load_log << "--------------------------------------------------\n";
+    load_log << "Virtual VA  |  Physical PA  |  Data Byte\n";
+    load_log << "--------------------------------------------------\n";
+
     std::string line;
+    uint32_t current_va = 0;
+
     while (std::getline(mem_file, line)) {
+        // Remove potential carriage returns from Windows-style files
+        if (!line.empty() && line.back() == '\r') line.pop_back();
         if (line.empty()) continue;
 
-        std::istringstream iss(line);
-        std::string addr_str;
-        iss >> addr_str;
+        if (line[0] == '@') {
+            // Handle Address Header (e.g., @00000000) 
+            current_va = std::stoul(line.substr(1), nullptr, 16);
+            load_log << "--- Jump to VA Header: 0x" << std::hex << std::setw(8) << current_va << " ---\n";
+        } else {
+            // Handle Data Line (e.g., 37 08 5C 7D ...) 
+            std::istringstream iss(line);
+            std::string byte_str;
+            
+            while (iss >> byte_str) {
+                uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
+                uint32_t pa_addr = current_va + PA_OFFSET;
 
-        uint32_t offset = 0;
-        std::stringstream ss;
-        ss << std::hex << addr_str;
-        ss >> offset;
+                // Log the individual byte translation
+                load_log << "0x" << std::setw(8) << current_va 
+                         << "  |  0x" << std::setw(8) << pa_addr 
+                         << "  |  " << std::setw(2) << (int)byte_val << "\n";
 
-        if (offset >= CACHE_SIZE) {
-            std::cerr << "WARNING: Address out of range: 0x" << std::hex << offset << std::endl;
-            continue; // skip line
-        }
+                // Safety Check: Prevent writing outside of the allocated Verilator RAM array
+                if (pa_addr < MEM_SIZE) {
+                    top->rootp->core__DOT__RAM_u__DOT__MEMORY[pa_addr] = byte_val;
+                } else {
+                    load_log << "!! ERROR: PA 0x" << std::hex << pa_addr << " is OUT OF BOUNDS !!\n";
+                }
 
-        std::string byte_str;
-        while (iss >> byte_str) {
-            if (byte_str.length() != 2) {
-                std::cerr << "WARNING: Invalid byte format '" << byte_str << "'\n";
-                break;
+                current_va++; // Move to next byte address
             }
-
-            uint8_t byte_val = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
-
-            if (offset >= CACHE_SIZE) {
-                std::cerr << "WARNING: Memory write out of bounds at offset 0x" << std::hex << offset << std::endl;
-                break;
-            }
-            // Accessing the RAM array via Verilator-generated path
-            top->rootp->core__DOT__RAM_u__DOT__MEMORY[offset] = byte_val;
-            offset++;
         }
     }
 
+    std::cout << "Memory load complete. Trace saved to artifacts/load_memory_trace.txt" << std::endl;
+    load_log.close();
     mem_file.close();
     return true;
 }
 
-
-
-
-
+// 2. Write-back Cache (Physical) to Memory (Physical)
 void write_back_cache_to_mem(Vcore* top) {
-    // --- Marker for execution ---
-    std::ofstream marker("artifacts/writeback_marker.txt");
-    marker << "write_back_cache_to_mem() executed\n";
-    marker.close();
-
-    // --- Read signature metadata file ---
-    uint32_t sig_start = 0, sig_end = 0;
-    {
-        std::ifstream sigfile("artifacts/sig_meta.txt");
-        if (sigfile.is_open()) {
-            std::string line;
-            if (std::getline(sigfile, line)) {
-                std::istringstream iss(line);
-                iss >> std::hex >> sig_start >> sig_end;
-                std::cout << "Signature range loaded: 0x"
-                          << std::hex << sig_start << " - 0x" << sig_end << std::dec << std::endl;
-            } else {
-                std::cerr << "WARNING: sig_meta.txt is empty or malformed.\n";
-            }
-        } else {
-            std::cerr << "WARNING: Could not open artifacts/sig_meta.txt\n";
-        }
+    uint32_t sig_start_va = 0, sig_end_va = 0;
+    std::ifstream sigfile("artifacts/sig_meta.txt");
+    if (sigfile >> std::hex >> sig_start_va >> sig_end_va) {
+        std::cout << "Signature VA Range: 0x" << std::hex << sig_start_va 
+                  << " - 0x" << sig_end_va << std::endl;
     }
 
-    // --- Open main log file ---
     std::ofstream log("artifacts/writeback_log.txt");
-    if (!log.is_open()) {
-        std::cerr << "ERROR: Could not open artifacts/writeback_log.txt for writing.\n";
-        return;
-    }
-
-    std::cout << "Starting L1 D-Cache write-back to main memory..." << std::endl;
-    std::cout.flush();
-
+    
     for (uint32_t i = 0; i < ENTRIES; ++i) {
         bool valid = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__valid_bit[i];
         bool dirty = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__dirty_bit[i];
 
-        if (valid) {
+        if (valid && dirty) {
             uint32_t tag = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__tag_arr[i];
-            uint32_t physical_line_addr = (tag << TAG_SHIFT) | (i << BLOCK_OFFSET_BITS);
+            uint32_t pa_line = (tag << TAG_SHIFT) | (i << BLOCK_OFFSET_BITS);
 
-            log << "Entry: " << std::dec << i
-                << " | " << (dirty ? "DIRTY" : "CLEAN")
-                << " | Physical Line Addr: 0x" << std::hex << std::setw(8)
-                << std::setfill('0') << physical_line_addr << std::dec << "\n";
+            for (uint32_t j = 0; j < WORDS_PER_LINE; ++j) {
+                uint32_t word = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__data_cache[i][j];
+                uint32_t pa_word = pa_line + (j * 4);
 
-            if (dirty) {
-                if (physical_line_addr < MEM_BASE ||
-                    (physical_line_addr - MEM_BASE) >= (CACHE_SIZE - LINE_SIZE_BYTES + 1)) {
-                    std::cerr << "WARNING: Write-back target 0x" << std::hex << physical_line_addr
-                              << " is outside simulated RAM bounds.\n";
-                    log << "  WARNING: Write-back target out of bounds!\n";
-                    continue;
-                }
-
-                // Iterate through the 8 words in the line
-                for (uint32_t j = 0; j < WORDS_PER_LINE; ++j) {
-                    uint32_t word = top->rootp->core__DOT__mem_u__DOT__data_mem_subsystem_u__DOT__l1_dcache_array_u__DOT__data_cache[i][j];
-                    uint32_t current_word_addr = physical_line_addr + (j * 4);
-                    uint32_t mem_offset = current_word_addr - MEM_BASE;
-
-                    // 🚫 Skip any writes at or beyond (sig_end - 4)
-                    // if (sig_end != 0 && (current_word_addr >= (sig_end - 4) || current_word_addr == sig_start)) {
-                    //     log << "    SKIP: Word " << j
-                    //         << " | Addr: 0x" << std::hex << std::setw(8) << current_word_addr
-                    //         << " protected (sig_start=0x" << sig_start << " or >= sig_end-4=0x" << (sig_end - 4)
-                    //         << ") | Value: 0x" << std::setw(8) << word
-                    //         << " | NOT WRITTEN\n" << std::dec;
-                    //     continue;
-                    // }
-
-                    // Normal write-back logging
-                    log << "    Word " << std::setw(2) << j
-                        << " | Addr: 0x" << std::hex << std::setw(8)
-                        << std::setfill('0') << current_word_addr
-                        << " | Value: 0x" << std::setw(8) << word << std::dec << "\n";
-
-                    // Perform the actual write (little-endian)
+                if (is_valid_pa(pa_word + 3)) {
                     for (int k = 0; k < 4; ++k) {
-                        uint8_t byte_val = (word >> (8 * k)) & 0xFF;
-                        top->rootp->core__DOT__RAM_u__DOT__MEMORY[mem_offset + k] = byte_val;
+                        top->rootp->core__DOT__RAM_u__DOT__MEMORY[pa_word + k] = (word >> (8 * k)) & 0xFF;
                     }
                 }
             }
         }
     }
-
-    log << "L1 D-Cache write-back complete.\n";
-    
-
-    // std::cout << "L1 D-Cache write-back complete." << std::endl;
-    // std::cout.flush();
-
-    // --- Assign constant value to signature beginning and end ---
-    if (sig_end != 0) {
-        log << "Assigning signature constant 0x6f5ca309 to addresses 0x" 
-                  << std::hex << sig_start << " and 0x" << sig_end << std::dec << std::endl;
-        
-        // Assign to signature beginning
-        uint32_t mem_offset_start = sig_start - MEM_BASE;
-        for (int k = 0; k < 4; ++k) {
-            uint8_t byte_val = (0x6f5ca309 >> (8 * k)) & 0xFF;
-            top->rootp->core__DOT__RAM_u__DOT__MEMORY[mem_offset_start + k] = byte_val;
-        }
-        
-        // Assign to signature end
-        uint32_t mem_offset_end = sig_end - MEM_BASE - 4;
-        for (int k = 0; k < 4; ++k) {
-            uint8_t byte_val = (0x6f5ca309 >> (8 * k)) & 0xFF;
-            top->rootp->core__DOT__RAM_u__DOT__MEMORY[mem_offset_end + k] = byte_val;
-        }
-        
-        log << "Signature constant assignment complete." << std::endl;
-    }
     log.close();
 }
 
-
-// Function to dump the data memory contents to a file, printing every 4 bytes (a word) per line, including zeros.
+// 3. Dump Physical Memory
 void dump_data_memory(const char* filename, Vcore* top) {
     std::ofstream dump_file(filename);
-    if (!dump_file.is_open()) {
-        std::cerr << "ERROR: Cannot create " << filename << " for memory dump.\n";
-        return;
-    }
-
-    // Setup output stream formatting
     dump_file << std::hex << std::uppercase << std::setfill('0');
     
-    // Iterate through the RAM array, advancing by 4 bytes (one word)
-    for (uint32_t offset = 0; offset < CACHE_SIZE; offset += 4) {
+    for (uint32_t pa = 0; pa < MEM_SIZE; pa += 4) {
         uint32_t word = 0;
-
-        // Read 4 bytes from memory and combine them into a word (little-endian)
         for (int i = 0; i < 4; ++i) {
-            uint32_t byte_offset = offset + i;
-            uint8_t val = top->rootp->core__DOT__RAM_u__DOT__MEMORY[byte_offset];
-            word |= (uint32_t)val << (8 * i);
+            word |= (uint32_t)top->rootp->core__DOT__RAM_u__DOT__MEMORY[pa + i] << (8 * i);
         }
-
-        // Physical Address (MEM_BASE + offset)
-        dump_file << "0x" << std::setw(8) << (MEM_BASE + offset) << ": ";
-        
-        // 32-bit word of data
-        dump_file << std::setw(8) << word << "\n";
+        dump_file << "0x" << std::setw(8) << pa << ": " << std::setw(8) << word << "\n";
     }
-
     dump_file.close();
-    std::cout << "Memory dumped successfully to " << filename << " (all words, 4 bytes per line)\n";
-    std::cout.flush(); // Ensure the message is printed
 }
-
 
 int main(int argc, char **argv) {
     Verilated::commandArgs(argc, argv);
-
     Vcore* top = new Vcore;
     bool memory_loaded = false;
 
-    // Optional waveform tracing
-    VerilatedVcdC* tfp = nullptr;
-#ifdef TRACE
-    Verilated::traceEverOn(true);
-    tfp = new VerilatedVcdC;
-    top->trace(tfp, 99);
-    tfp->open("core.vcd");
-#endif
-
-    // Reset sequence
+    // Reset loop
     top->rst_i = 1;
     top->clk_i = 0;
 
-
-    while (!Verilated::gotFinish() && main_time <600000) {
-        // Toggle clock
+    while (!Verilated::gotFinish() && main_time < 1000000) {
         top->clk_i = !top->clk_i;
+        if (main_time > 100) top->rst_i = 0;
 
-        // Apply reset after 20 time units
-        if (main_time > 20)
-            top->rst_i = 0;
+        if (top->rst_i == 0 && !memory_loaded && top->clk_i == 1) {
+            load_data_memory("artifacts/program_test.hex", top);
+            memory_loaded = true;
+        }
 
-            if (main_time > 20 && !memory_loaded) {
-                // Load data memory on the first rising edge after reset release
-                if (top->clk_i == 1) {
-                    // if (!load_data_memory("artifacts/data_mem.hex", top)) {
-                    //     std::cerr << "Failed to load data memory!" << std::endl;
-                    //     delete top;
-                    //     return 1;
-                    // }
-                    memory_loaded = true;
-                    dump_data_memory("artifacts/memory_before.txt", top);
-                }
-            }
-            
-        // Evaluate the DUT
         top->eval();
-
-    
-
-        if (tfp) tfp->dump(main_time);
         main_time += 5;
     }
 
-    if (tfp) {
-        tfp->close();
-        delete tfp;
-    }
-    
-    std::cout << "[DEBUG] About to call write_back_cache_to_mem()" << std::endl;
-
-    // === Write-back cache contents before memory operations ===
+    // --- Post-Simulation Processing ---
     write_back_cache_to_mem(top);
-
-    // === MANDATORY: Memory Dump before termination ===
     dump_data_memory("artifacts/memory_dump.txt", top);
 
-    // === Signature extraction ===
+    // Extract Signature using Translated Addresses
     std::ifstream sig_meta("artifacts/sig_meta.txt");
-    uint32_t sig_begin = 0, sig_end = 0;
-    if (!sig_meta.is_open()) {
-        std::cerr << "ERROR: Cannot open sig_meta.txt\n";
-        delete top;
-        return 1;
-    }
+    uint32_t sig_begin_va = 0, sig_end_va = 0;
+    sig_meta >> std::hex >> sig_begin_va >> sig_end_va;
 
-    sig_meta >> std::hex >> sig_begin >> sig_end;
-    sig_meta.close();
-    std::cout << "Signature range: 0x" << std::hex << sig_begin << " - 0x" << sig_end << std::endl;
-
-    // Output signature file
     std::ofstream sig_out("artifacts/DUT.signature");
-    if (!sig_out.is_open()) {
-        std::cerr << "ERROR: Cannot create DUT.signature\n";
-        delete top;
-        return 1;
-    }
-
-    
-    for (uint32_t addr = sig_begin; addr < sig_end; addr += 4) {
+    for (uint32_t va = sig_begin_va; va < sig_end_va; va += 4) {
+        uint32_t pa = va + PA_OFFSET;
         uint32_t word = 0;
-    
-        for (int i = 0; i < 4; ++i) {
-            uint32_t byte_addr = addr + i;
-    
-            // Compute memory offset
-            if (byte_addr < MEM_BASE || (byte_addr - MEM_BASE) >= CACHE_SIZE) {
-                std::cerr << "ERROR: Attempt to access out-of-bounds memory at 0x"
-                          << std::hex << byte_addr << std::endl;
-                delete top;
-                return 1;
+        if (is_valid_pa(pa + 3)) {
+            for (int i = 0; i < 4; ++i) {
+                word |= (uint32_t)top->rootp->core__DOT__RAM_u__DOT__MEMORY[pa + i] << (8 * i);
             }
-    
-            uint32_t offset = byte_addr - MEM_BASE;
-            uint8_t val = top->rootp->core__DOT__RAM_u__DOT__MEMORY[offset];
-            word |= val << (8 * i);
         }
-    
         sig_out << std::hex << std::setw(8) << std::setfill('0') << word << "\n";
     }
-    
-    sig_out.close();
+
     delete top;
     return 0;
 }

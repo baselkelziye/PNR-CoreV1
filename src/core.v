@@ -279,7 +279,7 @@ instruction_decode id_u
   .rd_value_mem_i                 (   alu_result_ex_o                   ),
   .is_load_instr_mem_i            (   is_load_instr_ex_o                ),
   //Inputs From WriteBack Stage
-  .reg_write_en_wb_i              (   reg_write_en_mem_o                ),
+  .reg_write_en_wb_i              (   reg_write_en_mem_o & (~exception_raised)               ),
   .rd_label_wb_i                  (   rd_label_mem_o                    ),
   .rd_value_wb_i                  (   rd_value_mem_ro                   ),
   //Inputs To CSR/Trap Logic
