@@ -70,10 +70,12 @@ localparam  [2:0]
         // Update path to your hex file
         $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/spike/trap_handler.hex", MEMORY,32'h0000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/basel_bubblesort.hex", MEMORY,32'h4000);
-        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/rob_1.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/jal_test.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_large.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
+        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/matrix_mul_large.hex", MEMORY,32'h00410000); //PA Mapping for VA = 0x0
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/machine_codes/mem_copy.hex", MEMORY,32'h4000);
-        // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h00426000); //PA Mapping for VA = 0x16000
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_a.txt", MEMORY,32'h00415000); //PA Mapping for VA = 0x16000
+        $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/large_b.txt", MEMORY,32'h0041a000); //PA Mapping for VA = 0x16000
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/performance_test/memory_files/buffer_sum.mem", MEMORY,32'h16000);
         // $readmemh("artifacts/program_test.hex", MEMORY, 32'h4000);
         // $readmemh("/home/bkelziye/Desktop/PNR-CoreV1/tests/cocotb/machine_codes/program_test.hex", MEMORY,32'h4000);
@@ -332,7 +334,7 @@ localparam  [2:0]
     int i;
     $fwrite(mem_dump_file, "Cycle: :%0d\n", cycle);
     $fwrite(mem_dump_file, "  Address \t \t   Word \t \t   Byte0 \t Byte1 \t Byte2 \t Byte3\n");
-    for (i = 32'h00426000; i < (32'h00426000 + 32'h4000); i = i + 4) begin
+    for (i = 32'h00420000; i < (32'h00420000 + 32'h4000); i = i + 4) begin
         // Print each memory location as "address: value"
         $fwrite(mem_dump_file, "0x%h \t \t  0x%h \t \t %h \t   %h \t   %h \t   %h \n", i, {MEMORY[i+3], MEMORY[i+2], MEMORY[i+1], MEMORY[i]}, MEMORY[i], MEMORY[i+1], MEMORY[i+2], MEMORY[i+3]);
     end

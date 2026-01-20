@@ -102,6 +102,7 @@ module instruction_execution(
   output rob_commit_csr_wr_en_ex_o,
   output rob_commit_itlb_wr_en_ex_o,
   output rob_commit_dtlb_wr_en_ex_o,
+  output rob_commit_unconditional_branch_ex_o,
   input rob_arbiter_stall_ex_i,
   //ROB MDU COMMIT
   output rob_commit_mdu_done_ex_o,
@@ -168,7 +169,7 @@ module instruction_execution(
   //If instruction is valid, and its not store, load and not Multiplication. then its ALU
   //If instruction is ecall,ebreak or itlb miss exception, Also Commit trap!
   assign alu_stage_done = ((instr_valid_ex_i & ~is_load_instr_ex_i & ~is_store_instr_ex_i & ~ex_unit_sel_ex_i)
-                          || (ecall_trap_ex_i || ebreak_trap_ex_i || sret_trap_ex_i || itlb_miss_ex_i)) && ~(trap_en_ex_i) ;
+                          || (ecall_trap_ex_i || ebreak_trap_ex_i || sret_trap_ex_i || itlb_miss_ex_i || unconditional_branch_ex_i)) && ~(trap_en_ex_i) ;
   
 
 
@@ -195,7 +196,7 @@ module instruction_execution(
 
   assign rob_commit_alu_done_ex_o = alu_stage_done;
   assign rob_commit_tag_ex_o = rob_tag_ex_i;
-  assign rob_commit_data_ex_o = ex_stage_result_o;
+  assign rob_commit_data_ex_o = (wb_sel_ex_i == 2'b10) ?  pc_ex_i + 32'd4 :  ex_stage_result_o;
 
   assign rob_commit_exception_ex_o = exception_raised_ex;
   assign rob_commit_scause_ex_o = scause_ex;
@@ -213,6 +214,7 @@ module instruction_execution(
 
   assign rob_commit_itlb_wr_en_ex_o = itlb_wr_en_ex_i;
   assign rob_commit_dtlb_wr_en_ex_o = dtlb_wr_en_ex_i;
+  assign rob_commit_unconditional_branch_ex_o = unconditional_branch_ex_i;
   branch_jump branch_jump_u(
       .in1_i            (   rs1_data_ex_i       ),
       .in2_i            (   rs2_data_ex_i       ),
@@ -354,7 +356,8 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_e
   function void ex_trace_log(int file);
     $fwrite(file,"\n***********Execution Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, periheral_stall_ex_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_ex_i,periheral_stall_ex_i,mem_stage_stall_i);
-    mdu_op_trace(file);
+    branch_op_trace(file);
+    // mdu_op_trace(file);
     // if(`CORE_VERBOSITY >= 500 ) begin
     //   $fwrite(file, "\nTime: %1t, rs1_data_ex_i: 0x%h, pc_ex_i: 0x%h, imm_value_ex_i: 0x%h, rs1_pc_imm_sel: %b", $time,rs1_data_ex_i,pc_ex_i,imm_value_ex_i,rs1_pc_imm_sel_ex_i);
     //   $fwrite(file, "\nTime: %1t, rs2_data_ex_i: 0x%h, imm_value_ex_i: 0x%h, csr_rd_value_ex_i: 0x%h, rs2_imm_csr_sel_ex_i: %b", $time,rs2_data_ex_i,imm_value_ex_i,csr_rd_value_ex_i,rs2_imm_csr_sel_ex_i);

@@ -26,7 +26,7 @@ class MemoryModel:
         # 1. Locate the Unified Physical Memory
         try:
             self.phys_ram = dut.RAM_u.MEMORY
-            self.log.info("Linked to Unified Physical Memory")
+            # self.log.info("Linked to Unified Physical Memory")
         except AttributeError:
             self.log.error("Could not find Unified RAM. check hierarchy.")
             # raise
@@ -84,7 +84,7 @@ class MemoryModel:
         return (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
 
     async def load_file(self, filename, target_base_va,is_va = True):
-        self.log.info(f"Loading {filename} at Virtual Base {hex(target_base_va)}")
+        # self.log.info(f"Loading {filename} at Virtual Base {hex(target_base_va)}")
         with open(filename, "r") as f:
             lines = f.readlines()
         
@@ -110,9 +110,9 @@ class MemoryModel:
         size = 0x2000
 
         for base in regions:
-            self.log.info(
-                f"Zeroing out {size:#x} bytes starting at address {base:#010x}..."
-            )
+            # self.log.info(
+            #     f"Zeroing out {size:#x} bytes starting at address {base:#010x}..."
+            # )
             end = base + size
             for addr in range(base, end):
                 self.phys_ram[addr].value = 0
@@ -144,7 +144,7 @@ class MemoryModel:
         Writes all valid & dirty cache lines back to byte-addressable main memory.
         Used for verification to ensure memory consistency before ending simulation.
         """
-        self.log.info("Flushing Valid+Dirty Cache lines to Main Memory...")
+        # self.log.info("Flushing Valid+Dirty Cache lines to Main Memory...")
         valid_bit_arr, dirty_bit_arr, tag_arr, data_cache_arr = self._get_cache_arrays()
 
         flush_count = 0
@@ -209,7 +209,7 @@ class MemoryModel:
                     else:
                         self.log.warning(f"Cache flush out of bounds: {hex(byte_addr)}")
         
-        self.log.info(f"Flush complete. {flush_count} dirty lines written back.")
+        # self.log.info(f"Flush complete. {flush_count} dirty lines written back.")
 
 
     
@@ -218,7 +218,7 @@ class MemoryModel:
         Backdoor clear of the cache tag, valid, and dirty arrays.
         Effective for resetting cache state between tests.
         """
-        self.log.info("Clearing (Invalidating) L1 Data Cache...")
+        # self.log.info("Clearing (Invalidating) L1 Data Cache...")
         valid_bit_arr, dirty_bit_arr, tag_arr, _ = self._get_cache_arrays()
 
         for index in range(self.ENTRIES):
@@ -226,11 +226,11 @@ class MemoryModel:
             dirty_bit_arr[index].value = 0
             tag_arr[index].value = 0
         
-        self.log.info("Cache arrays cleared.")
+        # self.log.info("Cache arrays cleared.")
 
 def main():
     mem = MemoryModel(None)
-    print(f"PA: 0X{mem.virt_to_phys(0x18000):08X}")
+    print(f"PA: 0X{mem.virt_to_phys(0x10000):08X}")
 
 if __name__ == "__main__":
     main()

@@ -44,6 +44,7 @@ module rob #(
     input [31:0]             i_cdb_rs2,
     input                    i_cdb_itlb_wr_en,
     input                    i_cdb_dtlb_wr_en,
+    input                    i_cdb_unconditional_branch,
 
     // --- Interface with Architectural Register File (Commit) ---
     output reg               o_commit_we,   
@@ -58,6 +59,7 @@ module rob #(
     output reg [31:0]        o_commit_rs2,
     output reg               o_commit_itlb_wr_en,
     output reg               o_commit_dtlb_wr_en,
+    output reg [31:0]        rob_commit_instr_o,
     output                   o_flush, //Exception or Mispredict
     output                   o_exception,
     output                   o_sret,
@@ -93,6 +95,7 @@ module rob #(
     reg [31:0]           rs2_array[0:ROB_SIZE-1];
     reg                  itlb_wr_en[0:ROB_SIZE-1];
     reg                  dtlb_wr_en[0:ROB_SIZE-1];
+    reg                  unconditional_branch[0:ROB_SIZE-1];
 
     // --- ALLOCATION LOGIC ---
     assign o_rob_full = (busy_array[tail] == 1'b1);
@@ -116,6 +119,7 @@ module rob #(
                 rs2_array[i] <= 0;
                 itlb_wr_en[i] <= 1'b0;
                 dtlb_wr_en[i] <= 1'b0;
+                unconditional_branch[i] <= 1'b0;
             end
         end else if(o_flush | o_exception | o_sret) begin
             tail <= 0;
@@ -133,6 +137,7 @@ module rob #(
                 rs2_array[i] <= 0;
                 itlb_wr_en[i] <= 1'b0;
                 dtlb_wr_en[i] <= 1'b0;
+                unconditional_branch[i] <= 1'b0;
             end
             // tail <= head + 1'b1; //Reset Pointers, Since it circular 
         end else if (i_alloc_en && !o_rob_full) begin
@@ -154,6 +159,7 @@ module rob #(
             rs2_array[tail] <= 0;
             itlb_wr_en[tail] <= 1'b0;
             dtlb_wr_en[tail] <= 1'b0;
+            unconditional_branch[tail] <= 1'b0;
             tail <= tail + 1'b1;
 
         end 
@@ -172,6 +178,7 @@ module rob #(
             rs2_array[i_cdb_tag] <= i_cdb_rs2;
             itlb_wr_en[i_cdb_tag] <= i_cdb_itlb_wr_en;
             dtlb_wr_en[i_cdb_tag] <= i_cdb_dtlb_wr_en;
+            unconditional_branch[i_cdb_tag] <= i_cdb_unconditional_branch;
         end
 
         if(commit_happened) begin //Clear on Commit
@@ -183,6 +190,7 @@ module rob #(
             csr_wr_array[head] <= 1'b0;
             itlb_wr_en[head] <= 1'b0;
             dtlb_wr_en[head] <= 1'b0;
+            unconditional_branch[head] <= 1'b0;
         end
     end
 
@@ -190,7 +198,7 @@ module rob #(
     wire commit_happened;
 
     assign commit_happened = (busy_array[head] && valid_array[head]) && 
-                         ( (exc_array[head] || branch_array[head] || sret_array[head]) || // Case 1: Flush
+                         ( (exc_array[head] || branch_array[head] || sret_array[head] || unconditional_branch[head]) || // Case 1: Flush
                            (is_store_array[head] && i_sb_drain_done)                  || // Case 2: Store Done
                            (!is_store_array[head] && !exc_array[head] && !branch_array[head] && !sret_array[head]) // Case 3: Regular
                          );
@@ -210,7 +218,7 @@ module rob #(
             o_commit_dtlb_wr_en <= 1'b0;
         end else begin
             if (busy_array[head] && valid_array[head]) begin
-                if (exc_array[head] || branch_array[head] || sret_array[head]) begin
+                if (exc_array[head] || (branch_array[head] & ~unconditional_branch[head]) || sret_array[head]) begin
                     head <= 0; 
                     o_commit_we      <= 0;
                     o_commit_rd      <= 0;
@@ -222,6 +230,7 @@ module rob #(
                     o_commit_csr_addr <= '1;
                     o_commit_itlb_wr_en <= 1'b0;
                     o_commit_dtlb_wr_en <= 1'b0;
+                    rob_commit_instr_o <= 32'h13;
                 end 
                 else if (is_store_array[head]) begin //We have valid store, and not exception -> Drain SB
                     //Here also, SB Drain request goes high, check (o_rob_sb_drain)
@@ -244,7 +253,13 @@ module rob #(
                     o_commit_rs2 <= rs2_array[head];
                     o_commit_itlb_wr_en <= itlb_wr_en[head];
                     o_commit_dtlb_wr_en <= dtlb_wr_en[head];
-                    head <= head + 1'b1;
+                    rob_commit_instr_o <= instr_array[head];
+                    if(unconditional_branch[head]) begin
+                        head <= 0;
+                    end else begin
+                        head <= head + 1'b1;
+                    end
+                    
 
                 end
             end else begin
@@ -253,6 +268,7 @@ module rob #(
                 o_commit_csr_wr_en <= 1'b0;
                 o_commit_itlb_wr_en <= 1'b0;
                 o_commit_dtlb_wr_en <= 1'b0;
+                rob_commit_instr_o <= 32'h13;
             end
         end
     end
@@ -267,7 +283,7 @@ module rob #(
     assign o_rs1_value = val_array[i_rs1_rob_tag];
     assign o_rs2_value = val_array[i_rs2_rob_tag];
 
-    assign o_flush     = (busy_array[head] && valid_array[head]) && (branch_array[head]);
+    assign o_flush     = (busy_array[head] && valid_array[head]) && (branch_array[head] || unconditional_branch[head]);
     assign o_exception = (busy_array[head] && valid_array[head]) && (exc_array[head]   );
     assign o_sret      = (busy_array[head] && valid_array[head]) && (sret_array[head]  );
     assign o_stval_rob     = stval_array[head];
@@ -285,16 +301,17 @@ reg [8*RISCV_DISASM_STRLEN-1:0] disasm_str;// = riscv_disasm(fetched_instruction
 $fwrite(i_debug_file, "\nTime: %1t, ROB, i_alloc_en: %b, o_rob_full: %b ",$time, i_alloc_en,o_rob_full);
 $fwrite(i_debug_file, "\n\tROB Content Dump (Head: %0d, Tail: %0d)", head, tail);
         // Table Header
-        $fwrite(i_debug_file, "\nIdx  B V \tExp SRET STORE CSRWR  Dest  CSR  Value       PC          scause       stval     branch    branch_addr   \t Instruction \t Ptr");
+        $fwrite(i_debug_file, "\nIdx  B V \tExp UB SRET STORE CSRWR  Dest  CSR  Value       PC          scause       stval     branch    branch_addr   \t Instruction \t Ptr");
         $fwrite(i_debug_file, "\n\t---------------------------------------------------------------------------------------");
         
         for (idx = 0; idx < ROB_SIZE; idx = idx + 1) begin
             disasm_str = riscv_disasm(instr_array[idx], pc_array[idx]);
-            $fwrite(i_debug_file, "\n%3d  %1b %1b \t %1b\t%1b    %1b      %1b    %d   0x%04d 0x%08h  0x%08h   0x%08h   0x%08h    %b     0x%08h       %0s", 
+            $fwrite(i_debug_file, "\n%3d  %1b %1b \t %1b\t %1b  %1b    %1b      %1b    %d   0x%04d 0x%08h  0x%08h   0x%08h   0x%08h    %b     0x%08h       %0s", 
                 idx, //3d
                 busy_array[idx], //b 
                 valid_array[idx], //b
                 exc_array[idx], //b 
+                unconditional_branch[idx],
                 sret_array[idx], //b
                 is_store_array[idx], //b
                 csr_wr_array[idx],

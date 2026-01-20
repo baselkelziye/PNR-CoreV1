@@ -219,6 +219,7 @@ wire rob_commit_itlb_wr_en_ex_o, rob_commit_dtlb_wr_en_ex_o;
 wire rob_commit_mdu_done_ex_o;
 wire [3:0] rob_commit_mdu_tag_ex_o;
 wire [31:0] rob_commit_mdu_result_o;
+wire rob_commit_unconditional_branch_ex_o;
 // wire [31:0] rob_commit_data_mem_o;
 instruction_fetch if_u
 (
@@ -478,6 +479,7 @@ instruction_execution ex_u
   .rob_commit_rs2_ex_o(rob_commit_rs2_ex_o),
   .rob_commit_itlb_wr_en_ex_o(rob_commit_itlb_wr_en_ex_o),
   .rob_commit_dtlb_wr_en_ex_o(rob_commit_dtlb_wr_en_ex_o),
+  .rob_commit_unconditional_branch_ex_o(rob_commit_unconditional_branch_ex_o),
   .rob_arbiter_stall_mdu_ex_i(mdu_arbiter_stall),
   .rob_commit_mdu_done_ex_o(rob_commit_mdu_done_ex_o),
   .rob_commit_mdu_tag_ex_o(rob_commit_mdu_tag_ex_o),
@@ -566,10 +568,11 @@ instruction_memory_stage mem_u
   .rob_drain_req_mem_i(o_rob_sb_drain),
   .rob_commit_data_mem_o(rob_commit_data_mem_o),
   .sb_resp_done_mem_o(sb_resp_done_mem_o),
+  
   //Wisbone + Peripherals
   .peripheral_stall_o          (   peripheral_stall_mem_o         ),
   .mem_stage_stall_o           (   mem_stage_stall                ),
-  .fetched_instruction_mem_o   (   fetched_instruction_wb         ),
+  .fetched_instruction_mem_o   (            ),
 
   //dcache request handshake
   .dcache_req_valid_mem_o(dcache_req_valid_mem_o),
@@ -587,37 +590,37 @@ instruction_memory_stage mem_u
 //Write Back Stage is Implicitly Here
 
 //This block generates *cause, *tval 
-always @* begin
-  // exception_raised = 1'b0;
-  scause           = 32'b0;
-  stval            = 32'b0;
-  if(ebreak_trap_mem_o) begin
-    scause = {1'b0, 31'd3}; //Breakpoint Has Trap Code = 3
-    // exception_raised = 1'b1;
-    stval            = 32'b0;
-  end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
-    // exception_raised = 1'b1;
-    stval            = 32'b0;
-    case (current_execution_mode)
-      `U_MODE: scause = {1'b0, 31'd8}; //ecall from UMODE has cause 8 
-      `S_MODE: scause = {1'b0, 31'd9};
-      `M_MODE: scause = {1'b0, 31'd11}; //Probably, should assign mcause, TODO
-      default: scause = 32'b0;
-    endcase
-  end else if(itlb_miss_mem_o) begin //itlb miss
-    // exception_raised = 1'b1;
-    scause = {1'b0, 31'd12}; //instruction page fault
-    stval  = pc_mem_o;
-  end else if(store_page_fault_mem_o) begin //load page fault = 13, store page fault =  15
-    // exception_raised = 1'b1;
-    scause = {1'b0, 31'd13};
-    stval = alu_result_mem_o;
-  end else if(load_page_fault_mem_o) begin
-    // exception_raised = 1'b1;
-    scause = {1'b0, 31'd15};
-    stval = alu_result_mem_o;
-  end
-end
+// always @* begin
+//   // exception_raised = 1'b0;
+//   scause           = 32'b0;
+//   stval            = 32'b0;
+//   if(ebreak_trap_mem_o) begin
+//     scause = {1'b0, 31'd3}; //Breakpoint Has Trap Code = 3
+//     // exception_raised = 1'b1;
+//     stval            = 32'b0;
+//   end else if(ecall_trap_mem_o) begin //Ecall has a trap Code of 8
+//     // exception_raised = 1'b1;
+//     stval            = 32'b0;
+//     case (current_execution_mode)
+//       `U_MODE: scause = {1'b0, 31'd8}; //ecall from UMODE has cause 8 
+//       `S_MODE: scause = {1'b0, 31'd9};
+//       `M_MODE: scause = {1'b0, 31'd11}; //Probably, should assign mcause, TODO
+//       default: scause = 32'b0;
+//     endcase
+//   end else if(itlb_miss_mem_o) begin //itlb miss
+//     // exception_raised = 1'b1;
+//     scause = {1'b0, 31'd12}; //instruction page fault
+//     stval  = pc_mem_o;
+//   end else if(store_page_fault_mem_o) begin //load page fault = 13, store page fault =  15
+//     // exception_raised = 1'b1;
+//     scause = {1'b0, 31'd13};
+//     stval = alu_result_mem_o;
+//   end else if(load_page_fault_mem_o) begin
+//     // exception_raised = 1'b1;
+//     scause = {1'b0, 31'd15};
+//     stval = alu_result_mem_o;
+//   end
+// end
 
 
 
@@ -697,6 +700,7 @@ reg cdb_csr_wr_en;
 reg [31:0] cdb_rs1, cdb_rs2;
 reg cdb_itlb_wr_en, cdb_dtlb_wr_en;
 reg mdu_arbiter_stall;
+reg cdb_unconditional_branch;
 // reg mdu_request;
 assign alu_request = rob_commit_alu_done_ex_o;
 assign mdu_request = rob_commit_mdu_done_ex_o;
@@ -719,6 +723,7 @@ always @* begin
   cdb_itlb_wr_en = 1'b0;
   cdb_dtlb_wr_en = 1'b0;
   mdu_arbiter_stall = 1'b0;
+  cdb_unconditional_branch = 1'b0;
   if(mem_request) begin
     cdb_valid = 1'b1;
     cdb_tag = rob_commit_tag_mem_o;
@@ -756,6 +761,7 @@ always @* begin
     cdb_rs2 = rob_commit_rs2_ex_o;
     cdb_itlb_wr_en = rob_commit_itlb_wr_en_ex_o;
     cdb_dtlb_wr_en = rob_commit_dtlb_wr_en_ex_o;
+    cdb_unconditional_branch = rob_commit_unconditional_branch_ex_o;
   end
 end
 
@@ -818,7 +824,7 @@ rob_u(
   .i_cdb_rs2(cdb_rs2),
   .i_cdb_itlb_wr_en(cdb_itlb_wr_en),
   .i_cdb_dtlb_wr_en(cdb_dtlb_wr_en),
-
+  .i_cdb_unconditional_branch(cdb_unconditional_branch),
   .i_sb_drain_done(sb_resp_done_mem_o),
 
 
@@ -835,6 +841,7 @@ rob_u(
   .o_commit_rs2(rob_commit_rs2),
   .o_commit_itlb_wr_en(rob_commit_itlb_wr_en),
   .o_commit_dtlb_wr_en(rob_commit_dtlb_wr_en),
+  .rob_commit_instr_o(fetched_instruction_wb),
   .o_flush(rob_flush),
   .o_exception(rob_exception),
   .o_sret(rob_sret),
@@ -865,46 +872,76 @@ rob_u(
   `define MEM_PATH mem_u
   reg  [31:0] cycle_reg;
   wire [31:0] cycle_next;
+  wire [31:0] termination_cycle;
   wire [127:0] current_execution_mode_str;
   reg [31:0] executed_instructions_reg;
   wire [31:0] executed_instructions_next;
   assign current_execution_mode_str = privilege_mode_converter(current_execution_mode);
+  // always @(posedge clk_i) begin
+  //   if(rst_i) begin
+  //     cycle_reg <= 0;
+  //   end else begin
+  //     cycle_reg <= cycle_next;
+  //   end
+  // end
+
+  // always @(posedge clk_i) begin
+  //   if(rst_i) begin
+  //     executed_instructions_reg <= 0;
+  //   end else if(fetched_instruction_wb != 32'h13) begin
+  //     executed_instructions_reg <= executed_instructions_next;
+  //   end
+  // end
+  
+  localparam PROGRAM_END = 32'h0000006f ;
+  reg stop_counting;
+
   always @(posedge clk_i) begin
-    if(rst_i) begin
-      cycle_reg <= 0;
-    end else begin
-      cycle_reg <= cycle_next;
+    if (rst_i) begin
+      stop_counting             <= 1'b0;
+      cycle_reg                 <= 32'b0;
+      executed_instructions_reg <= 32'b0;
+    end else if (!stop_counting) begin
+      
+      // Check if we just hit the end of the program
+      if (fetched_instruction_wb == PROGRAM_END) begin
+        stop_counting <= 1'b1;
+      end else begin
+        // Increment cycles every tick until stopped
+        cycle_reg <= cycle_reg + 32'b1;
+
+        // Increment instructions only if it's not a NOP
+        if (fetched_instruction_wb != 32'h13) begin
+          executed_instructions_reg <= executed_instructions_reg + 32'b1;
+        end
+      end
+
     end
   end
 
-  always @(posedge clk_i) begin
-    if(rst_i) begin
-      executed_instructions_reg <= 0;
-    end else if(fetched_instruction_wb != 32'h13) begin
-      executed_instructions_reg <= executed_instructions_next;
-    end
-  end
-  
-  localparam PROGRAM_END = 32'h0000006f ;
+  // Now termination_cycle is simply the value held in cycle_reg
+  assign termination_cycle = cycle_reg;
   // assign cycle_next = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : cycle_reg + 32'b1;
-  assign cycle_next =  cycle_reg + 32'b1;
-  assign executed_instructions_next = executed_instructions_reg + 32'b1;
+  // assign termination_cycle = (fetched_instruction_wb == PROGRAM_END) ? cycle_reg : termination_cycle;
+  // assign cycle_next =  cycle_reg + 32'b1;
+  // assign executed_instructions_next = executed_instructions_reg + 32'b1;
   always @(negedge clk_i) begin
   if(`CORE_VERBOSITY >= 100) begin
     $fwrite(trace_file,"\n");
-    $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
-    if_u.if_trace_log(trace_file);
+    // $fwrite(trace_file, "Cycle: %d, Privilege Mode: %0s", cycle_reg, current_execution_mode_str);
+    $fwrite(trace_file, "C: %d, TC: %0d, EI", cycle_reg, termination_cycle, executed_instructions_reg);
+    // if_u.if_trace_log(trace_file);
     // RAM_u.ram_trace_log(trace_file);
     // arbiter_u.arbiter_trace_log(trace_file);
-    id_u.id_trace_log(trace_file);
-    ex_u.ex_trace_log(trace_file);
-    mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    // id_u.id_trace_log(trace_file);
+    // ex_u.ex_trace_log(trace_file);
     // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
-    rob_u.rob_trace_log(trace_file);
+    // mem_u.mem_trace_log(trace_file,memory_dump,cycle_reg);
+    // rob_u.rob_trace_log(trace_file);
   end
 
   // `ifdef MEM_DUMP
-    if(cycle_reg == 1 || cycle_reg == 10000) begin
+    if(cycle_reg == 1 || cycle_reg == 70000000) begin
       RAM_u.memory_dump(memory_dump, cycle_reg);
     end
   // `endif

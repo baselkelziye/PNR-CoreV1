@@ -236,44 +236,44 @@ csr csr_u(
   .s_trap_tval      (   s_trap_tval_wb_i                ),
   .stvec_id_o       (   stvec_id_o                      ), //Output to Instruction Fetch
   .sepc_id_o        (   sepc_id_o                       ), //Output for trap return
-  .csr_wr_value_i   (   rd_value_wb_i                   ) //CSR Wr value is from ALU, RF gets value from The Propagated CSR Value that have been read
+  .csr_wr_value_i   (   rob_commit_data_id_i                   ) //CSR Wr value is from ALU, RF gets value from The Propagated CSR Value that have been read
 );
 
 
-forwarding_unit forwarding_unit_u(
-  .rd_label_mem_wb_o (   rd_label_wb_i        ), // Rd Label From Write Back
-  .reg_wb_en_mem_wb_o(   reg_write_en_wb_i    ), // Rd Reg En from Write Back
-  .rd_label_id_ex_o  (   rd_label_ex_i        ), // Rd Label from EX Stage
-  .reg_wb_en_id_ex_o (   reg_write_en_ex_i    ), // Reg En From EX Stage
-  .rd_label_ex_mem_o (   rd_label_mem_i       ), // Rd Label from MEM Stage
-  .reg_wb_en_ex_mem_o(   reg_write_en_mem_i   ), // Reg En from MEM Stage
-  .rs1_label_id_i    (   rs1_label            ),
-  .rs2_label_id_i    (   rs2_label            ),  
-  .forwardA_o        (   forwardA             ),
-  .forwardB_o        (   forwardB             )
-);
+// forwarding_unit forwarding_unit_u(
+//   .rd_label_mem_wb_o (   rd_label_wb_i        ), // Rd Label From Write Back
+//   .reg_wb_en_mem_wb_o(   reg_write_en_wb_i    ), // Rd Reg En from Write Back
+//   .rd_label_id_ex_o  (   rd_label_ex_i        ), // Rd Label from EX Stage
+//   .reg_wb_en_id_ex_o (   reg_write_en_ex_i    ), // Reg En From EX Stage
+//   .rd_label_ex_mem_o (   rd_label_mem_i       ), // Rd Label from MEM Stage
+//   .reg_wb_en_ex_mem_o(   reg_write_en_mem_i   ), // Reg En from MEM Stage
+//   .rs1_label_id_i    (   rs1_label            ),
+//   .rs2_label_id_i    (   rs2_label            ),  
+//   .forwardA_o        (   forwardA             ),
+//   .forwardB_o        (   forwardB             )
+// );
 
-mux_4x1 #(
-  .DATA_WIDTH(32)
-) rs1_latest_value_selector (
-    .in0_i  (   rs1_value             ),
-    .in1_i  (   rd_value_ex_i         ),
-    .in2_i  (   rd_value_mem_i        ),
-    .in3_i  (   rd_value_wb_i         ),
-    .sel_i  (   2'b00              ),
-    .out_o  (   rs1_forwarded_value   )
-);
+// mux_4x1 #(
+//   .DATA_WIDTH(32)
+// ) rs1_latest_value_selector (
+//     .in0_i  (   rs1_value             ),
+//     .in1_i  (   rd_value_ex_i         ),
+//     .in2_i  (   rd_value_mem_i        ),
+//     .in3_i  (   rd_value_wb_i         ),
+//     .sel_i  (   2'b00              ),
+//     .out_o  (   rs1_forwarded_value   )
+// );
 
-mux_4x1 #(
-    .DATA_WIDTH(32)
-) rs2_latest_value_selector(
-    .in0_i  (   rs2_value             ),
-    .in1_i  (   rd_value_ex_i         ),
-    .in2_i  (   rd_value_mem_i        ),
-    .in3_i  (   rd_value_wb_i         ),
-    .sel_i  (   2'b00                 ),
-    .out_o  (   rs2_forwarded_value   )
-);
+// mux_4x1 #(
+//     .DATA_WIDTH(32)
+// ) rs2_latest_value_selector(
+//     .in0_i  (   rs2_value             ),
+//     .in1_i  (   rd_value_ex_i         ),
+//     .in2_i  (   rd_value_mem_i        ),
+//     .in3_i  (   rd_value_wb_i         ),
+//     .sel_i  (   2'b00                 ),
+//     .out_o  (   rs2_forwarded_value   )
+// );
         
   imm_gen imm_gen_u(
     .instr_i  (   fetched_instruction_id_i),
@@ -281,17 +281,17 @@ mux_4x1 #(
     .imm_o    (   imm_value               )
 );
     
-  hazard_detection_unit hazard_detection_unit_u(
-  .is_load_instruction_ex_i   (   is_load_instr_ex_i      ),
-  .is_load_instruction_mem_i  (   is_load_instr_mem_i     ),
-  .is_store_instruction_id_i  (   is_store_instr          ),
-  .rd_label_ex_i              (   rd_label_ex_i           ),
-  .rd_label_mem_i             (   rd_label_mem_i          ),
-  .rs1_label_id_i             (   rs1_label               ),
-  .rs2_label_id_i             (   rs2_label               ), 
-  .stall_o                    (   load_stall              ),
-  .load_store_forward_sel_o   (   load_store_forward_sel  )
-);
+//   hazard_detection_unit hazard_detection_unit_u(
+//   .is_load_instruction_ex_i   (   is_load_instr_ex_i      ),
+//   .is_load_instruction_mem_i  (   is_load_instr_mem_i     ),
+//   .is_store_instruction_id_i  (   is_store_instr          ),
+//   .rd_label_ex_i              (   rd_label_ex_i           ),
+//   .rd_label_mem_i             (   rd_label_mem_i          ),
+//   .rs1_label_id_i             (   rs1_label               ),
+//   .rs2_label_id_i             (   rs2_label               ), 
+//   .stall_o                    (   load_stall              ),
+//   .load_store_forward_sel_o   (   load_store_forward_sel  )
+// );
 
 wire itlb_wr_en, dtlb_wr_en;
   control_unit control_unit_u(
@@ -321,8 +321,8 @@ wire itlb_wr_en, dtlb_wr_en;
 wire [3:0] rs1_rob_tag, rs2_rob_tag;
 wire rs1_in_rob, rs2_in_rob;
 
-assign rs1_rob_forward = rs1_in_rob ? rs1_rob_value_id_i : rs1_forwarded_value;
-assign rs2_rob_forward = rs2_in_rob ? rs2_rob_value_id_i : rs2_forwarded_value;
+assign rs1_rob_forward = rs1_in_rob ? rs1_rob_value_id_i : rs1_value;
+assign rs2_rob_forward = rs2_in_rob ? rs2_rob_value_id_i : rs2_value;
 
 //if rs1 is in ROB and the entry is not VAlid means we need to stall
 assign rs1_rob_stall = rs1_in_rob &  rs1_rob_busy_id_i & ~rs1_rob_valid_id_i; 
@@ -468,10 +468,11 @@ wire [8*RISCV_DISASM_STRLEN-1:0] disasm_str = riscv_disasm(fetched_instruction_i
   function void id_trace_log(int file);
     $fwrite(file,"\n***********Instruction Decode Stage****************:");
     $fwrite(file,"\nTime, %1t, Instruction: %0s, Program Counter: 0x%8h, peripheral_stall_id_i: %b, mem_stage_stall_i: %b", $time, disasm_str,pc_id_i,peripheral_stall_id_i,mem_stage_stall_i);
-    $fwrite(file,"\nTime, %1t, rs1_rob_stall: %b, rs1_in_rob: %b, rs1_rob_busy_id_i: %b, rs1_rob_valid_id_i: %b, rs1_rob_value_id_i: 0x%08h, rs1_forwarded_value: 0x%08h, rs1_rob_forward: 0x%08h",$time, rs1_rob_stall, rs1_in_rob,rs1_rob_busy_id_i, rs1_rob_valid_id_i,rs1_rob_value_id_i,rs1_forwarded_value,rs1_rob_forward);
-    $fwrite(file,"\nTime, %1t, rs2_rob_stall: %b, rs2_in_rob: %b, rs2_rob_busy_id_i: %b, rs2_rob_valid_id_i: %b, rs2_rob_value_id_i: 0x%08h, rs2_forwarded_value: 0x%08h, rs2_rob_forward: 0x%08h",$time, rs2_rob_stall, rs2_in_rob,rs2_rob_busy_id_i, rs2_rob_valid_id_i,rs2_rob_value_id_i,rs2_forwarded_value,rs2_rob_forward);
+    $fwrite(file,"\nTime, %1t, rs1_rob_stall: %b, rs1_in_rob: %b, rs1_rob_busy_id_i: %b, rs1_rob_valid_id_i: %b, rs1_rob_value_id_i: 0x%08h, rs1_value: 0x%08h, rs1_rob_forward: 0x%08h",$time, rs1_rob_stall, rs1_in_rob,rs1_rob_busy_id_i, rs1_rob_valid_id_i,rs1_rob_value_id_i,rs1_value,rs1_rob_forward);
+    $fwrite(file,"\nTime, %1t, rs2_rob_stall: %b, rs2_in_rob: %b, rs2_rob_busy_id_i: %b, rs2_rob_valid_id_i: %b, rs2_rob_value_id_i: 0x%08h, rs2_value: 0x%08h, rs2_rob_forward: 0x%08h",$time, rs2_rob_stall, rs2_in_rob,rs2_rob_busy_id_i, rs2_rob_valid_id_i,rs2_rob_value_id_i,rs2_value,rs2_rob_forward);
+    $fwrite(file,"\nTime, %1t, rob_commit_rd_label_id_i: %d, rob_commit_we_id_i: %b, rob_commit_data_id_i: 0x%h",$time, rob_commit_rd_label_id_i,rob_commit_we_id_i, rob_commit_data_id_i);
     // $fwrite(file,"\nTime, %1t, ");
-    rat_u.rat_trace_log(file);
+    // rat_u.rat_trace_log(file);
     // csr_u.csr_trace_log(file);
     // $fwrite(file, "\nTime: %1t, rs1_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs1_forwarded_value: 0x%h", $time,rs1_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardA,rs1_forwarded_value);
     // $fwrite(file, "\nTime: %1t, rs2_latest, in0: 0x%h, in1: 0x%h, in2: 0x%h, in3: 0x%h, forwardA: %b, rs2_forwarded_value: 0x%h", $time,rs2_value,rd_value_ex_i,rd_value_mem_i,rd_value_wb_i,forwardB,rs2_forwarded_value);

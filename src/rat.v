@@ -14,13 +14,13 @@ module rat #(
     output [ROB_TAG_WIDTH-1:0]  o_rs2_tag,
     output                      o_rs2_in_rob,
 
-    // --- Update (Allocation/Dispatch) ---
+    // Update
     input                       i_alloc_en,
     input  [REG_ADDR_WIDTH-1:0] i_alloc_rd,
     input                       i_alloc_wr_en,
     input  [ROB_TAG_WIDTH-1:0]  i_alloc_tag,
 
-    // --- Retirement (Commit) ---
+    // Commit
     input                       i_commit_en,
     input  [REG_ADDR_WIDTH-1:0] i_commit_rd,
     input  [ROB_TAG_WIDTH-1:0]  i_commit_tag

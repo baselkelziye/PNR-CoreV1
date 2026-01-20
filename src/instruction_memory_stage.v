@@ -258,17 +258,17 @@ wire sb_full_o,dcache_done_o;
   assign rob_commit_stval_mem_o  = stval_mem;
   assign rob_commit_tag_mem_o = rob_tag_mem_i;
   assign rob_commit_data_mem_o = loaded_data;
-  mux_4x1 #(.DATA_WIDTH(32))
-  rd_value_selector_u
-  (
-    .in0_i  (   alu_result_mem_i  ),
-    .in1_i  (   loaded_data       ),
-    .in2_i  (   pc_mem_i + 32'd4  ), // in JAL, JALR. Save next instruction
-    .in3_i  (   32'hA9A9A9A9      ), // CSR
-    .sel_i  (   wb_sel_mem_i      ),
-    .out_o  (   rd_value_mem_wo   )
-  );
-
+  // mux_4x1 #(.DATA_WIDTH(32))
+  // rd_value_selector_u
+  // (
+  //   .in0_i  (   alu_result_mem_i  ),
+  //   .in1_i  (   loaded_data       ),
+  //   .in2_i  (   pc_mem_i + 32'd4  ), // in JAL, JALR. Save next instruction
+  //   .in3_i  (   32'hA9A9A9A9      ), // CSR
+  //   .sel_i  (   wb_sel_mem_i      ),
+  //   .out_o  (   rd_value_mem_wo   )
+  // );
+assign rd_value_mem_wo  = '1;
   // //Wishbon Master Signals Generation
   // assign is_peripheral_access = (is_load_mem_i || is_store_mem_i) && (alu_result_mem_i[31:28] == 4'b0010);
   // // Start CYC when we have access to peripheral and we don't have ack

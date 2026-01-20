@@ -73,11 +73,37 @@ async def reset(dut, mem_model=None):
 
     await ClockCycles(dut.clk_i, 2, rising=True)  # Allow cache clear to propagate
 def get_CPI(dut):
-    cycles = dut.cycle_reg.value.to_unsigned()
-    finished_instructions = dut.executed_instructions_reg.value.to_unsigned()
-    dut._log.info(f"Test: {cocotb._regression_manager._test.name}, Cycles = {cycles}, Issued Instructions = {finished_instructions}, CPI = {finished_instructions/cycles}")
-    # dut._log.info(f"Cycles = {cycles}, Issued Instructions = {finished_instructions}")
+    # Convert cocotb handle values to integers safely
+    try:
+        cycles = int(dut.termination_cycle.value)
+        instrs = int(dut.executed_instructions_reg.value)
+    except ValueError:
+        dut._log.error("Signals are in an undefined (X/Z) state. Cannot calculate CPI.")
+        return
 
+    # 1. Guard against Divide-by-Zero
+    if instrs == 0:
+        dut._log.warning("CPI Calculation failed: Executed instructions is 0. Is the core stalled?")
+        return
+    
+    if cycles == 0:
+        dut._log.warning("CPI Calculation failed: Cycle count is 0. Check reset logic.")
+        return
+
+    # 2. Correct Formula: CPI = Total Cycles / Finished Instructions
+    # (Your previous code was doing Instructions / Cycles, which is IPC)
+    cpi = cycles / instrs
+    ipc = instrs / cycles
+
+    # 3. Clean Logging
+    test_name = cocotb._regression_manager._test.name
+    dut._log.info(f"--- Performance Metrics: {test_name} ---")
+    dut._log.info(f"Total Cycles: {cycles}")
+    dut._log.info(f"Instructions: {instrs}")
+    dut._log.info(f"Final CPI:    {cpi:.3f}")
+    dut._log.info(f"Final IPC:    {ipc:.3f}")
+    dut._log.info("-" * 40)
+    
 async def check_register_values(dut, expected_dict):
     """
     Generic register checker.
@@ -104,7 +130,7 @@ async def check_register_values(dut, expected_dict):
             f"Got: {hex(dut_val)} ({dut_val})"
         )
     
-    dut._log.info(f"Verified {len(expected_dict)} registers successfully.")
+    # dut._log.info(f"Verified {len(expected_dict)} registers successfully.")
 
 @cocotb.test()
 async def basel_bubblesort(dut):
@@ -224,7 +250,7 @@ async def buffer_sum_test(dut):
     await mem.load_file(performance_filepath+machine_code_filename,ADDR_INSTR_BASE, is_va=True)
     #Load Data at 0x16000
     await mem.load_file(performance_filepath+data_mem_filename,ADDR_DATA_BASE,is_va=True)
-    num_cycles =10000
+    num_cycles =5000
     #Assign Base Array Addres to avoid recompiling
     # dut.id_u.register_file_u.registers[1].value = ADDR_DATA_BASE
     await ClockCycles(dut.clk_i, num_cycles, rising=False)
