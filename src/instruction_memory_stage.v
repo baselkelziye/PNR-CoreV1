@@ -40,7 +40,8 @@ module instruction_memory_stage
   input is_store_mem_i, is_load_mem_i,
   input [31:0] fetched_instruction_mem_i,
   //Value to Store in mem
-  input [31:0] rs1_mem_i,
+  input [31:0] rs1_mem_i, //For DTLB WRITES FROM ROB
+  input [31:0] rs2_mem_i,
   input [31:0] latest_rs2_value_mem_i,
   output reg [31:0] rs1_mem_o,
   output reg [31:0] rs2_mem_o,
@@ -84,8 +85,28 @@ module instruction_memory_stage
   output reg [31:0] csr_rd_value_mem_o,
   input trap_en_mem_i, //This is a trap from WB
   input [1:0] execution_mode_mem_i,
+
+  //ROB signals
+  input [3:0] rob_tag_mem_i,
+  output reg [3:0] rob_tag_mem_o,
+  input instr_valid_mem_i,
+  output reg instr_valid_mem_o,
+  //ROB ALLOC
+  output [3:0] rob_commit_tag_mem_o,
+  output rob_commit_mem_done_mem_o,
+  output rob_commit_exception_mem_o,
+  output [31:0] rob_commit_scause_mem_o,
+  output [31:0] rob_commit_stval_mem_o,
+  output [31:0] rob_commit_data_mem_o,
+  input rob_drain_req_mem_i,
+  output sb_resp_done_mem_o,
+
   
   //Wishbone + Peripherals
+  input rob_flush_mem_i,
+  input rob_exception_mem_i,
+  input rob_sret_mem_i,
+
   output wire peripheral_stall_o,
 
   output reg [31:0] fetched_instruction_mem_o,
@@ -156,7 +177,7 @@ module instruction_memory_stage
     //DTLB Write Signals
     .dtlb_wr_en_i       (   dtlb_wr_en_mem_i       ),
     .rs1_i              (   rs1_mem_i              ),
-    .rs2_i              (   latest_rs2_value_mem_i ),
+    .rs2_i              (   rs2_mem_i              ),
     //Translation Signals
     .alu_result_i       (   alu_result_mem_i       ), //Virtual Address
     .is_load_mem_i      (   is_load_mem_i          ),
@@ -169,7 +190,7 @@ module instruction_memory_stage
     .pa_dtlb_o          (   pa_dtlb                ),
     .dtlb_hit_o         (   dtlb_hit_o             )
   );
-
+wire sb_full_o,dcache_done_o;
   data_mem_subsystem data_mem_subsystem_u
   (
       .clk_i                      (   clk_i                   ),
@@ -178,12 +199,20 @@ module instruction_memory_stage
       .write_data_i               (   latest_rs2_value_mem_i  ),
       .is_load_instr              (   is_load_mem_i           ),
       .is_store_instr             (   is_store_mem_i          ),
-      .trap_en_mem_i              (ebreak_trap_mem_i | ecall_trap_mem_i | itlb_miss_mem_i | load_page_fault | store_page_fault), // If we have Exception, Don't Do mem op
+      .trap_en_mem_i              ( load_page_fault | store_page_fault), // If we have Exception, Don't Do mem op
       .trap_en_wb_i               (   trap_en_mem_i           ), //This signal comes from WB to MEM stage,
       .funct3_i                   (   funct3_mem_i            ),
       .sb_id_i                    (   sb_id_mem_i             ),
       .data_mem_subsystem_stall_o (   data_subsystem_stall    ),
+      .dcache_done_o(dcache_done_o),
+      .rob_drain_req_mem_i(rob_drain_req_mem_i),
+      .sb_full_o(sb_full_o),
       .read_data_o                (   data_read_from_mem      ),
+      .rob_flush_i(rob_flush_mem_i),
+      .rob_exception_i(rob_exception_mem_i),
+      .rob_sret_i(rob_sret_mem_i),
+      .rob_id_i(rob_tag_mem_i),
+      .sb_rob_id_o(sb_rob_id_o),
       //dcache request handshake
       .dcache_req_valid_o(dcache_req_valid_mem_o),
       .dcache_req_ready_i(dcache_req_valid_mem_i),
@@ -196,22 +225,50 @@ module instruction_memory_stage
       .dcache_data_ready_o(dcache_data_ready_mem_o),
       .dcache_line_fill_i(dcache_line_fill_mem_i),
       .dcache_line_evit_o(dcache_line_evict_mem_o),
+      .sb_resp_done_mem_o(sb_resp_done_mem_o),
       //dtlb interface
       .dtlb_hit_i(dtlb_hit_o)
   );
 
+  wire mem_stage_done;
+  reg exception_raised_mem;
+  reg [31:0] scause_mem, stval_mem;
+ //This is for Validating the entry in the ROB, Not with committing,
+  assign mem_stage_done = (instr_valid_mem_i & ((is_store_mem_i & ~sb_full_o) || (is_load_mem_i & dcache_done_o)));
 
-  mux_4x1 #(.DATA_WIDTH(32))
-  rd_value_selector_u
-  (
-    .in0_i  (   alu_result_mem_i  ),
-    .in1_i  (   loaded_data       ),
-    .in2_i  (   pc_mem_i + 32'd4  ), // in JAL, JALR. Save next instruction
-    .in3_i  (   32'hA9A9A9A9      ), // CSR
-    .sel_i  (   wb_sel_mem_i      ),
-    .out_o  (   rd_value_mem_wo   )
-  );
+  always @* begin
+    exception_raised_mem = 1'b0;
+    scause_mem = 32'b0;
+    stval_mem = 32'b0;
+    if(load_page_fault) begin
+       exception_raised_mem = 1'b1;
+       scause_mem = {1'b0, 31'd15};
+       stval_mem  = alu_result_mem_i;
+    end else if(store_page_fault) begin
+       exception_raised_mem = 1'b1;
+       scause_mem = {1'b0, 31'd13};
+       stval_mem  = alu_result_mem_i;
+    end
+  end
 
+
+  assign rob_commit_mem_done_mem_o = mem_stage_done;
+  assign rob_commit_exception_mem_o = exception_raised_mem;
+  assign rob_commit_scause_mem_o = scause_mem;
+  assign rob_commit_stval_mem_o  = stval_mem;
+  assign rob_commit_tag_mem_o = rob_tag_mem_i;
+  assign rob_commit_data_mem_o = loaded_data;
+  // mux_4x1 #(.DATA_WIDTH(32))
+  // rd_value_selector_u
+  // (
+  //   .in0_i  (   alu_result_mem_i  ),
+  //   .in1_i  (   loaded_data       ),
+  //   .in2_i  (   pc_mem_i + 32'd4  ), // in JAL, JALR. Save next instruction
+  //   .in3_i  (   32'hA9A9A9A9      ), // CSR
+  //   .sel_i  (   wb_sel_mem_i      ),
+  //   .out_o  (   rd_value_mem_wo   )
+  // );
+assign rd_value_mem_wo  = '1;
   // //Wishbon Master Signals Generation
   // assign is_peripheral_access = (is_load_mem_i || is_store_mem_i) && (alu_result_mem_i[31:28] == 4'b0010);
   // // Start CYC when we have access to peripheral and we don't have ack
@@ -257,7 +314,7 @@ module instruction_memory_stage
   //   .o_wb_data(o_wbs_data   )
   // );
 
-always @(posedge clk_i, posedge rst_i)
+always @(posedge clk_i)
   begin
   if(rst_i | peripheral_stall_o | mem_stage_stall | trap_en_mem_i)
     begin //Since Peripheral and Cache Stalls are generated in MEM we need to flush
@@ -283,6 +340,7 @@ always @(posedge clk_i, posedge rst_i)
       load_page_fault_mem_o  <= 1'b0;
       store_page_fault_mem_o <= 1'b0;
       alu_result_mem_o       <= 32'b0;
+      rob_tag_mem_o          <= '1;
     end
   else //if(!mem_stage_stall)
     begin
@@ -308,6 +366,7 @@ always @(posedge clk_i, posedge rst_i)
       load_page_fault_mem_o  <= load_page_fault;
       store_page_fault_mem_o <= store_page_fault;
       alu_result_mem_o       <= alu_result_mem_i;
+      rob_tag_mem_o          <= rob_tag_mem_i;
     end
   end
 
@@ -317,14 +376,14 @@ always @(posedge clk_i, posedge rst_i)
   function void mem_trace_log(int file, int mem_dump_file,int cycle);
     $fwrite(file,"\n***********Memory Stage****************:");
     $fwrite(file,"\nTime: %1t, Instruction: %0s, Program Counter: 0x%8h, Instruction(x): 0x%8h", $time, disasm_str,pc_mem_i,fetched_instruction_mem_i);
-    if(`CORE_VERBOSITY >= 200)begin
-      mem_op_trace(file);
-      // csr_u.csr_trace_log(file);
-    end
-    if(`CORE_VERBOSITY >= 400)begin
+    // if(`CORE_VERBOSITY >= 200)begin
+    //   mem_op_trace(file);
+    //   // csr_u.csr_trace_log(file);
+    // end
+    // if(`CORE_VERBOSITY >= 400)begin
       data_mem_subsystem_u.data_mem_subsystem_trace_log(file);
-      dtlb_u.dtlb_trace_log(file);
-    end
+      // dtlb_u.dtlb_trace_log(file);
+    // end
     // `ifdef MEM_DUMP
     // if(cycle == 30000 || cycle == 1) begin
     //   data_mem_subsystem_u.DATA_RAM_u.memory_dump(mem_dump_file,cycle);  

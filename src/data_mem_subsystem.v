@@ -20,8 +20,17 @@ module data_mem_subsystem #(
     input      [7:0 ]  sb_id_i,
     input              trap_en_mem_i,
     input              trap_en_wb_i,
+    input rob_drain_req_mem_i,
+    output sb_resp_done_mem_o,
     output             data_mem_subsystem_stall_o,
+    output             sb_full_o,
+    output             dcache_done_o,
     output     [31:0]  read_data_o,
+    input rob_flush_i,
+    input rob_exception_i,
+    input rob_sret_i,
+    input [3:0] rob_id_i,
+    output [3:0] sb_rob_id_o,
 
     //dcache request handshake
     output dcache_req_valid_o, //request access
@@ -121,6 +130,8 @@ assign tag            = sb_drain ? sb_entry_rd_addr[`TAG]        : address_i[`TA
 assign tag_arr_data   = sb_drain ? sb_entry_rd_data              : write_data_i;
 assign tag_arr_funct3 = sb_drain ? sb_entry_rd_funct3            : funct3_i;
 assign data_mem_subsystem_stall_o = dcache_stall | sb_is_full;
+assign sb_full_o = sb_is_full;
+assign sb_resp_done_mem_o = sb_resp_done_o;
 
 assign cache_line_wr_addr = {indexed_tag,index_bits,{WORD_OFF_BITS{1'b0}}}; //Address gathered from tag array
 assign cache_line_rd_addr = {latched_line_addr[ADDRESS_WIDTH-1:WORD_OFF_BITS + BYTE_OFF_BITS],{WORD_OFF_BITS{1'b0}}};
@@ -172,6 +183,8 @@ l1_dcache_array #(
 logic dcache_cntrl_update_entry_cpu,dcache_cntrl_update_entry_mem;
 wire sb_req_ready_o, sb_resp_done_o;
 wire sb_req_valid_o,sb_req_wr_o;
+wire dcache_access_done;
+
 l1_dcache_controller l1_dcache_controller_u
 (
     .clk_i                           (   clk_i                          ),
@@ -212,15 +225,20 @@ l1_dcache_controller l1_dcache_controller_u
     .dcache_resp_valid_i(dcache_resp_valid_i),
     .ram_response_id_i(ram_response_id_i),
     .dcache_data_ready_o(dcache_data_ready_o),
+    .dcache_done_o(dcache_access_done),
     .dtlb_hit_i(dtlb_hit_i)
 );
-
+//If we signal Done for each dcache access, This will validate the wrong instruction in ROB. 
+//Because Store buffer drain will also signal dcache done, but this has nothing with result validation in ROB,
+//Its related to result commitment (which is only to clear ROB ENTRY, So ROB handles this.)
+assign dcache_done_o = dcache_access_done & ~sb_req_valid_o;
 store_buffer #(
     .ADDRESS_WIDTH  (   ADDRESS_WIDTH   ),
     .DATA_WIDTH     (   DATA_WIDTH      ),
     .VALID_BYTES    (   VALID_BYTES     ),
     .SB_DEPTH       (   SB_DEPTH        ),
     .SB_ID_SIZE     (   SB_ID_SIZE      ),
+    .ROB_ID_SIZE    (4),
     .SB_ENTRY_SIZE  (   SB_ENTRY_SIZE   )
 )
 store_buffer_u(
@@ -236,8 +254,14 @@ store_buffer_u(
     .sb_entry_rd_o          (   sb_entry_rd                 ),
     .sb_stall_o             (   sb_is_full                  ),
     .drain_sb_o             (   sb_drain                    ), //This Signals To Write to Tag array
+    .rob_drain_req_i(rob_drain_req_mem_i),
     // .sb_cache_wr_o          (   sb_cache_wr                 ),
     .sb_id_i                (   sb_id_i                     ),
+    .rob_id_i(rob_id_i),
+    .sb_rob_id_o(sb_rob_id_o),
+    .rob_flush_i(rob_flush_i),
+    .rob_exception_i(rob_exception_i),
+    .rob_sret_i(rob_sret_i),
     //Interrupt Inputs to prevent writing, when ROB is added those are not needed
     //Because SB will not be an architectural state
     .trap_en_mem_i          (   trap_en_mem_i               ),
@@ -259,8 +283,8 @@ function void data_mem_subsystem_trace_log(int file);
 // $fwrite(file, "\nTime: %1t L1 Data Cache, word_addr_dcache: %b",$time,word_addr_dcache);
 if(`CORE_VERBOSITY >= 500)begin
     l1_dcache_controller_u.dcache_controller_trace_log(file);
-    // store_buffer_u.store_buffer_trace_log(file);
-    l1_dcache_array_u.l1_dcache_array_trace_log(file);
+    store_buffer_u.store_buffer_trace_log(file);
+    // l1_dcache_array_u.l1_dcache_array_trace_log(file);
     // store_buffer_u.store_buffer_trace_log(file);
     // DATA_RAM_u.DATA_RAM_trace_log(file);
     // $fwrite(file,"\nTime: %1t Data Subsystem, read_word_darray[3]: %h, read_word_darray[2]: %h, read_word_darray[1]: %h, read_word_darray[0]: %h,  ", $time,read_word_darray[3],read_word_darray[2],read_word_darray[1],read_word_darray[0]);

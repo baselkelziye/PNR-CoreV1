@@ -11,7 +11,7 @@
 // ---- Global simulation parameters ----
 vluint64_t sim_time = 0;              // Simulation time in ps
 // const vluint64_t MAX_CYCLES = 50000000;  // Number of cycles to run
-const vluint64_t MAX_CYCLES = 10000;  // Number of cycles to run
+const vluint64_t MAX_CYCLES = 70000000;  // Number of cycles to run
 const vluint64_t CLOCK_PERIOD = 1000; // 1ns = 1000ps clock period
 const vluint64_t HALF_CLOCK_PERIOD = CLOCK_PERIOD / 2;
 

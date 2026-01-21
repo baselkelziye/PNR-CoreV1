@@ -48,6 +48,7 @@ module l1_dcache_controller
     input  logic dcache_resp_valid_i,
     input  logic ram_response_id_i,
     output logic dcache_data_ready_o,
+    output dcache_done_o,
     //---------DTLB-----------
     input dtlb_hit_i
 );
@@ -265,6 +266,13 @@ assign dcache_rd_wr_o = dcache_rd_wr_reg;
 // Done Signal for Store Buffer (Only pulse if SB initiated transaction)
 wire generic_access_done = cache_access_stall_reg & ~cache_access_stall_next;
 assign sb_resp_done_o    = generic_access_done & trans_is_sb_reg;
+/*
+We have done transaction if:
+1- A generic access is done (from Busy we transit to Idle)
+2- If we have a dtlb miss (Don't do anything and valid done)
+3- If we have a valid dtlb translation, we forward from store buffer.
+*/
+assign dcache_done_o     = sb_resp_done_o | ~dtlb_hit_i | (generic_access_done & is_load_instr_i  & dtlb_hit_i & ~trans_is_sb_reg) | (sb_load_hit_i & ~trans_is_sb_reg);
 `ifdef CORE_VERBOSITY
 
 // String representation of the current state
@@ -278,6 +286,7 @@ always @* begin
       WB_REQ:      state_str_reg = "WB_REQ (Evict Req)";
       ALLOC_REQ:   state_str_reg = "ALLOC_REQ (Read Req)";
       ALLOC_WAIT:  state_str_reg = "ALLOC_WAIT (Wait Data)";
+      WB_WAIT   :  state_str_reg = "WB_WAIT (Evict Wait)";
       default:     state_str_reg = "UNKNOWN";
     endcase
   end
@@ -288,6 +297,7 @@ always @* begin
       WB_REQ:      state_str_next = "WB_REQ (Evict Req)";
       ALLOC_REQ:   state_str_next = "ALLOC_REQ (Read Req)";
       ALLOC_WAIT:  state_str_next = "ALLOC_WAIT (Wait Data)";
+      WB_WAIT   :  state_str_next = "WB_WAIT (Evict Wait)";
       default:     state_str_next = "UNKNOWN";
     endcase
   end

@@ -1,7 +1,7 @@
 # Matrix base addresses
-lui x10, 0x0          # MatrixA base address
-lui x11, 0x5          # MatrixB base address  
-lui x12, 0xa          # MatrixC base address
+lui x10, 0x5          # MatrixA base address
+lui x11, 0xa          # MatrixB base address  
+lui x12, 0x10          # MatrixC base address
 
 # Configuration
 addi x5,  x0, 128   # size = N

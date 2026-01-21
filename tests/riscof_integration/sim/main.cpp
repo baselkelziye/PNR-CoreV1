@@ -148,7 +148,7 @@ int main(int argc, char **argv) {
     top->rst_i = 1;
     top->clk_i = 0;
 
-    while (!Verilated::gotFinish() && main_time < 1000000) {
+    while (!Verilated::gotFinish() && main_time < 1500000) {
         top->clk_i = !top->clk_i;
         if (main_time > 100) top->rst_i = 0;
 

@@ -13,7 +13,7 @@ module register_file(
 reg [31:0] registers[0:31];
   integer i;
 
-  always @(posedge clk_i, posedge rst_i)
+  always @(posedge clk_i)
   begin
     if(rst_i)   
       // for(i = 0; i < 32; i = i + 1)

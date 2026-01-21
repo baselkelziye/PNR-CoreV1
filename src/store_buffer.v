@@ -7,39 +7,38 @@ module store_buffer
     parameter VALID_BYTES   = 3,
     parameter SB_DEPTH      = 4, 
     parameter SB_ID_SIZE    = 8,
-    parameter SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1 + SB_ID_SIZE
+    parameter ROB_ID_SIZE   = 4,
+    parameter SB_ENTRY_SIZE = ADDRESS_WIDTH + DATA_WIDTH + VALID_BYTES + 1 + SB_ID_SIZE + ROB_ID_SIZE
 )
 (
     input clk_i,
     input rst_i,
 
-    // --- Slave Interface (From Pipeline MEM Stage) ---
+
     input is_store_instr_i,
     input is_load_instr_i,
     input [31:0] wr_addr_i,
     input [31:0] write_data_i,
     output [SB_ENTRY_SIZE-1:0] sb_entry_rd_o,
+    input rob_drain_req_i, //Store needs to commit, From ROB
     output drain_sb_o,
     input [2:0] funct3_i,
     input [SB_ID_SIZE-1:0] sb_id_i,
+    input [ROB_ID_SIZE-1:0] rob_id_i,
+    output [ROB_ID_SIZE-1:0] sb_rob_id_o,
     
     input trap_en_mem_i,
     input trap_en_wb_i,
+    input rob_flush_i,
+    input rob_exception_i,
+    input rob_sret_i,
 
-    // --- Master Interface (To DCache Controller) ---
-    // 1. The Request
-    output                      sb_req_valid_o, // "I want to drain"
-    output                      sb_req_rw_o,    // "It is a Write" (Always 1)
-    
-    // 2. The Status/Grant
-    input                       dcache_req_ready_i, // "DCache is IDLE"
-    
-    // 3. The Response
+    output                      sb_req_valid_o, 
+    output                      sb_req_rw_o,    
+    input                       dcache_req_ready_i, // "DCache is readt to accept
     input                       dcache_resp_done_i, // "Write Finished"
-    
-    // --- Forwarding & Status ---
-    output                      sb_stall_o,     // To Pipeline (Stop if SB full)
-    output                      sb_load_hit_o,  // To Mux (Load Hazard detection)
+    output                      sb_stall_o,     
+    output                      sb_load_hit_o,  
     output [DATA_WIDTH-1:0]     sb_forwarded_value_o
 );
 
@@ -59,7 +58,7 @@ wire [SB_ENTRY_SIZE-1:0] sb_entry_wr, sb_entry_rd;
 // ----------------------------------------------------------------
 // FSM: Master Handshake Logic
 // ----------------------------------------------------------------
-always @(posedge clk_i or posedge rst_i) begin
+always @(posedge clk_i) begin
     if(rst_i) begin
         sb_state_reg     <= SB_IDLE;
         sb_req_valid_reg <= 1'b0;
@@ -78,9 +77,9 @@ always @(*) begin
     case (sb_state_reg)
         SB_IDLE: begin
             // We only start a request if:
-            // 1. We have data (~empty)
-            // 2. The DCache is actually listening (Ready/IDLE)
-            if (~sb_empty & dcache_req_ready_i) begin
+            // 1. We have Drain Request
+            // 2. The DCache is ready to recieve
+            if (rob_drain_req_i & dcache_req_ready_i) begin
                 sb_state_next     = SB_REQ_ACTIVE;
                 sb_req_valid_next = 1'b1; // START REQUEST
                 sb_drain_next = 1'b1;
@@ -114,7 +113,7 @@ end
 // ----------------------------------------------------------------
 
 // PUSH (Write to FIFO): From Pipeline
-assign sb_wr_en = is_store_instr_i & ~(trap_en_mem_i | trap_en_wb_i) & ~sb_drain_reg;
+assign sb_wr_en = is_store_instr_i  & ~sb_drain_reg;
 
 // POP (Read from FIFO): When transaction is completely DONE
 assign sb_rd_en = sb_drain_reg & dcache_resp_done_i;
@@ -159,14 +158,17 @@ fifo #(
     .W(SB_DEPTH),
     .ADDRESS_WIDTH(ADDRESS_WIDTH),
     .DATA_WIDTH(DATA_WIDTH),
+    .ROB_ID_SIZE(4),
     .VALID_BYTES(VALID_BYTES)
 ) sb_fifo_u (
     .clk            (   clk_i                   ),
-    .reset          (   rst_i                   ),
+    .reset          (   rst_i |rob_flush_i | rob_exception_i | rob_sret_i),
     .rd             (   sb_rd_en                ),
     .wr             (   sb_wr_en                ),
     .w_data         (   sb_entry_wr             ),
     .load_address_i (   wr_addr_i               ),
+    .rob_id_i       (   rob_id_i                ),
+    .rob_id_o       (   sb_rob_id_o             ),
     .sb_hit         (   sb_addr_hit             ),
     .sb_hit_data    (   sb_forwarded_value_o    ),
     .empty          (   sb_empty                ),
