@@ -230,7 +230,7 @@ class MemoryModel:
 
 def main():
     mem = MemoryModel(None)
-    print(f"PA: 0X{mem.virt_to_phys(0x10000):08X}")
+    print(f"PA: 0X{mem.virt_to_phys(0x16000):08X}")
 
 if __name__ == "__main__":
     main()
